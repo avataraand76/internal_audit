@@ -11,6 +11,8 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
+  useTheme,
+  useMediaQuery,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
@@ -21,6 +23,8 @@ const LoginPage = () => {
   const [password, setPassword] = useState("");
   const [openError, setOpenError] = useState(false);
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const handleLogin = () => {
     if (username === "admin" && password === "password") {
@@ -37,10 +41,16 @@ const LoginPage = () => {
   return (
     <Box sx={{ flexGrow: 1 }}>
       <Header />
-      <Container component="main" maxWidth="xs">
+      <Container
+        component="main"
+        maxWidth="xs"
+        sx={{
+          px: { xs: 2, sm: 0 },
+        }}
+      >
         <Box
           sx={{
-            marginTop: 8,
+            marginTop: { xs: 4, sm: 8 },
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
@@ -50,17 +60,29 @@ const LoginPage = () => {
             component="img"
             src={logoImage}
             alt="Logo"
-            sx={{ width: 200, height: 200, mb: 2 }}
+            sx={{
+              width: { xs: 150, sm: 200 },
+              height: { xs: 150, sm: 200 },
+              mb: { xs: 1, sm: 2 },
+            }}
           />
           <Typography
             component="h1"
-            variant="h5"
+            variant={isMobile ? "h6" : "h5"}
             fontWeight="bold"
             textTransform="uppercase"
+            textAlign="center"
           >
             kiểm soát nội bộ
           </Typography>
-          <Box component="form" noValidate sx={{ mt: 1 }}>
+          <Box
+            component="form"
+            noValidate
+            sx={{
+              mt: { xs: 2, sm: 3 },
+              width: "100%",
+            }}
+          >
             <TextField
               margin="normal"
               required
@@ -72,6 +94,7 @@ const LoginPage = () => {
               autoFocus
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              size={isMobile ? "small" : "medium"}
             />
             <TextField
               margin="normal"
@@ -84,13 +107,15 @@ const LoginPage = () => {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              size={isMobile ? "small" : "medium"}
             />
             <Button
               fullWidth
               variant="contained"
               sx={{
-                mt: 3,
-                mb: 2,
+                mt: { xs: 2, sm: 3 },
+                mb: { xs: 1, sm: 2 },
+                py: { xs: 1.5, sm: 2 },
                 backgroundColor: "#06d6a0",
                 "&:hover": {
                   backgroundColor: "#00798c",
@@ -108,6 +133,7 @@ const LoginPage = () => {
         onClose={handleCloseError}
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
+        fullScreen={isMobile}
       >
         <DialogTitle id="alert-dialog-title">{"Lỗi đăng nhập"}</DialogTitle>
         <DialogContent>
