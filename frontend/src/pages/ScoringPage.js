@@ -1,5 +1,5 @@
-// src/pages/ScoringPage.js
-import React, { useState } from "react";
+// frontend/src/pages/ScoringPage.js
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Typography,
@@ -26,29 +26,7 @@ import {
 } from "@mui/icons-material";
 import Header from "../components/Header";
 
-const scoringPhases = [
-  {
-    id: 1,
-    name: "Đợt chấm điểm Quý 1/2024",
-    status: "Đang diễn ra",
-    startDate: "01/01/2024",
-    endDate: "31/03/2024",
-  },
-  {
-    id: 2,
-    name: "Đợt chấm điểm Quý 4/2023",
-    status: "Đã kết thúc",
-    startDate: "01/10/2023",
-    endDate: "31/12/2023",
-  },
-  {
-    id: 3,
-    name: "Đợt chấm điểm Quý 4/2023",
-    status: "Đã kết thúc",
-    startDate: "01/10/2023",
-    endDate: "31/12/2023",
-  },
-];
+const API_URL = "http://localhost:8081";
 
 const ScoringPage = () => {
   const theme = useTheme();
@@ -56,20 +34,62 @@ const ScoringPage = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [openDialog, setOpenDialog] = useState(false);
   const [newPhaseName, setNewPhaseName] = useState("");
-  const [phases, setPhases] = useState(scoringPhases);
+  const [phases, setPhases] = useState([]);
 
-  const handleCreatePhase = () => {
+  useEffect(() => {
+    fetchPhases();
+  }, []);
+
+  const fetchPhases = async () => {
+    try {
+      const response = await fetch(`${API_URL}/phases`);
+      if (response.ok) {
+        const data = await response.json();
+        setPhases(data);
+      } else {
+        console.error("Failed to fetch phases");
+      }
+    } catch (error) {
+      console.error("Error fetching phases:", error);
+    }
+  };
+
+  const generatePhaseId = () => {
+    const lastPhase = phases[0];
+    if (lastPhase) {
+      const lastId = parseInt(lastPhase.id_phase.slice(2), 10);
+      return `PH${String(lastId + 1).padStart(3, "0")}`;
+    }
+    return "PH001";
+  };
+
+  const handleCreatePhase = async () => {
     if (newPhaseName.trim()) {
       const newPhase = {
-        id: phases.length + 1,
-        name: newPhaseName,
-        status: "Đang diễn ra",
-        startDate: new Date().toLocaleDateString(),
-        endDate: "-- / -- / ----",
+        id_phase: generatePhaseId(),
+        name_phase: newPhaseName,
       };
-      setPhases([newPhase, ...phases]);
-      setNewPhaseName("");
-      setOpenDialog(false);
+
+      try {
+        const response = await fetch(`${API_URL}/phases`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(newPhase),
+        });
+
+        if (response.ok) {
+          const savedPhase = await response.json();
+          setPhases([savedPhase, ...phases]);
+          setNewPhaseName("");
+          setOpenDialog(false);
+        } else {
+          console.error("Failed to save new phase");
+        }
+      } catch (error) {
+        console.error("Error saving new phase:", error);
+      }
     }
   };
 
@@ -100,10 +120,7 @@ const ScoringPage = () => {
                 color="primary"
                 startIcon={<AddIcon />}
                 onClick={() => setOpenDialog(true)}
-                sx={{
-                  minWidth: { sm: "200px" },
-                  py: { sm: 1, md: 1.5 },
-                }}
+                sx={{ minWidth: { sm: "200px" }, py: { sm: 1, md: 1.5 } }}
               >
                 Tạo đợt chấm điểm mới
               </Button>
@@ -112,7 +129,7 @@ const ScoringPage = () => {
 
           <Stack spacing={{ xs: 2, sm: 3 }}>
             {phases.map((phase) => (
-              <Card key={phase.id}>
+              <Card key={phase.id_phase}>
                 <CardContent>
                   <Stack
                     direction={{ xs: "column", sm: "row" }}
@@ -124,15 +141,15 @@ const ScoringPage = () => {
                       variant={{ xs: "h6", sm: "h5" }}
                       gutterBottom={{ xs: true, sm: false }}
                     >
-                      {phase.name}
+                      {phase.name_phase}
                     </Typography>
                     <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ display: { xs: "none", sm: "block" } }}
-                      >
-                        Trạng thái: {phase.status}
+                      <Typography variant="body2" color="text.secondary">
+                        ID: {phase.id_phase}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Ngày tạo:{" "}
+                        {new Date(phase.date_recorded).toLocaleDateString()}
                       </Typography>
                       <IconButton size="small" color="primary">
                         <EditIcon />
@@ -142,29 +159,12 @@ const ScoringPage = () => {
                       </IconButton>
                     </Stack>
                   </Stack>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{
-                      mt: { xs: 1, sm: 0.5 },
-                      display: { xs: "block", sm: "none" },
-                    }}
-                  >
-                    Trạng thái: {phase.status}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mt: 0.5 }}
-                  >
-                    Thời gian: {phase.startDate} - {phase.endDate}
-                  </Typography>
                 </CardContent>
                 <CardActions sx={{ flexWrap: "wrap", gap: 1 }}>
                   <Button
                     size={isMobile ? "small" : "medium"}
                     variant={isMobile ? "text" : "outlined"}
-                    onClick={() => handleViewDetails(phase.id)}
+                    onClick={() => handleViewDetails(phase.id_phase)}
                   >
                     Xem chi tiết
                   </Button>
