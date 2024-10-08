@@ -30,6 +30,8 @@ import SearchIcon from "@mui/icons-material/Search";
 import StarIcon from "@mui/icons-material/Star";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import Header from "../components/Header";
+import axios from "axios";
+import API_URL from "../data/api";
 
 // Mock data for departments
 const departments = [
@@ -187,16 +189,21 @@ const DetailedPhasePage = () => {
   };
 
   useEffect(() => {
-    // In a real application, you would fetch the phase details and categories from an API
-    const phase = {
-      id: phaseId,
-      name: `Đợt chấm điểm ${phaseId}`,
-      status: "Đang diễn ra",
-      startDate: "01/01/2024",
-      endDate: "31/03/2024",
+    const fetchData = async () => {
+      try {
+        // Fetch phase details (bạn cần implement endpoint này)
+        const phaseResponse = await axios.get(`${API_URL}/phases/${phaseId}`);
+        setPhase(phaseResponse.data);
+
+        // Fetch categories và criteria
+        const categoriesResponse = await axios.get(`${API_URL}/categories`);
+        setCategories(categoriesResponse.data);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
     };
-    setPhase(phase);
-    setCategories(scoringCategories);
+
+    fetchData();
   }, [phaseId]);
 
   const handleCriterionClick = (criterion) => {
@@ -225,7 +232,10 @@ const DetailedPhasePage = () => {
       criteria: category.criteria.filter(
         (criterion) =>
           criterion.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          criterion.description.toLowerCase().includes(searchTerm.toLowerCase())
+          criterion.description
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          criterion.codename.toLowerCase().includes(searchTerm.toLowerCase())
       ),
     }))
     .filter(
@@ -255,15 +265,21 @@ const DetailedPhasePage = () => {
         sx={{ mt: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}
       >
         <Stack spacing={{ xs: 2, sm: 3, md: 4 }}>
-          {/* Header with Back button, Title, and Department selector */}
+          {/* Header với Back button, Title, và Department selector */}
           <Box
             sx={{
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 2,
             }}
           >
-            <IconButton onClick={handleBack} sx={{ mr: 2 }} aria-label="back">
+            <IconButton
+              onClick={handleBack}
+              sx={{ mr: { xs: 0, sm: 2 } }}
+              aria-label="back"
+            >
               <ArrowBackIcon />
             </IconButton>
             <Typography
@@ -287,7 +303,7 @@ const DetailedPhasePage = () => {
             </Select>
           </Box>
 
-          {/* General Information Card */}
+          {/* Thẻ Thông tin chung */}
           <Card>
             <CardContent>
               <Typography
@@ -315,7 +331,7 @@ const DetailedPhasePage = () => {
             </CardContent>
           </Card>
 
-          {/* Search Field */}
+          {/* Thanh tìm kiếm */}
           <TextField
             fullWidth
             variant="outlined"
@@ -331,15 +347,19 @@ const DetailedPhasePage = () => {
             }}
           />
 
-          {/* Scoring Categories Section */}
+          {/* Phần Hạng mục chấm điểm */}
           <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             Hạng mục và tiêu chí chấm điểm
           </Typography>
 
-          {/* Scoring Categories Accordions */}
+          {/* Danh sách Accordion cho các hạng mục */}
           {filteredCategories.map((category) => (
             <Accordion key={category.id}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                aria-controls={`category-${category.id}-content`}
+                id={`category-${category.id}-header`}
+              >
                 <Typography
                   variant={isMobile ? "subtitle1" : "h6"}
                   fontWeight="bold"
@@ -376,6 +396,13 @@ const DetailedPhasePage = () => {
                           >
                             {criterion.description}
                           </Typography>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ mt: 1, display: "block" }}
+                          >
+                            Mã: {criterion.codename}
+                          </Typography>
                         </CardContent>
                       </Card>
                     </Grid>
@@ -387,7 +414,7 @@ const DetailedPhasePage = () => {
         </Stack>
       </Container>
 
-      {/* Criterion Dialog */}
+      {/* Dialog chi tiết tiêu chí */}
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
@@ -403,11 +430,11 @@ const DetailedPhasePage = () => {
               </Typography>
             </DialogTitle>
             <DialogContent>
-              <Typography variant={isMobile ? "body2" : "body1"} gutterBottom>
-                {selectedCriterion.description}
+              <Typography variant="caption" color="text.secondary" gutterBottom>
+                Mã: {selectedCriterion.codename}
               </Typography>
               <Typography variant={isMobile ? "body2" : "body1"} paragraph>
-                {selectedCriterion.details}
+                {selectedCriterion.description}
               </Typography>
             </DialogContent>
             <DialogActions>
@@ -415,18 +442,17 @@ const DetailedPhasePage = () => {
                 Hủy
               </Button>
               <Button
-                onClick={() => handleScore("không đạt")}
+                onClick={() =>
+                  handleScore(
+                    selectedCriterion.failingPointType === 1 ? "safe" : "unsafe"
+                  )
+                }
                 variant="contained"
-                color="error"
+                color={
+                  selectedCriterion.failingPointType === 1 ? "success" : "error"
+                }
               >
-                Không đạt
-              </Button>
-              <Button
-                onClick={() => handleScore("đạt")}
-                variant="contained"
-                color="success"
-              >
-                Đạt
+                {selectedCriterion.failingPointType === 1 ? "Đạt" : "Không đạt"}
               </Button>
             </DialogActions>
           </>

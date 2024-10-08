@@ -17,20 +17,42 @@ import {
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import logoImage from "../assets/logo_ksnb.png";
+import API_URL from "../data/api";
 
 const LoginPage = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [openError, setOpenError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  const handleLogin = () => {
-    if (username === "admin" && password === "password") {
-      navigate("/home");
-    } else {
+  const handleLogin = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Login successful
+        navigate("/home");
+      } else {
+        // Login failed
+        setOpenError(true);
+      }
+    } catch (error) {
+      console.error("Login error:", error);
       setOpenError(true);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -122,8 +144,9 @@ const LoginPage = () => {
                 },
               }}
               onClick={handleLogin}
+              disabled={isLoading}
             >
-              Đăng nhập
+              {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
             </Button>
           </Box>
         </Box>

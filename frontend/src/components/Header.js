@@ -61,7 +61,7 @@ const NavButton = styled(Button)(({ theme, isactive }) => ({
 
 const navItems = [
   { text: "Trang chủ", path: "/home", icon: <HomeIcon /> },
-  { text: "Chấm điểm", path: "/scoring", icon: <GradeIcon /> },
+  { text: "Chấm điểm", path: "/create-phase", icon: <GradeIcon /> },
   { text: "Báo cáo", path: "/report", icon: <AssessmentIcon /> },
 ];
 

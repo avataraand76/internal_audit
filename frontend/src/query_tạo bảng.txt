@@ -18,7 +18,8 @@ CREATE TABLE tb_phase
 CREATE TABLE tb_user
 (
   id_user BIGINT NOT NULL AUTO_INCREMENT,
-	name_user VARCHAR(50),
+	name_user VARCHAR(50) NOT NULL,
+	password_user CHAR(10) NOT NULL,
 	PRIMARY KEY (id_user)
 );
 
@@ -32,29 +33,30 @@ CREATE TABLE tb_workshop
 CREATE TABLE tb_department
 (
   id_department BIGINT NOT NULL AUTO_INCREMENT,
-	name_department VARCHAR(50),
 	id_workshop BIGINT,
-  PRIMARY KEY (id_department),
+	name_department VARCHAR(50),
+	PRIMARY KEY (id_department),
 	FOREIGN KEY (id_workshop) REFERENCES tb_workshop(id_workshop)
 );
 
 CREATE TABLE tb_criteria
 (
   id_criteria BIGINT NOT NULL AUTO_INCREMENT,
-  codename CHAR(10),
+  id_category BIGINT,
+	codename CHAR(10),
 	short_desc VARCHAR(500),
   long_desc VARCHAR(500),
   failing_point_type INT, -- (-1:liệt liệt, 0:liệt, 1:safe)
-  id_category BIGINT,
   PRIMARY KEY (id_criteria),
-  FOREIGN KEY (id_category) REFERENCES tb_category(id_category)
+  FOREIGN KEY (id_category) REFERENCES tb_category(id_category),
+	CHECK (failing_point_type IN (-1, 0, 1))
 );
 
 CREATE TABLE tb_department_criteria
 (
-	is_point BIT, -- (0: trừ, 1:safe)
 	id_department BIGINT,
 	id_criteria BIGINT,
+	is_point BIT, -- (0: trừ, 1:safe)
 	FOREIGN KEY (id_department) REFERENCES tb_department(id_department),
 	FOREIGN KEY (id_criteria) REFERENCES tb_criteria(id_criteria)
 );
@@ -62,14 +64,14 @@ CREATE TABLE tb_department_criteria
 CREATE TABLE tb_phase_details
 (
   id_phase_details BIGINT NOT NULL AUTO_INCREMENT,
-	point_phase_details INT, -- (default sẽ là 100% lượng điểm nếu chấm chưa đạt sẽ trừ bớt đi)
-	status_phase_details VARCHAR(10),
-	date_updated DATETIME,
 	id_department BIGINT,
 	id_criteria BIGINT,
 	id_phase BIGINT,
 	id_user BIGINT,
-  PRIMARY KEY (id_phase_details),
+	point_phase_details INT, -- (default sẽ là 100% lượng điểm nếu chấm chưa đạt sẽ trừ bớt đi)
+	status_phase_details VARCHAR(10),
+	date_updated DATETIME,
+	PRIMARY KEY (id_phase_details),
 	FOREIGN KEY (id_department) REFERENCES tb_department(id_department),
 	FOREIGN KEY (id_criteria) REFERENCES tb_criteria(id_criteria),
 	FOREIGN KEY (id_phase) REFERENCES tb_phase(id_phase),
