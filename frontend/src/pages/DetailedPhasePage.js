@@ -1,4 +1,4 @@
-// frontend/src/pages/DetailedScoringPhasePage.js
+// frontend/src/pages/DetailedPhasePage.js
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -169,7 +169,7 @@ const scoringCategories = [
   },
 ];
 
-const DetailedScoringPhasePage = () => {
+const DetailedPhasePage = () => {
   const { phaseId } = useParams();
   const navigate = useNavigate();
   const [phase, setPhase] = useState(null);
@@ -177,7 +177,7 @@ const DetailedScoringPhasePage = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedCriterion, setSelectedCriterion] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [score, setScore] = useState(80);
+  const [score, setScore] = useState(100);
   const [department, setDepartment] = useState(departments[0].name);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -244,7 +244,7 @@ const DetailedScoringPhasePage = () => {
   };
 
   const handleBack = () => {
-    navigate("/scoring"); // Adjust this path according to your routing setup
+    navigate("/create-phase"); // Adjust this path according to your routing setup
   };
 
   return (
@@ -436,4 +436,4 @@ const DetailedScoringPhasePage = () => {
   );
 };
 
-export default DetailedScoringPhasePage;
+export default DetailedPhasePage;

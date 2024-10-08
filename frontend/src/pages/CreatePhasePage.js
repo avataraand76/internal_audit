@@ -1,4 +1,4 @@
-// frontend/src/pages/ScoringPage.js
+// frontend/src/pages/CreatePhasePage.js
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -25,10 +25,9 @@ import {
   Delete as DeleteIcon,
 } from "@mui/icons-material";
 import Header from "../components/Header";
+import API_URL from "../data/api";
 
-const API_URL = "http://localhost:8081";
-
-const ScoringPage = () => {
+const CreatePhasePage = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -54,29 +53,17 @@ const ScoringPage = () => {
     }
   };
 
-  const generatePhaseId = () => {
-    const lastPhase = phases[0];
-    if (lastPhase) {
-      const lastId = parseInt(lastPhase.id_phase.slice(2), 10);
-      return `PH${String(lastId + 1).padStart(3, "0")}`;
-    }
-    return "PH001";
-  };
-
   const handleCreatePhase = async () => {
     if (newPhaseName.trim()) {
-      const newPhase = {
-        id_phase: generatePhaseId(),
-        name_phase: newPhaseName,
-      };
-
       try {
         const response = await fetch(`${API_URL}/phases`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(newPhase),
+          body: JSON.stringify({
+            name_phase: newPhaseName,
+          }),
         });
 
         if (response.ok) {
@@ -225,4 +212,4 @@ const ScoringPage = () => {
   );
 };
 
-export default ScoringPage;
+export default CreatePhasePage;

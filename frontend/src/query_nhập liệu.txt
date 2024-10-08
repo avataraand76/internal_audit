@@ -1,0 +1,63 @@
+INSERT INTO tb_category (name_category) VALUES 
+('An toàn lao động'),
+('CT-PAT'),
+('LEAN'),
+('Phòng ngừa kim loại'),
+('QMS'),
+('Trật tự nội vụ');
+
+INSERT INTO tb_criteria (codename, short_desc, long_desc, failing_point_type, id_category) VALUES
+('ATLĐ1', '- An toàn lao động', '- Không được đeo tai nghe trong khi làm việc (trừ đeo máy trợ thính).', '0', '1'),
+('ATLĐ2', '- An toàn PCCC', '- Bãi giữ xe phải đảm bảo an toàn, phòng chống cháy nổ, không được tụ tập, hút thuốc, xả rác sai quy định.', '1', '1'),
+('ATLĐ3', '- Bảo hộ lao động', '- Công cụ bồn rửa mắt khẩn cấp, thiết bị bảo hộ phải được cập nhật, kiểm tra đầy đủ đúng qui định và vệ sinh sạch sẽ.', '0', '1'),
+('ATLĐ4', '- Chứng nhận nhân viên phụ trách', '- Nhân viên phụ trách xe nâng, dò kim...phải được huấn luyện và cấp giấy chứng nhận.', '0', '1'),
+('ATLĐ5', '- Chứng nhận nhân viên phụ trách', '- Nhân viên phụ trách tủ điện,...phải được huấn luyện và cấp giấy chứng nhận.', '0', '1'),
+('ATLĐ6', '- Đảm bảo an toàn vệ sinh thực phẩm', '- Thực phẩm khi chế biến không được để ở nhiệt độ phòng quá 2h. Thực phẩm sau khi nấu chín phải được che đậy. Thực phẩm hư hỏng, hết hạn sử dụng phải mang đi tiêu hủy.', '0', '1'),
+('ATLĐ7', '- Đảm bảo an toàn vệ sinh thực phẩm', '- Thực hiện đúng quy trình chế biến thức ăn theo quy trình 1 chiều.', '0', '1'),
+('ATLĐ8', '- Đảm bảo an toàn vệ sinh thực phẩm', '- Tách riêng thực phẩm chín và thực phẩm sống. Có bộ dụng cụ (dao, thớt...) riêng cho thực phẩm chín và thực phẩm sống.', '0', '1'),
+('ATLĐ9', '- Đảm bảo an toàn vệ sinh thực phẩm', '- Không có nguyên liệu bị hôi thối, biến chất, hết hạn sử dụng, được quản lý theo nguyên tắc FIFO (nhập trước, xuất trước). ', '0', '1'),
+('ATLĐ10', '- Đảm bảo an toàn vệ sinh thực phẩm', '- Dụng cụ phục vụ bếp ăn phải được vệ sinh sạch sẽ, thực hiện đúng quy trình rửa theo quy định công ty. Dùng nước sạch và chất tẩy rửa phù hợp, được phép dùng trong sinh hoạt và chế biến thực phẩm.', '0', '1'),
+('ATLĐ11', '- Đảm bảo an toàn vệ sinh thực phẩm', '- Các loại thực phẩm, gia vị được sử dụng để nấu ăn phải không nằm trong danh mục bị cấm theo quy định của bộ y tế.', '0', '1'),
+('ATLĐ12', '- Đảm bảo an toàn vệ sinh thực phẩm', '- Bảo hộ lao động phải được tháo ra khi công nhân đi vệ sinh. Phải rửa tay sau khi đi vệ sinh xong.', '0', '1'),
+('ATLĐ13', '- Đảm bảo an toàn vệ sinh thực phẩm', '- Vết phỏng/ vết thương phải được dán băng cá nhân và được bao bên ngoài bằng găng tay không thấm khi tiếp xúc với thực phẩm.
+- CN mắc bệnh truyền nhiễm theo danh mục của bộ y tế không được tiếp xúc với thực phẩm.', '0', '1'),
+('ATLĐ14', '- Dây điện phải đi gọn gàng, tránh nằm trên sàn nhà hoặc đi ngang qua vị trí công nhân đang làm việc', '- Hệ thống dây điện phải đảm bảo gọn gàng, không nằm trên sàn nhà, đấu nối đúng quy cách.
+- Các mối điện phải được băng kín. Các taplo bọc dây điện phải được cố định.
+- Công nhân rời khỏi vị trí phải tắt máy.', '0', '1'),
+('ATLĐ15', '- Hàng hóa sắp xếp đúng độ cao quy định và giới hạn cho phép', '- Nguyên phụ liệu, thành phẩm, bán thành phẩm, không được để vượt quá chiều cao của xe đẩy phụ liệu, thành phẩm và kệ kho, rọ; các thùng phụ liệu, thành phẩm phải đặt bằng hoặc thấp hơn quy định và có trực quan đầy đủ theo quy định của hệ thống quản lý chất lượng, theo giới hạn độ cao của an toàn.', '0', '1'),
+('ATLĐ16', '- Hệ thống thoát nạn thông thoáng', '- Hệ thống đèn mắt ếch, đèn Exit hoạt động tốt, phiếu kiểm tra cập nhật đúng.', '1', '1'),
+('ATLĐ17', '- Hóa chất sử dụng đúng nơi quy định và có trực quan đầy đủ theo yêu cầu.', '- Kho hóa chất và kho rác thải nguy hại phải được quản lí theo quy định', '0', '1'),
+('ATLĐ18', '- Hóa chất sử dụng đúng nơi quy định và có trực quan đầy đủ theo yêu cầu.', '- Các loại hóa chất (diệt côn trùng, vệ sinh...) được phép sử dụng phải được giữ ở khu vực chỉ định, có MSDS (Bảng hướng dẫn sử dụng hóa chất an toàn) và nhãn mác đầy đủ, không được để hóa chất tại khu vực chế biến thực phẩm.
+- Dầu máy không được để trên khu vực sản xuất, phải để đúng nơi quy định.  
+- Không được sử dụng hóa chất tại chuyền may.', '0', '1'),
+('ATLĐ19', '- Khoa học lao động', '- Công nhân làm việc trong tư thế đáp ứng yêu cầu khoa học lao động.', '0', '1'),
+('ATLĐ20', '- Khu vực hạn chế đảm bảo an toàn.', '- Hệ thống thoát nước hoạt động tốt, cống rãnh được che đậy kỹ càng.
+- Khu vực hạn chế phải có cảnh báo, trực quan.', '0', '1'),
+('ATLĐ21', '- Người lao động sử dụng đầy đủ phương tiện bảo vệ cá nhân theo quy định và đặt đúng nơi quy định.', 'Công nhân mang khẩu trang, nón, dép theo quy định (Trừ trường hợp đặt biệt).', '0', '1'),
+('ATLĐ22', '- Người lao động sử dụng đầy đủ phương tiện bảo vệ cá nhân theo quy định và đặt đúng nơi quy định.', 'Công nhân cắt phải sử dụng bao tay sắt đúng quy định.', '1', '1'),
+('ATLĐ23', '- Người lao động sử dụng đầy đủ phương tiện bảo vệ cá nhân theo quy định và đặt đúng nơi quy định.', '- Tóc được cột và bao gọn gàng trong nón. 
+- Công nhân sản xuất qui định đứng thì phải có thảm lót chân: Gấp xếp, QC, Ủi...', '0', '1'),
+('ATLĐ24', '- Người lao động sử dụng đầy đủ phương tiện bảo vệ cá nhân theo quy định và đặt đúng nơi quy định.', '- Móng tay cắt ngắn, không sơn và được giữ sạch sẽ, không mang nữ trang kể cả nhẫn cưới (Nhà ăn).', '0', '1'),
+('ATLĐ25', '- Người lao động sử dụng đầy đủ phương tiện bảo vệ cá nhân theo quy định và đặt đúng nơi quy định.', '- Công nhân ép, công nhân định hình bằng tia laze phải mang bao tay đầy đủ, đúng quy định. 
+- Cơ điện/thợ máy sử dụng giày BHLĐ…
+- Nhân viên phụ trách xe nâng phải đội nón bảo hộ theo quy định.
+- Nhân viên kho sử dụng giày BHLĐ...', '1', '1'),
+('ATLĐ26', '- Người lao động sử dụng đầy đủ phương tiện bảo vệ cá nhân theo quy định.', '- Công cụ hỗ trợ như máy bộ đàm, điện thoại, đèn pin, đèn sạc phải đảm bảo hoạt động tốt.', '0', '1'),
+('ATLĐ27', '- Tuân thủ sử dụng đúng và đầy đủ các phương tiện an toàn về máy móc thiết bị cho người lao động.', '- Súng bắn thẻ bài phải đậy nắp khi không sử dụng và để đúng nơi qui định.', '0', '1'),
+('ATLĐ28', '- Tuân thủ sử dụng đúng và đầy đủ các phương tiện an toàn về máy móc thiết bị cho người lao động.', '- Nồi hơi và hệ thống đường ống dẫn khí nóng, nước cấp nồi hơi phải đảm bảo an toàn không bị dò khí, rỉ nước.', '0', '1'),
+('ATLĐ29', '- Tuân thủ sử dụng đúng và đầy đủ các phương tiện an toàn về máy móc thiết bị cho người lao động.', '- Mọi thiết bị, phương tiện, sản phẩm để đúng nơi quy định; không lấn chiếm qua vạch ranh giới thoát nạn; che lấp tủ điện, phương tiện PCCC và tủ y tế bán kính 1m.', '0', '1'),
+('ATLĐ30', '- Tuân thủ sử dụng đúng và đầy đủ các phương tiện an toàn về máy móc thiết bị cho người lao động.', '- Máy móc, thiết bị điện phải có đầy đủ dây nối đất trung tính, carte, bảo hiểm puly.', '0', '1'),
+('ATLĐ31', '- Tuân thủ sử dụng đúng và đầy đủ các phương tiện an toàn về máy móc thiết bị cho người lao động.', '- Máy móc, thiết bị (motor, dây curoa,...) phải được che chắn an toàn. 
+- Sử dụng các phương tiện bảo hộ (càng chắn kim, kính bảo hiểm…). 
+- Máy cắt tay, xe nâng khi không sử dụng phải được hạ càng chắn xuống và có ống che chắn lưỡi dao.', '1', '1'),
+('ATLĐ32', '- Tuân thủ sử dụng đúng và đầy đủ các phương tiện an toàn về máy móc thiết bị cho người lao động.', '- Lối thoát nạn thông thoáng, cửa thoát nạn đảm bảo an toàn.', '1', '1'),
+('ATLĐ33', '- Tuân thủ sử dụng đúng và đầy đủ các phương tiện an toàn về máy móc thiết bị cho người lao động.', '- Hệ thống quạt hút gió, dàn mát phải đảm bảo an toàn.', '0', '1'),
+('ATLĐ34', '- Tuân thủ sử dụng đúng và đầy đủ các phương tiện an toàn về máy móc thiết bị cho người lao động.', '- Đường ống dẫn khí nén, súng thổi khí phải đảm bảo kín khí và gọn gàng', '1', '1'),
+('ATLĐ35', '- Tuân thủ sử dụng đúng và đầy đủ các phương tiện an toàn về máy móc thiết bị cho người lao động.', '- Công nhân phải được bố trí làm việc tại vị trí dễ thoát nạn, không bị che chắn bởi máy móc, thiết bị hay công nhân khác.', '0', '1'),
+('ATLĐ36', '- Tuân thủ sử dụng đúng và đầy đủ các phương tiện an toàn về máy móc thiết bị cho người lao động.', '- Các vạch ranh giới thoát nạn, mũi tên/ bảng chỉ dẫn hướng thoát nạn phải được kiểm tra thường xuyên, không để bị bong tróc, bể hay quá mờ.', '0', '1'),
+('ATLĐ37', '- Tuân thủ sử dụng đúng và đầy đủ các phương tiện an toàn về máy móc thiết bị cho người lao động.', '- Các tủ điện tổng, tủ điều khiển phải đảm bảo an toàn, trực quan chính xác và rõ ràng.', '1', '1'),
+('ATLĐ38', '- An toàn PCCC', '- Đảm bảo không mùi thuốc lá', '0', '1'),
+('ATLĐ39', '- Người lao động sử dụng đầy đủ phương tiện bảo vệ cá nhân theo quy định và đặt đúng nơi quy định.', '- Nhân viên phụ trách xe nâng phải đội nón bảo hộ theo quy định.
+-Nhân viên sử dụng giày BHLĐ...', '1', '1'),
+('ATLĐ40', '- Tai nạn lao động', '- Tai nạn lao động nhẹ (không ngày nghỉ)', '0', '1'),
+('ATLĐ41', '- Tai nạn lao động', '- Tai nạn lao động có ngày nghỉ', '1', '1');

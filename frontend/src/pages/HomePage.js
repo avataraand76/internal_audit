@@ -55,7 +55,7 @@ function HomePage() {
             <Button
               variant="contained"
               color="primary"
-              onClick={() => navigate("/scoring")}
+              onClick={() => navigate("/create-phase")}
               fullWidth={isMobile}
               sx={{
                 minWidth: { xs: "100%", sm: "200px" },

@@ -15,7 +15,7 @@ const db = mysql.createConnection({
   database: "internal_audit_database",
 });
 
-// Get all phases
+// Get all phases in CreatePhasePage.js
 app.get("/phases", (req, res) => {
   const query = "SELECT * FROM tb_phase ORDER BY date_recorded DESC";
   db.query(query, (err, results) => {
@@ -28,23 +28,23 @@ app.get("/phases", (req, res) => {
   });
 });
 
-// Create a new phase
+// Create a new phase in CreatePhasePage.js
 app.post("/phases", (req, res) => {
-  const { id_phase, name_phase } = req.body;
+  const { name_phase } = req.body;
   const date_recorded = moment().format("YYYY-MM-DD HH:mm:ss");
 
   const query =
-    "INSERT INTO tb_phase (id_phase, name_phase, date_recorded) VALUES (?, ?, ?)";
-  db.query(query, [id_phase, name_phase, date_recorded], (err, result) => {
+    "INSERT INTO tb_phase (name_phase, date_recorded) VALUES (?, ?)";
+  db.query(query, [name_phase, date_recorded], (err, result) => {
     if (err) {
       console.error("Error creating phase:", err);
       res.status(500).json({ error: "Error creating phase" });
       return;
     }
 
-    // Return the created phase
+    // Return the created phase with the auto-generated ID
     const createdPhase = {
-      id_phase,
+      id_phase: result.insertId,
       name_phase,
       date_recorded,
     };
