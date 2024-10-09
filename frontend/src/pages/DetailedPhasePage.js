@@ -1,6 +1,6 @@
 // frontend/src/pages/DetailedPhasePage.js
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   Typography,
   Container,
@@ -21,14 +21,16 @@ import {
   AccordionDetails,
   TextField,
   InputAdornment,
-  Select,
+  Menu,
   MenuItem,
   IconButton,
+  Paper,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SearchIcon from "@mui/icons-material/Search";
 import StarIcon from "@mui/icons-material/Star";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import Header from "../components/Header";
 import axios from "axios";
 import API_URL from "../data/api";
@@ -44,6 +46,7 @@ const departments = [
 const DetailedPhasePage = () => {
   const { phaseId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [phase, setPhase] = useState(null);
   const [categories, setCategories] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
@@ -53,6 +56,7 @@ const DetailedPhasePage = () => {
   const [department, setDepartment] = useState(departments[0].name);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [anchorEl, setAnchorEl] = useState(null);
   const getStarColor = (score) => {
     if (score >= 80) return "#4CAF50";
     return "#FF0000";
@@ -61,21 +65,35 @@ const DetailedPhasePage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch phase details (bạn cần implement endpoint này)
+        // Fetch phase details
         const phaseResponse = await axios.get(`${API_URL}/phases/${phaseId}`);
         setPhase(phaseResponse.data);
 
-        // Fetch categories và criteria
-        const categoriesResponse = await axios.get(`${API_URL}/categories`);
+        // Get user ID from location state
+        const userId = location.state?.user?.id_user;
+
+        if (!userId) {
+          console.error("User ID not found");
+          // Hiển thị thông báo lỗi cho người dùng
+          alert("Không thể tải thông tin người dùng. Vui lòng đăng nhập lại.");
+          navigate("/"); // Chuyển hướng đến trang đăng nhập
+          return;
+        }
+
+        // Fetch categories and criteria for the specific user
+        const categoriesResponse = await axios.get(
+          `${API_URL}/categories/${userId}`
+        );
         setCategories(categoriesResponse.data);
       } catch (error) {
         console.error("Error fetching data:", error);
+        // Hiển thị thông báo lỗi chung
+        alert("Đã xảy ra lỗi khi tải dữ liệu. Vui lòng thử lại sau.");
       }
     };
 
     fetchData();
-  }, [phaseId]);
-
+  }, [phaseId, location.state, navigate]);
   const handleCriterionClick = (criterion) => {
     setSelectedCriterion(criterion);
     setOpenDialog(true);
@@ -84,6 +102,20 @@ const DetailedPhasePage = () => {
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setSelectedCriterion(null);
+  };
+
+  const handleDepartmentClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleDepartmentClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleDepartmentSelect = (dept) => {
+    setDepartment(dept.name);
+    handleDepartmentClose();
+    // Here you would typically fetch new data for the selected department
   };
 
   const handleScore = (score) => {
@@ -124,11 +156,6 @@ const DetailedPhasePage = () => {
     return <Typography>Loading...</Typography>;
   }
 
-  const handleDepartmentChange = (event) => {
-    setDepartment(event.target.value);
-    // Here you would typically fetch new data for the selected department
-  };
-
   const handleBack = () => {
     navigate("/create-phase"); // Adjust this path according to your routing setup
   };
@@ -136,11 +163,18 @@ const DetailedPhasePage = () => {
   return (
     <Box sx={{ flexGrow: 1 }}>
       <Header />
-      <Container
-        maxWidth="lg"
-        sx={{ mt: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}
+      <Paper
+        elevation={3}
+        sx={{
+          position: "sticky",
+          top: 0,
+          zIndex: 1100,
+          backgroundColor: "background.paper",
+          marginBottom: 2,
+          border: "1px solid black",
+        }}
       >
-        <Stack spacing={{ xs: 2, sm: 3, md: 4 }}>
+        <Container maxWidth="lg" sx={{ py: 2 }}>
           {/* Header với Back button, Title, và Department selector */}
           <Box
             sx={{
@@ -149,6 +183,7 @@ const DetailedPhasePage = () => {
               justifyContent: "space-between",
               flexWrap: "wrap",
               gap: 2,
+              mb: 2,
             }}
           >
             <IconButton
@@ -166,21 +201,37 @@ const DetailedPhasePage = () => {
             >
               {phase?.name}
             </Typography>
-            <Select
-              value={department}
-              onChange={handleDepartmentChange}
-              sx={{ minWidth: 200 }}
+            <Button
+              variant="outlined"
+              onClick={handleDepartmentClick}
+              endIcon={<ArrowDropDownIcon />}
+              sx={{
+                borderRadius: "20px",
+                textTransform: "none",
+                minWidth: 200,
+                justifyContent: "space-between",
+              }}
+            >
+              {department}
+            </Button>
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleDepartmentClose}
             >
               {departments.map((dept) => (
-                <MenuItem key={dept.id} value={dept.name}>
+                <MenuItem
+                  key={dept.id}
+                  onClick={() => handleDepartmentSelect(dept)}
+                >
                   {dept.name}
                 </MenuItem>
               ))}
-            </Select>
+            </Menu>
           </Box>
 
           {/* Thẻ Thông tin chung */}
-          <Card>
+          <Card sx={{ mb: 2, border: "1px solid black" }}>
             <CardContent>
               <Typography
                 variant={isMobile ? "h6" : "h5"}
@@ -195,7 +246,7 @@ const DetailedPhasePage = () => {
               <Typography variant={isMobile ? "body2" : "body1"}>
                 Thời gian: {phase?.startDate} - {phase?.endDate}
               </Typography> */}
-              <Box sx={{ mt: 2, display: "flex", alignItems: "center" }}>
+              <Box sx={{ display: "flex", alignItems: "center" }}>
                 <Typography
                   variant={isMobile ? "body2" : "body1"}
                   sx={{ mr: 1 }}
@@ -211,6 +262,7 @@ const DetailedPhasePage = () => {
           <TextField
             fullWidth
             variant="outlined"
+            // sx={{ border: "1px solid black" }}
             placeholder="Tìm kiếm theo tên hạng mục, mã tiêu chí hoặc tên tiêu chí..."
             value={searchTerm}
             onChange={handleSearch}
@@ -222,7 +274,14 @@ const DetailedPhasePage = () => {
               ),
             }}
           />
+        </Container>
+      </Paper>
 
+      <Container
+        maxWidth="lg"
+        sx={{ mt: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}
+      >
+        <Stack spacing={{ xs: 2, sm: 3, md: 4 }}>
           {/* Phần Hạng mục chấm điểm */}
           <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             Hạng mục và tiêu chí chấm điểm
@@ -230,7 +289,7 @@ const DetailedPhasePage = () => {
 
           {/* Danh sách Accordion cho các hạng mục */}
           {filteredCategories.map((category) => (
-            <Accordion key={category.id}>
+            <Accordion key={category.id} sx={{ border: "1px solid black" }}>
               <AccordionSummary
                 expandIcon={<ExpandMoreIcon />}
                 aria-controls={`category-${category.id}-content`}
@@ -254,6 +313,7 @@ const DetailedPhasePage = () => {
                           flexDirection: "column",
                           cursor: "pointer",
                           "&:hover": { boxShadow: 6 },
+                          border: "1px solid black",
                         }}
                         onClick={() => handleCriterionClick(criterion)}
                       >

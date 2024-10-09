@@ -1,6 +1,6 @@
 // src/pages/HomePage.js
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Button,
   Box,
@@ -10,11 +10,24 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import Header from "../components/Header";
+import API_URL from "../data/api";
 
 function HomePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [username, setUsername] = useState("");
+
+  useEffect(() => {
+    const user = location.state?.user;
+    if (user) {
+      setUsername(user.name_user);
+    } else {
+      // Redirect to login if no user data is present
+      navigate("/");
+    }
+  }, [location.state, navigate]);
 
   return (
     <Box sx={{ flexGrow: 1 }}>
@@ -43,7 +56,7 @@ function HomePage() {
             component="h1"
             textAlign="center"
           >
-            Chào mừng [username]
+            Chào mừng {username}
           </Typography>
 
           <Stack

@@ -43,7 +43,7 @@ const LoginPage = () => {
 
       if (data.success) {
         // Login successful
-        navigate("/home");
+        navigate("/home", { state: { user: data.user } });
       } else {
         // Login failed
         setOpenError(true);

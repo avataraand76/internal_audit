@@ -101,8 +101,8 @@ app.get("/categories", (req, res) => {
       c.name_category,
       cr.id_criteria,
       cr.codename,
-      cr.short_desc,
-      cr.long_desc,
+      cr.name_criteria,
+      cr.description,
       cr.failing_point_type
     FROM tb_category c
     LEFT JOIN tb_criteria cr ON c.id_category = cr.id_category
@@ -129,8 +129,8 @@ app.get("/categories", (req, res) => {
                 {
                   id: row.id_criteria,
                   codename: row.codename,
-                  name: row.short_desc, // Sử dụng short_desc làm tên hiển thị
-                  description: row.long_desc, // Sử dụng long_desc làm mô tả
+                  name: row.name_criteria, // Sử dụng name_criteria làm tên hiển thị
+                  description: row.description, // Sử dụng description làm mô tả
                   failingPointType: row.failing_point_type,
                 },
               ]
@@ -140,8 +140,71 @@ app.get("/categories", (req, res) => {
         category.criteria.push({
           id: row.id_criteria,
           codename: row.codename,
-          name: row.short_desc,
-          description: row.long_desc,
+          name: row.name_criteria,
+          description: row.description,
+          failingPointType: row.failing_point_type,
+        });
+      }
+
+      return acc;
+    }, []);
+
+    res.json(categories);
+  });
+});
+
+// Get categories with their criteria, filtered by user ID
+app.get("/categories/:userId", (req, res) => {
+  const userId = req.params.userId;
+  const query = `
+    SELECT 
+      c.id_category,
+      c.name_category,
+      cr.id_criteria,
+      cr.codename,
+      cr.name_criteria,
+      cr.description,
+      cr.failing_point_type
+    FROM tb_category c
+    LEFT JOIN tb_criteria cr ON c.id_category = cr.id_category
+    INNER JOIN tb_user_supervisor us ON c.id_category = us.id_category
+    WHERE us.id_user = ?
+    ORDER BY c.id_category, cr.id_criteria
+  `;
+
+  db.query(query, [userId], (err, results) => {
+    if (err) {
+      console.error("Error fetching categories and criteria:", err);
+      res.status(500).json({ error: "Error fetching categories and criteria" });
+      return;
+    }
+
+    // Convert flat results to hierarchical structure
+    const categories = results.reduce((acc, row) => {
+      const category = acc.find((c) => c.id === row.id_category);
+
+      if (!category) {
+        acc.push({
+          id: row.id_category,
+          name: row.name_category,
+          criteria: row.id_criteria
+            ? [
+                {
+                  id: row.id_criteria,
+                  codename: row.codename,
+                  name: row.name_criteria,
+                  description: row.description,
+                  failingPointType: row.failing_point_type,
+                },
+              ]
+            : [],
+        });
+      } else if (row.id_criteria) {
+        category.criteria.push({
+          id: row.id_criteria,
+          codename: row.codename,
+          name: row.name_criteria,
+          description: row.description,
           failingPointType: row.failing_point_type,
         });
       }
