@@ -43,6 +43,7 @@ const LoginPage = () => {
 
       if (data.success) {
         // Login successful
+        localStorage.setItem("user", JSON.stringify(data.user)); // Save user data to localStorage
         navigate("/home", { state: { user: data.user } });
       } else {
         // Login failed

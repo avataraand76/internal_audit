@@ -20,7 +20,7 @@ INSERT INTO tb_user_supervisor (id_category, id_user) VALUES
 ('3','2'),
 ('4','2'),
 ('5','3'),
-('6','3'),
+('6','3');
 
 -- nhập liệu xưởng workshop
 INSERT INTO tb_workshop (name_workshop) VALUES

@@ -157,7 +157,7 @@ app.get("/categories", (req, res) => {
 app.get("/categories/:userId", (req, res) => {
   const userId = req.params.userId;
   const query = `
-    SELECT 
+    SELECT DISTINCT
       c.id_category,
       c.name_category,
       cr.id_criteria,

@@ -20,14 +20,14 @@ function HomePage() {
   const [username, setUsername] = useState("");
 
   useEffect(() => {
-    const user = location.state?.user;
-    if (user) {
-      setUsername(user.name_user);
+    const storedUser = JSON.parse(localStorage.getItem("user"));
+    if (storedUser) {
+      setUsername(storedUser.name_user);
     } else {
       // Redirect to login if no user data is present
       navigate("/");
     }
-  }, [location.state, navigate]);
+  }, [navigate]);
 
   return (
     <Box sx={{ flexGrow: 1 }}>

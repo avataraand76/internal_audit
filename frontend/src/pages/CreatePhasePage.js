@@ -34,10 +34,19 @@ const CreatePhasePage = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [newPhaseName, setNewPhaseName] = useState("");
   const [phases, setPhases] = useState([]);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     fetchPhases();
-  }, []);
+    // Lấy thông tin người dùng từ localStorage
+    const storedUser = JSON.parse(localStorage.getItem("user"));
+    if (storedUser) {
+      setUser(storedUser);
+    } else {
+      // Nếu không có thông tin người dùng, chuyển hướng về trang đăng nhập
+      navigate("/");
+    }
+  }, [navigate]);
 
   const fetchPhases = async () => {
     try {
@@ -81,7 +90,8 @@ const CreatePhasePage = () => {
   };
 
   const handleViewDetails = (phaseId) => {
-    navigate(`/scoring-phases/${phaseId}`);
+    // Truyền thông tin người dùng khi chuyển hướng
+    navigate(`/scoring-phases/${phaseId}`, { state: { user } });
   };
 
   return (
@@ -179,7 +189,7 @@ const CreatePhasePage = () => {
         <Dialog
           open={openDialog}
           onClose={() => setOpenDialog(false)}
-          fullScreen={isMobile}
+          // fullScreen={isMobile}
           PaperProps={{
             sx: {
               width: "100%",

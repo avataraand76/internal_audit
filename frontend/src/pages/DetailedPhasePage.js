@@ -1,6 +1,6 @@
 // frontend/src/pages/DetailedPhasePage.js
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   Typography,
   Container,
@@ -46,7 +46,7 @@ const departments = [
 const DetailedPhasePage = () => {
   const { phaseId } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
+  const [user, setUser] = useState(null);
   const [phase, setPhase] = useState(null);
   const [categories, setCategories] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
@@ -65,35 +65,34 @@ const DetailedPhasePage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Lấy thông tin người dùng từ localStorage
+        const storedUser = JSON.parse(localStorage.getItem("user"));
+        if (!storedUser) {
+          console.error("User information not found");
+          alert("Không thể tải thông tin người dùng. Vui lòng đăng nhập lại.");
+          navigate("/");
+          return;
+        }
+        setUser(storedUser);
+
         // Fetch phase details
         const phaseResponse = await axios.get(`${API_URL}/phases/${phaseId}`);
         setPhase(phaseResponse.data);
 
-        // Get user ID from location state
-        const userId = location.state?.user?.id_user;
-
-        if (!userId) {
-          console.error("User ID not found");
-          // Hiển thị thông báo lỗi cho người dùng
-          alert("Không thể tải thông tin người dùng. Vui lòng đăng nhập lại.");
-          navigate("/"); // Chuyển hướng đến trang đăng nhập
-          return;
-        }
-
         // Fetch categories and criteria for the specific user
         const categoriesResponse = await axios.get(
-          `${API_URL}/categories/${userId}`
+          `${API_URL}/categories/${storedUser.id_user}`
         );
         setCategories(categoriesResponse.data);
       } catch (error) {
         console.error("Error fetching data:", error);
-        // Hiển thị thông báo lỗi chung
         alert("Đã xảy ra lỗi khi tải dữ liệu. Vui lòng thử lại sau.");
       }
     };
 
     fetchData();
-  }, [phaseId, location.state, navigate]);
+  }, [phaseId, navigate]);
+
   const handleCriterionClick = (criterion) => {
     setSelectedCriterion(criterion);
     setOpenDialog(true);
@@ -356,7 +355,7 @@ const DetailedPhasePage = () => {
         onClose={handleCloseDialog}
         maxWidth="sm"
         fullWidth
-        fullScreen={isMobile}
+        // fullScreen={isMobile}
       >
         {selectedCriterion && (
           <>
@@ -378,17 +377,18 @@ const DetailedPhasePage = () => {
                 Hủy
               </Button>
               <Button
-                onClick={() =>
-                  handleScore(
-                    selectedCriterion.failingPointType === 1 ? "safe" : "unsafe"
-                  )
-                }
+                onClick={() => handleScore("không đạt")}
                 variant="contained"
-                color={
-                  selectedCriterion.failingPointType === 1 ? "success" : "error"
-                }
+                color="error"
               >
-                {selectedCriterion.failingPointType === 1 ? "Đạt" : "Không đạt"}
+                Không đạt
+              </Button>
+              <Button
+                onClick={() => handleScore("đạt")}
+                variant="contained"
+                color="success"
+              >
+                Đạt
               </Button>
             </DialogActions>
           </>

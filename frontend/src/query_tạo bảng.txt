@@ -48,7 +48,7 @@ CREATE TABLE tb_criteria
 	description TEXT,
 	failing_point_type INT CHECK (failing_point_type IN (-1, 0, 1)), -- (-1:liệt liệt, 0:liệt, 1:safe)
 	PRIMARY KEY (id_criteria),
-	FOREIGN KEY (id_category) REFERENCES tb_category(id_category),
+	FOREIGN KEY (id_category) REFERENCES tb_category(id_category)
 	
 );
 
