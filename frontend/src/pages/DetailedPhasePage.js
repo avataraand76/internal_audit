@@ -41,136 +41,6 @@ const departments = [
   { id: 4, name: "Phòng Marketing" },
 ];
 
-// Mock data for scoring categories and criteria
-const scoringCategories = [
-  {
-    id: 1,
-    name: "Hiệu suất công việc",
-    criteria: [
-      {
-        id: 1,
-        name: "Chất lượng công việc",
-        description:
-          "Đánh giá mức độ hoàn thành và chất lượng công việc được giao",
-        details:
-          "Xem xét các yếu tố như độ chính xác, tính đầy đủ, và hiệu quả của công việc được giao. Đánh giá khả năng đáp ứng deadline và chất lượng đầu ra của công việc.",
-      },
-      {
-        id: 2,
-        name: "Năng suất",
-        description:
-          "Đánh giá khối lượng công việc hoàn thành trong một khoảng thời gian",
-        details:
-          "Xem xét số lượng công việc hoàn thành, tốc độ làm việc, và khả năng quản lý thời gian hiệu quả.",
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: "Kỹ năng mềm",
-    criteria: [
-      {
-        id: 3,
-        name: "Tinh thần làm việc",
-        description: "Đánh giá thái độ, tinh thần trách nhiệm trong công việc",
-        details:
-          "Xem xét mức độ nhiệt tình, sự chủ động, và tinh thần trách nhiệm trong công việc. Đánh giá khả năng làm việc độc lập và sự sẵn sàng hỗ trợ đồng nghiệp.",
-      },
-      {
-        id: 4,
-        name: "Kỹ năng giao tiếp",
-        description: "Đánh giá khả năng giao tiếp và làm việc nhóm",
-        details:
-          "Xem xét khả năng truyền đạt ý tưởng, lắng nghe và phản hồi. Đánh giá kỹ năng làm việc nhóm, khả năng hợp tác và giải quyết xung đột.",
-      },
-    ],
-  },
-  {
-    id: 1,
-    name: "Hiệu suất công việc",
-    criteria: [
-      {
-        id: 1,
-        name: "Chất lượng công việc",
-        description:
-          "Đánh giá mức độ hoàn thành và chất lượng công việc được giao",
-        details:
-          "Xem xét các yếu tố như độ chính xác, tính đầy đủ, và hiệu quả của công việc được giao. Đánh giá khả năng đáp ứng deadline và chất lượng đầu ra của công việc.",
-      },
-      {
-        id: 2,
-        name: "Năng suất",
-        description:
-          "Đánh giá khối lượng công việc hoàn thành trong một khoảng thời gian",
-        details:
-          "Xem xét số lượng công việc hoàn thành, tốc độ làm việc, và khả năng quản lý thời gian hiệu quả.",
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: "Kỹ năng mềm",
-    criteria: [
-      {
-        id: 3,
-        name: "Tinh thần làm việc",
-        description: "Đánh giá thái độ, tinh thần trách nhiệm trong công việc",
-        details:
-          "Xem xét mức độ nhiệt tình, sự chủ động, và tinh thần trách nhiệm trong công việc. Đánh giá khả năng làm việc độc lập và sự sẵn sàng hỗ trợ đồng nghiệp.",
-      },
-      {
-        id: 4,
-        name: "Kỹ năng giao tiếp",
-        description: "Đánh giá khả năng giao tiếp và làm việc nhóm",
-        details:
-          "Xem xét khả năng truyền đạt ý tưởng, lắng nghe và phản hồi. Đánh giá kỹ năng làm việc nhóm, khả năng hợp tác và giải quyết xung đột.",
-      },
-    ],
-  },
-  {
-    id: 3,
-    name: "Hiệu suất công việc",
-    criteria: [
-      {
-        id: 1,
-        name: "Chất lượng công việc",
-        description:
-          "Đánh giá mức độ hoàn thành và chất lượng công việc được giao",
-        details:
-          "Xem xét các yếu tố như độ chính xác, tính đầy đủ, và hiệu quả của công việc được giao. Đánh giá khả năng đáp ứng deadline và chất lượng đầu ra của công việc.",
-      },
-      {
-        id: 2,
-        name: "Năng suất",
-        description:
-          "Đánh giá khối lượng công việc hoàn thành trong một khoảng thời gian",
-        details:
-          "Xem xét số lượng công việc hoàn thành, tốc độ làm việc, và khả năng quản lý thời gian hiệu quả.",
-      },
-    ],
-  },
-  {
-    id: 4,
-    name: "Kỹ năng mềm",
-    criteria: [
-      {
-        id: 3,
-        name: "Tinh thần làm việc",
-        description: "Đánh giá thái độ, tinh thần trách nhiệm trong công việc",
-        details:
-          "Xem xét mức độ nhiệt tình, sự chủ động, và tinh thần trách nhiệm trong công việc. Đánh giá khả năng làm việc độc lập và sự sẵn sàng hỗ trợ đồng nghiệp.",
-      },
-      {
-        id: 4,
-        name: "Kỹ năng giao tiếp",
-        description: "Đánh giá khả năng giao tiếp và làm việc nhóm",
-        details:
-          "Xem xét khả năng truyền đạt ý tưởng, lắng nghe và phản hồi. Đánh giá kỹ năng làm việc nhóm, khả năng hợp tác và giải quyết xung đột.",
-      },
-    ],
-  },
-];
-
 const DetailedPhasePage = () => {
   const { phaseId } = useParams();
   const navigate = useNavigate();
@@ -226,22 +96,28 @@ const DetailedPhasePage = () => {
     setSearchTerm(event.target.value);
   };
 
+  const criterionMatchesSearch = (criterion, searchLower) => {
+    return (
+      criterion.name.toLowerCase().includes(searchLower) ||
+      criterion.codename.toLowerCase().includes(searchLower) ||
+      criterion.description.toLowerCase().includes(searchLower)
+    );
+  };
+
+  const categoryMatchesSearch = (category, searchLower) => {
+    return category.name.toLowerCase().includes(searchLower);
+  };
   const filteredCategories = categories
     .map((category) => ({
       ...category,
-      criteria: category.criteria.filter(
-        (criterion) =>
-          criterion.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          criterion.description
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          criterion.codename.toLowerCase().includes(searchTerm.toLowerCase())
+      criteria: category.criteria.filter((criterion) =>
+        criterionMatchesSearch(criterion, searchTerm.toLowerCase())
       ),
     }))
     .filter(
       (category) =>
-        category.criteria.length > 0 ||
-        category.name.toLowerCase().includes(searchTerm.toLowerCase())
+        categoryMatchesSearch(category, searchTerm.toLowerCase()) ||
+        category.criteria.length > 0
     );
 
   if (!phase) {
@@ -313,12 +189,12 @@ const DetailedPhasePage = () => {
               >
                 Thông tin chung
               </Typography>
-              <Typography variant={isMobile ? "body2" : "body1"}>
+              {/* <Typography variant={isMobile ? "body2" : "body1"}>
                 Trạng thái: {phase?.status}
               </Typography>
               <Typography variant={isMobile ? "body2" : "body1"}>
                 Thời gian: {phase?.startDate} - {phase?.endDate}
-              </Typography>
+              </Typography> */}
               <Box sx={{ mt: 2, display: "flex", alignItems: "center" }}>
                 <Typography
                   variant={isMobile ? "body2" : "body1"}
@@ -335,7 +211,7 @@ const DetailedPhasePage = () => {
           <TextField
             fullWidth
             variant="outlined"
-            placeholder="Tìm kiếm hạng mục hoặc tiêu chí..."
+            placeholder="Tìm kiếm theo tên hạng mục, mã tiêu chí hoặc tên tiêu chí..."
             value={searchTerm}
             onChange={handleSearch}
             InputProps={{
@@ -390,12 +266,12 @@ const DetailedPhasePage = () => {
                           >
                             {criterion.name}
                           </Typography>
-                          <Typography
+                          {/* <Typography
                             variant={isMobile ? "body2" : "body1"}
                             color="text.secondary"
                           >
                             {criterion.description}
-                          </Typography>
+                          </Typography> */}
                           <Typography
                             variant="caption"
                             color="text.secondary"

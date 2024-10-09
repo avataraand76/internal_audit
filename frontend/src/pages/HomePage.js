@@ -62,7 +62,7 @@ function HomePage() {
                 py: { xs: 1.5, sm: 2 },
               }}
             >
-              Trang chấm điểm
+              Tạo đợt chấm điểm
             </Button>
 
             <Button

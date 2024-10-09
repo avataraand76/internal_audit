@@ -68,9 +68,11 @@ CREATE TABLE tb_phase_details
 	id_criteria BIGINT,
 	id_phase BIGINT,
 	id_user BIGINT,
-	point_phase_details INT, -- (default sẽ là 100% lượng điểm nếu chấm chưa đạt sẽ trừ bớt đi)
+	point_phase_details INT DEFAULT(100), -- (default sẽ là 100% lượng điểm nếu chấm chưa đạt sẽ trừ bớt đi)
 	status_phase_details VARCHAR(10),
 	date_updated DATETIME,
+	link_img_before VARCHAR(100),
+	link_img_after VARCHAR(100),
 	PRIMARY KEY (id_phase_details),
 	FOREIGN KEY (id_department) REFERENCES tb_department(id_department),
 	FOREIGN KEY (id_criteria) REFERENCES tb_criteria(id_criteria),

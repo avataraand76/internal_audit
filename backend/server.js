@@ -129,8 +129,8 @@ app.get("/categories", (req, res) => {
                 {
                   id: row.id_criteria,
                   codename: row.codename,
-                  shortDescription: row.short_desc, // Sử dụng short_desc làm tên hiển thị
-                  longDescription: row.long_desc, // Sử dụng long_desc làm mô tả
+                  name: row.short_desc, // Sử dụng short_desc làm tên hiển thị
+                  description: row.long_desc, // Sử dụng long_desc làm mô tả
                   failingPointType: row.failing_point_type,
                 },
               ]
@@ -140,8 +140,8 @@ app.get("/categories", (req, res) => {
         category.criteria.push({
           id: row.id_criteria,
           codename: row.codename,
-          shortDescription: row.short_desc,
-          longDescription: row.long_desc,
+          name: row.short_desc,
+          description: row.long_desc,
           failingPointType: row.failing_point_type,
         });
       }
