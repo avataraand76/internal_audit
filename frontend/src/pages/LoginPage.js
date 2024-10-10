@@ -44,7 +44,7 @@ const LoginPage = () => {
       if (data.success) {
         // Login successful
         localStorage.setItem("user", JSON.stringify(data.user)); // Save user data to localStorage
-        navigate("/home", { state: { user: data.user } });
+        navigate("/", { state: { user: data.user } });
       } else {
         // Login failed
         setOpenError(true);
@@ -157,7 +157,7 @@ const LoginPage = () => {
         onClose={handleCloseError}
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
-        fullScreen={isMobile}
+        // fullScreen={isMobile}
       >
         <DialogTitle id="alert-dialog-title">{"Lỗi đăng nhập"}</DialogTitle>
         <DialogContent>

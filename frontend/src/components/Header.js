@@ -21,6 +21,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import HomeIcon from "@mui/icons-material/Home";
 import GradeIcon from "@mui/icons-material/Grade";
 import AssessmentIcon from "@mui/icons-material/Assessment";
+import LogoutIcon from "@mui/icons-material/Logout";
 import logo from "../assets/logo_cty.png";
 
 const CustomAppBar = styled(AppBar)(({ theme }) => ({
@@ -51,16 +52,26 @@ const CompanyName = styled("div")(({ theme }) => ({
 }));
 
 const NavButton = styled(Button)(({ theme, isactive }) => ({
-  color: isactive === "true" ? theme.palette.primary?.main : "black",
+  color:
+    isactive === "true" ? theme.palette.primary?.main || "#1976d2" : "black",
   marginLeft: theme.spacing(2),
   "&:hover": {
-    backgroundColor: theme.palette.primary?.light || "#e0e0e0",
-    color: theme.palette.primary?.main,
+    backgroundColor: theme.palette.primary?.light || "#e3f2fd",
+    color: theme.palette.primary?.main || "#1976d2",
   },
 }));
 
+const LogoutButton = styled(Button)({
+  color: "#d32f2f",
+  marginLeft: "16px",
+  "&:hover": {
+    backgroundColor: "#ffebee",
+    color: "#d32f2f",
+  },
+});
+
 const navItems = [
-  { text: "Trang chủ", path: "/home", icon: <HomeIcon /> },
+  { text: "Trang chủ", path: "/", icon: <HomeIcon /> },
   { text: "Chấm điểm", path: "/create-phase", icon: <GradeIcon /> },
   { text: "Báo cáo", path: "/report", icon: <AssessmentIcon /> },
 ];
@@ -71,6 +82,7 @@ const Header = () => {
   const location = useLocation();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isLoginPage = location.pathname === "/login";
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -83,23 +95,54 @@ const Header = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    navigate("/login");
+    if (isMobile) {
+      setMobileOpen(false);
+    }
+  };
+
+  // Filter out navigation items based on current route
+  const filteredNavItems = navItems.filter((item) => {
+    if (location.pathname === "/" && item.path === "/") return false;
+    if (location.pathname === "/create-phase" && item.path === "/create-phase")
+      return false;
+    if (location.pathname === "/report" && item.path === "/report")
+      return false;
+    return true;
+  });
+
   const drawer = (
     <Box onClick={handleDrawerToggle} sx={{ textAlign: "center" }}>
       <List>
-        {navItems.map((item) => (
-          <ListItem
-            key={item.text}
-            button
-            onClick={() => handleNavigation(item.path)}
-            selected={location.pathname === item.path}
-          >
-            <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.text} />
+        {!isLoginPage &&
+          filteredNavItems.map((item) => (
+            <ListItem
+              key={item.text}
+              button
+              onClick={() => handleNavigation(item.path)}
+              selected={location.pathname === item.path}
+            >
+              <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.text} />
+            </ListItem>
+          ))}
+        {!isLoginPage && (
+          <ListItem button onClick={handleLogout}>
+            <ListItemIcon sx={{ minWidth: 40, color: "#d32f2f" }}>
+              <LogoutIcon />
+            </ListItemIcon>
+            <ListItemText primary="Đăng xuất" sx={{ color: "#d32f2f" }} />
           </ListItem>
-        ))}
+        )}
       </List>
     </Box>
   );
+
+  if (isLoginPage) {
+    return null; // Don't render the header on the login page
+  }
 
   return (
     <CustomAppBar position="static">
@@ -136,7 +179,7 @@ const Header = () => {
             </IconButton>
           ) : (
             <Box>
-              {navItems.map((item) => (
+              {filteredNavItems.map((item) => (
                 <NavButton
                   key={item.text}
                   startIcon={item.icon}
@@ -146,6 +189,9 @@ const Header = () => {
                   {item.text}
                 </NavButton>
               ))}
+              <LogoutButton startIcon={<LogoutIcon />} onClick={handleLogout}>
+                Đăng xuất
+              </LogoutButton>
             </Box>
           )}
         </Toolbar>
@@ -157,7 +203,7 @@ const Header = () => {
         open={mobileOpen}
         onClose={handleDrawerToggle}
         ModalProps={{
-          keepMounted: true, // Better open performance on mobile.
+          keepMounted: true,
         }}
         sx={{
           display: { xs: "block", md: "none" },

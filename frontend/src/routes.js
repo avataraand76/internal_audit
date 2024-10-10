@@ -11,8 +11,8 @@ const AppRoutes = () => {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<LoginPage />} />
-        <Route path="/home" element={<HomePage />} />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/create-phase" element={<CreatePhasePage />} />
         <Route
           path="/scoring-phases/:phaseId"

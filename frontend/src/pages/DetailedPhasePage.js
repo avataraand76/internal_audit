@@ -70,7 +70,7 @@ const DetailedPhasePage = () => {
         if (!storedUser) {
           console.error("User information not found");
           alert("Không thể tải thông tin người dùng. Vui lòng đăng nhập lại.");
-          navigate("/");
+          navigate("/login");
           return;
         }
         setUser(storedUser);
@@ -325,12 +325,12 @@ const DetailedPhasePage = () => {
                           >
                             {criterion.name}
                           </Typography>
-                          {/* <Typography
+                          <Typography
                             variant={isMobile ? "body2" : "body1"}
                             color="text.secondary"
                           >
                             {criterion.description}
-                          </Typography> */}
+                          </Typography>
                           <Typography
                             variant="caption"
                             color="text.secondary"

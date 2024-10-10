@@ -1,6 +1,6 @@
 // src/pages/HomePage.js
 import React, { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Button,
   Box,
@@ -10,11 +10,10 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import Header from "../components/Header";
-import API_URL from "../data/api";
+// import API_URL from "../data/api";
 
 function HomePage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [username, setUsername] = useState("");
@@ -25,7 +24,7 @@ function HomePage() {
       setUsername(storedUser.name_user);
     } else {
       // Redirect to login if no user data is present
-      navigate("/");
+      navigate("/login");
     }
   }, [navigate]);
 
