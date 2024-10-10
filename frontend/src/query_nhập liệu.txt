@@ -1,34 +1,53 @@
 -- nhập liệu hạng mục category
 INSERT INTO tb_category (name_category) VALUES 
-('An toàn lao động'),
-('CT-PAT'),
-('LEAN'),
-('Phòng ngừa kim loại'),
-('QMS'),
-('Trật tự nội vụ');
+('An toàn lao động'), -- id 1
+('CT-PAT'), -- id 2
+('LEAN'), -- id 3
+('Phòng ngừa kim loại'), -- id 4
+('QMS'), -- id 5
+('Trật tự nội vụ'); -- id 6
 
 -- nhập liệu tài khoản user
 INSERT INTO tb_user (name_user, password_user) VALUES
-('admin','password'),
-('admin1','password'),
-('admin2','password');
+('admin','password'), -- id 1
+('admin1','password'), -- id 2
+('admin2','password'), -- id 3
+('admin3','password'), -- id 4
+('atld','atld'), -- id 5
+('ctpat','ctpat'), -- id 6
+('lean','lean'), -- id 7
+('pnkl','pnkl'), -- id 8
+('qms','qms'), -- id 9
+('ttnv','ttnv'); -- id 10
 
 -- nhập liệu phân quyền hạng mục chấm điểm cho user kiểm soát
 INSERT INTO tb_user_supervisor (id_category, id_user) VALUES
 ('1','1'),
 ('2','1'),
-('3','2'),
-('4','2'),
-('5','3'),
-('6','3');
+('3','1'),
+('4','1'),
+('5','1'),
+('6','1'),
+('1','2'),
+('2','2'),
+('3','3'),
+('4','3'),
+('5','4'),
+('6','4'),
+('1','5'),
+('2','6'),
+('3','7'),
+('4','8'),
+('5','9'),
+('6','10');
 
 -- nhập liệu xưởng workshop
 INSERT INTO tb_workshop (name_workshop) VALUES
-('Xưởng 1'),
-('Xưởng 2'),
-('Xưởng 3'),
-('Xưởng 4'),
-('Phòng ban');
+('Xưởng 1'), -- id 1
+('Xưởng 2'), -- id 2
+('Xưởng 3'), -- id 3
+('Xưởng 4'), -- id 4
+('Phòng ban'); -- id 5
 
 -- nhập liệu bộ phận department
 INSERT INTO tb_department (id_workshop, name_department) VALUES
@@ -186,7 +205,7 @@ INSERT INTO tb_criteria (id_category, codename, name_criteria, description, fail
 ('5','QMS108','Cập nhật biểu mẫu, quy trình đúng quy định.','Sổ kiểm tra an toàn máy bơm chữa cháy cập nhật đúng và đủ theo quy định.','1'),
 ('5','QMS109','Cập nhật biểu mẫu, quy trình đúng quy định.','Các quy trình phải có chữ ký phê duyệt.','0'),
 ('5','QMS110','Cập nhật biểu mẫu, quy trình đúng quy định.','Biểu mẫu cập nhật đầy đủ, chính xác. Thực hiện đúng và đầy đủ.','0'),
-('5','QMS111','Chứng nhận nhân viên phụ trách','Đào tạo và cấp bằng chứng nhận cho nhân viên: (Cắt, kiểm BTP/in/thêu, ép, QA,QC, đổi kim,... )','0'),
+('5','QMS111','Chứng nhận nhân viên phụ trách','Đào tạo và cấp bằng chứng nhận cho nhân viên: (Cắt, kiểm BTP/in/thêu, ép, QA,QC, đổi kim,...)','0'),
 ('5','QMS112','Hiệu chuẩn và đo lường.','Các dụng cụ đo lường và mộc được hiệu chuẩn theo quy định.','0'),
 ('5','QMS113','Sơ đồ tổ chức','Sơ đồ tổ chức có chức năng từng bộ phận và đúng thực tế.','0'),
 ('5','QMS114','Tài liệu QMS','Tài liệu QMS được cập nhật đầy đủ.','0'),
@@ -265,7 +284,7 @@ INSERT INTO tb_criteria (id_category, codename, name_criteria, description, fail
 ('6','TTNV185','Quản lý 5S','Vệ sinh sạch sẽ xe (ca pin, thành xe trong và ngoài, kính chắn...) bao gồm xe tải và xe 16 chỗ.','0'),
 ('6','TTNV186','Quản lý 5S','Bãi giữ xe phải sắp xếp gọn gàng không chắn lối đi chung, che chắn phương tiện PCCC.','0'),
 ('6','TTNV187','Quản lý vật dụng cá nhân','Không để điện thoại đi động trên mặt bàn máy may, mặt bàn ủi, bàn cắt, kiểm hóa, bàn làm việc...','0'),
-('6','TTNV188','Thực hiện đúng nội quy Công ty. CBNV mặc đồng phục, mang thẻ đeo đầy đủ đúng quy định.','Áo sơ mi trắng/xanh, quần tối màu. Các bộ phận phải mặc đồng phục và đeo thẻ nhân viên được cấp theo qui định (Đồng phục theo Lean, đồng phục bảo vệ,.... )','0'),
+('6','TTNV188','Thực hiện đúng nội quy Công ty. CBNV mặc đồng phục, mang thẻ đeo đầy đủ đúng quy định.','Áo sơ mi trắng/xanh, quần tối màu. Các bộ phận phải mặc đồng phục và đeo thẻ nhân viên được cấp theo qui định (Đồng phục theo Lean, đồng phục bảo vệ,...)','0'),
 ('6','TTNV189','Nội quy công ty','Hút thuốc - bỏ tàn thuốc đúng nơi quy định (2 khu vực tập trung hút thuốc)','0'),
 ('6','TTNV190','Nội quy công ty','Bỏ rác đúng nơi quy định (2 khu vực tập trung hút thuốc)','0'),
 ('6','TTNV191','Phân loại rác thải','Rác thải phải được phân loại, để đúng vị trí qui định và có trực quan','0');

@@ -151,7 +151,7 @@ const Header = () => {
           <Box
             display="flex"
             alignItems="center"
-            onClick={() => handleNavigation("/home")}
+            onClick={() => handleNavigation("/")}
             sx={{ cursor: "pointer" }}
           >
             <img

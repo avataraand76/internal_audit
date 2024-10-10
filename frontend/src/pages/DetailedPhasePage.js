@@ -29,6 +29,7 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SearchIcon from "@mui/icons-material/Search";
 import StarIcon from "@mui/icons-material/Star";
+import ClearIcon from "@mui/icons-material/Clear";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import Header from "../components/Header";
@@ -125,6 +126,10 @@ const DetailedPhasePage = () => {
 
   const handleSearch = (event) => {
     setSearchTerm(event.target.value);
+  };
+
+  const handleClearSearch = () => {
+    setSearchTerm("");
   };
 
   const criterionMatchesSearch = (criterion, searchLower) => {
@@ -271,6 +276,18 @@ const DetailedPhasePage = () => {
                   <SearchIcon />
                 </InputAdornment>
               ),
+              endAdornment: searchTerm && (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="clear search"
+                    onClick={handleClearSearch}
+                    edge="end"
+                    size="small"
+                  >
+                    <ClearIcon />
+                  </IconButton>
+                </InputAdornment>
+              ),
             }}
           />
         </Container>
@@ -383,13 +400,13 @@ const DetailedPhasePage = () => {
               >
                 Không đạt
               </Button>
-              <Button
+              {/* <Button
                 onClick={() => handleScore("đạt")}
                 variant="contained"
                 color="success"
               >
                 Đạt
-              </Button>
+              </Button> */}
             </DialogActions>
           </>
         )}
