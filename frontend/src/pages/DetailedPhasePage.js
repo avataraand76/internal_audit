@@ -214,10 +214,41 @@ const DetailedPhasePage = () => {
               {workshop.departments.map((dept) => (
                 <ListItemButton
                   key={dept.id}
-                  sx={{ pl: 4 }}
+                  sx={{
+                    pl: 4,
+                    backgroundColor:
+                      selectedDepartment && selectedDepartment.id === dept.id
+                        ? theme.palette.action.selected
+                        : "inherit",
+                  }}
                   onClick={() => handleDepartmentSelect(dept)}
                 >
-                  <DepartmentText>{dept.name}</DepartmentText>
+                  <DepartmentText
+                    sx={{
+                      fontWeight:
+                        selectedDepartment && selectedDepartment.id === dept.id
+                          ? "bold"
+                          : "normal",
+                      textDecoration:
+                        selectedDepartment && selectedDepartment.id === dept.id
+                          ? "underline"
+                          : "none",
+                      // color:
+                      //   selectedDepartment && selectedDepartment.id === dept.id
+                      //     ? "#75876e"
+                      //     : "inherit",
+                      // border:
+                      //   selectedDepartment && selectedDepartment.id === dept.id
+                      //     ? "2px solid #75876e"
+                      //     : "2px solid transparent",
+                      // borderRadius: "4px",
+                      // padding: "2px",
+                      // display: "inline-block",
+                      // margin: "2px",
+                    }}
+                  >
+                    {dept.name}
+                  </DepartmentText>
                 </ListItemButton>
               ))}
             </List>
