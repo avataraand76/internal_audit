@@ -1,5 +1,5 @@
 // frontend/src/pages/DetailedPhasePage.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Typography,
@@ -36,14 +36,6 @@ import Header from "../components/Header";
 import axios from "axios";
 import API_URL from "../data/api";
 
-// Mock data for departments
-const departments = [
-  { id: 1, name: "Phòng Kỹ thuật" },
-  { id: 2, name: "Phòng Kinh doanh" },
-  { id: 3, name: "Phòng Nhân sự" },
-  { id: 4, name: "Phòng Marketing" },
-];
-
 const DetailedPhasePage = () => {
   const { phaseId } = useParams();
   const navigate = useNavigate();
@@ -55,19 +47,15 @@ const DetailedPhasePage = () => {
   const [selectedCriterion, setSelectedCriterion] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [score, setScore] = useState(100);
-  const [department, setDepartment] = useState(departments[0].name);
+  const [workshops, setWorkshops] = useState([]);
+  const [selectedDepartment, setSelectedDepartment] = useState(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [anchorEl, setAnchorEl] = useState(null);
-  const getStarColor = (score) => {
-    if (score >= 80) return "#4CAF50";
-    return "#FF0000";
-  };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Lấy thông tin người dùng từ localStorage
         const storedUser = JSON.parse(localStorage.getItem("user"));
         if (!storedUser) {
           console.error("User information not found");
@@ -81,11 +69,9 @@ const DetailedPhasePage = () => {
         const phaseResponse = await axios.get(`${API_URL}/phases/${phaseId}`);
         setPhase(phaseResponse.data);
 
-        // Fetch categories and criteria for the specific user
-        const categoriesResponse = await axios.get(
-          `${API_URL}/categories/${storedUser.id_user}`
-        );
-        setCategories(categoriesResponse.data);
+        // Fetch workshops and departments
+        const workshopsResponse = await axios.get(`${API_URL}/workshops`);
+        setWorkshops(workshopsResponse.data);
       } catch (error) {
         console.error("Error fetching data:", error);
         alert("Đã xảy ra lỗi khi tải dữ liệu. Vui lòng thử lại sau.");
@@ -94,6 +80,29 @@ const DetailedPhasePage = () => {
 
     fetchData();
   }, [phaseId, navigate]);
+
+  // Add a new useEffect to fetch categories when department changes
+  useEffect(() => {
+    const fetchCategoriesForDepartment = async () => {
+      if (selectedDepartment && user) {
+        try {
+          const response = await axios.get(
+            `${API_URL}/categories/${user.id_user}/${selectedDepartment.id}`
+          );
+          setCategories(response.data);
+          // Reset expanded categories when changing department
+          setExpandedCategories(new Set());
+        } catch (error) {
+          console.error("Error fetching categories for department:", error);
+          alert(
+            "Không thể tải danh sách hạng mục cho bộ phận này. Vui lòng thử lại sau."
+          );
+        }
+      }
+    };
+
+    fetchCategoriesForDepartment();
+  }, [selectedDepartment, user]);
 
   const handleCriterionClick = (criterion) => {
     setSelectedCriterion(criterion);
@@ -114,10 +123,77 @@ const DetailedPhasePage = () => {
   };
 
   const handleDepartmentSelect = (dept) => {
-    setDepartment(dept.name);
+    setSelectedDepartment(dept);
+    setSearchTerm(""); // Clear the search term
+    setExpandedCategories(new Set()); // Reset expanded categories
     handleDepartmentClose();
-    // Here you would typically fetch new data for the selected department
   };
+
+  // Render workshop/department menu
+  const renderDepartmentMenu = () => (
+    <Box>
+      <Button
+        variant="outlined"
+        onClick={handleDepartmentClick}
+        endIcon={<ArrowDropDownIcon />}
+        sx={{
+          borderRadius: "20px",
+          textTransform: "none",
+          minWidth: 200,
+          justifyContent: "space-between",
+        }}
+      >
+        {selectedDepartment ? selectedDepartment.name : "Chọn bộ phận"}
+      </Button>
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleDepartmentClose}
+      >
+        {workshops.map((workshop) => (
+          <div key={workshop.id}>
+            <MenuItem
+              disabled
+              sx={{ fontWeight: "bold", backgroundColor: "#f5f5f5" }}
+            >
+              {workshop.name}
+            </MenuItem>
+            {workshop.departments.map((dept) => (
+              <MenuItem
+                key={dept.id}
+                onClick={() => handleDepartmentSelect(dept)}
+                sx={{ pl: 4 }}
+              >
+                {dept.name}
+              </MenuItem>
+            ))}
+          </div>
+        ))}
+      </Menu>
+    </Box>
+  );
+
+  // Update the Card content in your JSX to use selectedDepartment
+  const renderInfoCard = () => (
+    <Card sx={{ mb: 2, border: "1px solid black" }}>
+      <CardContent>
+        <Typography
+          variant={isMobile ? "h6" : "h5"}
+          gutterBottom
+          fontWeight="bold"
+        >
+          Thông tin chung
+        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center" }}>
+          <Typography variant={isMobile ? "body2" : "body1"} sx={{ mr: 1 }}>
+            Điểm: {score} -{" "}
+            {selectedDepartment ? selectedDepartment.name : "Chưa chọn bộ phận"}
+          </Typography>
+          <StarIcon sx={{ color: score >= 80 ? "#4CAF50" : "#FF0000" }} />
+        </Box>
+      </CardContent>
+    </Card>
+  );
 
   const handleScore = (score) => {
     // Here you would typically send the score to your backend
@@ -129,22 +205,22 @@ const DetailedPhasePage = () => {
     const newSearchTerm = event.target.value;
     setSearchTerm(newSearchTerm);
 
-    // If search term is empty, collapse all categories
-    if (!newSearchTerm.trim()) {
+    // Automatically expand categories with matching criteria
+    if (newSearchTerm.trim()) {
+      const categoriesToExpand = new Set();
+      categories.forEach((category) => {
+        if (
+          category.criteria.some((criterion) =>
+            criterionMatchesSearch(criterion, newSearchTerm)
+          )
+        ) {
+          categoriesToExpand.add(category.id);
+        }
+      });
+      setExpandedCategories(categoriesToExpand);
+    } else {
       setExpandedCategories(new Set());
-      return;
     }
-
-    // Find categories that have matching criteria and expand them
-    const categoriesToExpand = categories
-      .filter((category) =>
-        category.criteria.some((criterion) =>
-          criterionMatchesSearch(criterion, newSearchTerm)
-        )
-      )
-      .map((category) => category.id);
-
-    setExpandedCategories(new Set(categoriesToExpand));
   };
 
   const handleClearSearch = () => {
@@ -153,10 +229,9 @@ const DetailedPhasePage = () => {
   };
 
   const criterionMatchesSearch = (criterion, searchTerm) => {
-    // Convert both the search term and criterion values to lowercase for case-insensitive comparison
     const searchLower = searchTerm.toLowerCase().trim();
 
-    // If the search term is a number, match it exactly within the codename
+    // If searching for a number, match exact number in codename
     if (/^\d+$/.test(searchTerm)) {
       const codeNumber = criterion.codename.match(/\d+/)?.[0] || "";
       return codeNumber === searchTerm;
@@ -165,18 +240,25 @@ const DetailedPhasePage = () => {
     // Otherwise, check if the search term is in the name or exact codename
     return (
       criterion.name.toLowerCase().includes(searchLower) ||
-      criterion.codename.toLowerCase() === searchLower
+      criterion.codename.toLowerCase().includes(searchLower)
     );
   };
 
-  const filteredCategories = categories
-    .map((category) => ({
-      ...category,
-      criteria: category.criteria.filter((criterion) =>
-        criterionMatchesSearch(criterion, searchTerm)
-      ),
-    }))
-    .filter((category) => category.criteria.length > 0);
+  // Update the filteredCategories memo to include search filtering
+  const filteredCategories = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return categories;
+    }
+
+    return categories
+      .map((category) => ({
+        ...category,
+        criteria: category.criteria.filter((criterion) =>
+          criterionMatchesSearch(criterion, searchTerm)
+        ),
+      }))
+      .filter((category) => category.criteria.length > 0);
+  }, [categories, searchTerm]);
 
   if (!phase) {
     return <Typography>Loading...</Typography>;
@@ -225,64 +307,11 @@ const DetailedPhasePage = () => {
               fontWeight="bold"
               sx={{ flexGrow: 1 }}
             >
-              {phase?.name}
+              {phase?.name_phase}
             </Typography>
-            <Button
-              variant="outlined"
-              onClick={handleDepartmentClick}
-              endIcon={<ArrowDropDownIcon />}
-              sx={{
-                borderRadius: "20px",
-                textTransform: "none",
-                minWidth: 200,
-                justifyContent: "space-between",
-              }}
-            >
-              {department}
-            </Button>
-            <Menu
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleDepartmentClose}
-            >
-              {departments.map((dept) => (
-                <MenuItem
-                  key={dept.id}
-                  onClick={() => handleDepartmentSelect(dept)}
-                >
-                  {dept.name}
-                </MenuItem>
-              ))}
-            </Menu>
+            {renderDepartmentMenu()}
           </Box>
-
-          {/* Thẻ Thông tin chung */}
-          <Card sx={{ mb: 2, border: "1px solid black" }}>
-            <CardContent>
-              <Typography
-                variant={isMobile ? "h6" : "h5"}
-                gutterBottom
-                fontWeight="bold"
-              >
-                Thông tin chung
-              </Typography>
-              {/* <Typography variant={isMobile ? "body2" : "body1"}>
-                Trạng thái: {phase?.status}
-              </Typography>
-              <Typography variant={isMobile ? "body2" : "body1"}>
-                Thời gian: {phase?.startDate} - {phase?.endDate}
-              </Typography> */}
-              <Box sx={{ display: "flex", alignItems: "center" }}>
-                <Typography
-                  variant={isMobile ? "body2" : "body1"}
-                  sx={{ mr: 1 }}
-                >
-                  Điểm: {score} - {department}
-                </Typography>
-                <StarIcon sx={{ color: getStarColor(score) }} />
-              </Box>
-            </CardContent>
-          </Card>
+          {renderInfoCard()}
 
           {/* Thanh tìm kiếm */}
           <TextField

@@ -16,6 +16,19 @@ const db = mysql.createConnection({
 });
 
 // Get all users in LoginPage.js
+app.get("/login", (req, res) => {
+  const query = "SELECT * FROM tb_user";
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching phases:", err);
+      res.status(500).json({ error: "Error fetching phases" });
+      return;
+    }
+    res.json(results);
+  });
+});
+
+// Check user password is valid in LoginPage.js
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
 
@@ -213,6 +226,124 @@ app.get("/categories/:userId", (req, res) => {
     }, []);
 
     res.json(categories);
+  });
+});
+
+// Get categories with their criteria, filtered by user ID and department ID
+app.get("/categories/:userId/:departmentId", (req, res) => {
+  const userId = req.params.userId;
+  const departmentId = req.params.departmentId;
+  const query = `
+    SELECT DISTINCT
+      c.id_category,
+      c.name_category,
+      cr.id_criteria,
+      cr.codename,
+      cr.name_criteria,
+      cr.description,
+      cr.failing_point_type
+    FROM tb_category c
+    INNER JOIN tb_criteria cr ON c.id_category = cr.id_category
+    INNER JOIN tb_user_supervisor us ON c.id_category = us.id_category
+    INNER JOIN tb_department_criteria dc ON cr.id_criteria = dc.id_criteria
+    WHERE us.id_user = ? AND dc.id_department = ?
+    ORDER BY c.id_category, cr.id_criteria
+  `;
+
+  db.query(query, [userId, departmentId], (err, results) => {
+    if (err) {
+      console.error("Error fetching categories and criteria:", err);
+      res.status(500).json({ error: "Error fetching categories and criteria" });
+      return;
+    }
+
+    // Convert flat results to hierarchical structure
+    const categories = results.reduce((acc, row) => {
+      const category = acc.find((c) => c.id === row.id_category);
+
+      if (!category) {
+        acc.push({
+          id: row.id_category,
+          name: row.name_category,
+          criteria: row.id_criteria
+            ? [
+                {
+                  id: row.id_criteria,
+                  codename: row.codename,
+                  name: row.name_criteria,
+                  description: row.description,
+                  failingPointType: row.failing_point_type,
+                },
+              ]
+            : [],
+        });
+      } else if (row.id_criteria) {
+        category.criteria.push({
+          id: row.id_criteria,
+          codename: row.codename,
+          name: row.name_criteria,
+          description: row.description,
+          failingPointType: row.failing_point_type,
+        });
+      }
+
+      return acc;
+    }, []);
+
+    res.json(categories);
+  });
+});
+
+// Get workshops with their departments
+app.get("/workshops", (req, res) => {
+  const query = `
+    SELECT 
+      w.id_workshop,
+      w.name_workshop,
+      d.id_department,
+      d.name_department
+    FROM tb_workshop w
+    LEFT JOIN tb_department d ON w.id_workshop = d.id_workshop
+    ORDER BY w.id_workshop, d.id_department
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching workshops and departments:", err);
+      res
+        .status(500)
+        .json({ error: "Error fetching workshops and departments" });
+      return;
+    }
+
+    // Convert flat results to hierarchical structure
+    const workshops = results.reduce((acc, row) => {
+      const workshop = acc.find((w) => w.id === row.id_workshop);
+
+      if (!workshop) {
+        acc.push({
+          id: row.id_workshop,
+          name: row.name_workshop,
+          departments: row.id_department
+            ? [
+                {
+                  id: row.id_department,
+                  name: row.name_department,
+                },
+              ]
+            : [],
+        });
+      } else if (row.id_department) {
+        workshop.departments.push({
+          id: row.id_department,
+          name: row.name_department,
+        });
+      }
+
+      return acc;
+    }, []);
+
+    res.json(workshops);
   });
 });
 
