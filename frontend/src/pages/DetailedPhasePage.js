@@ -50,6 +50,7 @@ const DetailedPhasePage = () => {
   const [user, setUser] = useState(null);
   const [phase, setPhase] = useState(null);
   const [categories, setCategories] = useState([]);
+  const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedCriterion, setSelectedCriterion] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -125,36 +126,57 @@ const DetailedPhasePage = () => {
   };
 
   const handleSearch = (event) => {
-    setSearchTerm(event.target.value);
+    const newSearchTerm = event.target.value;
+    setSearchTerm(newSearchTerm);
+
+    // If search term is empty, collapse all categories
+    if (!newSearchTerm.trim()) {
+      setExpandedCategories(new Set());
+      return;
+    }
+
+    // Find categories that have matching criteria and expand them
+    const categoriesToExpand = categories
+      .filter((category) =>
+        category.criteria.some((criterion) =>
+          criterionMatchesSearch(criterion, newSearchTerm)
+        )
+      )
+      .map((category) => category.id);
+
+    setExpandedCategories(new Set(categoriesToExpand));
   };
 
   const handleClearSearch = () => {
     setSearchTerm("");
+    setExpandedCategories(new Set());
   };
 
-  const criterionMatchesSearch = (criterion, searchLower) => {
+  const criterionMatchesSearch = (criterion, searchTerm) => {
+    // Convert both the search term and criterion values to lowercase for case-insensitive comparison
+    const searchLower = searchTerm.toLowerCase().trim();
+
+    // If the search term is a number, match it exactly within the codename
+    if (/^\d+$/.test(searchTerm)) {
+      const codeNumber = criterion.codename.match(/\d+/)?.[0] || "";
+      return codeNumber === searchTerm;
+    }
+
+    // Otherwise, check if the search term is in the name or exact codename
     return (
       criterion.name.toLowerCase().includes(searchLower) ||
-      criterion.codename.toLowerCase().includes(searchLower) ||
-      criterion.description.toLowerCase().includes(searchLower)
+      criterion.codename.toLowerCase() === searchLower
     );
   };
 
-  const categoryMatchesSearch = (category, searchLower) => {
-    return category.name.toLowerCase().includes(searchLower);
-  };
   const filteredCategories = categories
     .map((category) => ({
       ...category,
       criteria: category.criteria.filter((criterion) =>
-        criterionMatchesSearch(criterion, searchTerm.toLowerCase())
+        criterionMatchesSearch(criterion, searchTerm)
       ),
     }))
-    .filter(
-      (category) =>
-        categoryMatchesSearch(category, searchTerm.toLowerCase()) ||
-        category.criteria.length > 0
-    );
+    .filter((category) => category.criteria.length > 0);
 
   if (!phase) {
     return <Typography>Loading...</Typography>;
@@ -305,7 +327,22 @@ const DetailedPhasePage = () => {
 
           {/* Danh sách Accordion cho các hạng mục */}
           {filteredCategories.map((category) => (
-            <Accordion key={category.id} sx={{ border: "1px solid black" }}>
+            <Accordion
+              key={category.id}
+              sx={{ border: "1px solid black" }}
+              expanded={expandedCategories.has(category.id)}
+              onChange={() => {
+                setExpandedCategories((prev) => {
+                  const newExpanded = new Set(prev);
+                  if (newExpanded.has(category.id)) {
+                    newExpanded.delete(category.id);
+                  } else {
+                    newExpanded.add(category.id);
+                  }
+                  return newExpanded;
+                });
+              }}
+            >
               <AccordionSummary
                 expandIcon={<ExpandMoreIcon />}
                 aria-controls={`category-${category.id}-content`}
