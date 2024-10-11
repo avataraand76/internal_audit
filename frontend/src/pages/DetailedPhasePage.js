@@ -1,5 +1,5 @@
 // frontend/src/pages/DetailedPhasePage.js
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Typography,
@@ -25,16 +25,40 @@ import {
   MenuItem,
   IconButton,
   Paper,
+  ListItemText,
+  Collapse,
+  List,
+  ListItemButton,
+  SwipeableDrawer,
+  styled,
 } from "@mui/material";
+import ExpandLess from "@mui/icons-material/ExpandLess";
+import ExpandMore from "@mui/icons-material/ExpandMore";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SearchIcon from "@mui/icons-material/Search";
 import StarIcon from "@mui/icons-material/Star";
 import ClearIcon from "@mui/icons-material/Clear";
+import CameraAltIcon from "@mui/icons-material/CameraAlt";
+import FileUploadIcon from "@mui/icons-material/FileUpload";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import Header from "../components/Header";
 import axios from "axios";
 import API_URL from "../data/api";
+
+const WorkshopText = styled(Typography)(({ theme }) => ({
+  fontWeight: "bold",
+  fontSize: "1.2rem",
+  color: theme.palette.primary.main,
+  textTransform: "uppercase",
+}));
+
+const DepartmentText = styled(Typography)(({ theme }) => ({
+  fontSize: "1rem",
+  // fontStyle: "italic",
+  // color: theme.palette.text.secondary,
+  color: "#000000",
+}));
 
 const DetailedPhasePage = () => {
   const { phaseId } = useParams();
@@ -52,6 +76,29 @@ const DetailedPhasePage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [anchorEl, setAnchorEl] = useState(null);
+  const [openWorkshops, setOpenWorkshops] = useState({});
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // chụp/upload ảnh
+  const handleCaptureImage = () => {
+    // This function would typically open the device camera
+    // For this example, we'll just log a message
+    console.log("Opening camera to capture image");
+  };
+
+  const handleUploadImage = () => {
+    fileInputRef.current.click();
+  };
+
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Here you would typically handle the file upload
+      // For this example, we'll just log the file name
+      console.log(`Uploading file: ${file.name}`);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -115,11 +162,32 @@ const DetailedPhasePage = () => {
   };
 
   const handleDepartmentClick = (event) => {
-    setAnchorEl(event.currentTarget);
+    if (isMobile) {
+      setDrawerOpen(true);
+    } else {
+      setAnchorEl(event.currentTarget);
+    }
   };
 
   const handleDepartmentClose = () => {
-    setAnchorEl(null);
+    if (isMobile) {
+      setDrawerOpen(false);
+    } else {
+      setAnchorEl(null);
+    }
+  };
+
+  const handleWorkshopClick = (workshopId) => {
+    setOpenWorkshops((prev) => {
+      const newOpenWorkshops = { ...prev };
+      Object.keys(newOpenWorkshops).forEach((key) => {
+        if (key !== workshopId.toString()) {
+          newOpenWorkshops[key] = false;
+        }
+      });
+      newOpenWorkshops[workshopId] = !prev[workshopId];
+      return newOpenWorkshops;
+    });
   };
 
   const handleDepartmentSelect = (dept) => {
@@ -128,6 +196,36 @@ const DetailedPhasePage = () => {
     setExpandedCategories(new Set()); // Reset expanded categories
     handleDepartmentClose();
   };
+
+  const renderDepartmentMenuContent = () => (
+    <List component="nav" dense>
+      {workshops.map((workshop) => (
+        <React.Fragment key={workshop.id}>
+          <ListItemButton onClick={() => handleWorkshopClick(workshop.id)}>
+            <WorkshopText>{workshop.name}</WorkshopText>
+            {openWorkshops[workshop.id] ? <ExpandLess /> : <ExpandMore />}
+          </ListItemButton>
+          <Collapse
+            in={openWorkshops[workshop.id]}
+            timeout="auto"
+            unmountOnExit
+          >
+            <List component="div" disablePadding>
+              {workshop.departments.map((dept) => (
+                <ListItemButton
+                  key={dept.id}
+                  sx={{ pl: 4 }}
+                  onClick={() => handleDepartmentSelect(dept)}
+                >
+                  <DepartmentText>{dept.name}</DepartmentText>
+                </ListItemButton>
+              ))}
+            </List>
+          </Collapse>
+        </React.Fragment>
+      ))}
+    </List>
+  );
 
   // Render workshop/department menu
   const renderDepartmentMenu = () => (
@@ -145,31 +243,44 @@ const DetailedPhasePage = () => {
       >
         {selectedDepartment ? selectedDepartment.name : "Chọn bộ phận"}
       </Button>
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleDepartmentClose}
-      >
-        {workshops.map((workshop) => (
-          <div key={workshop.id}>
-            <MenuItem
-              disabled
-              sx={{ fontWeight: "bold", backgroundColor: "#f5f5f5" }}
-            >
-              {workshop.name}
-            </MenuItem>
-            {workshop.departments.map((dept) => (
-              <MenuItem
-                key={dept.id}
-                onClick={() => handleDepartmentSelect(dept)}
-                sx={{ pl: 4 }}
-              >
-                {dept.name}
-              </MenuItem>
-            ))}
-          </div>
-        ))}
-      </Menu>
+      {isMobile ? (
+        <SwipeableDrawer
+          anchor="right"
+          open={drawerOpen}
+          onClose={handleDepartmentClose}
+          onOpen={() => setDrawerOpen(true)}
+          disableSwipeToOpen={false}
+          ModalProps={{
+            keepMounted: true,
+          }}
+          PaperProps={{
+            sx: {
+              width: "75%",
+              maxWidth: 300,
+              height: "100%",
+              top: "0 !important",
+              borderBottomLeftRadius: "30px",
+              borderTopLeftRadius: "30px",
+              boxShadow: 3,
+            },
+          }}
+        >
+          <Box sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Chọn bộ phận
+            </Typography>
+            {renderDepartmentMenuContent()}
+          </Box>
+        </SwipeableDrawer>
+      ) : (
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={handleDepartmentClose}
+        >
+          {renderDepartmentMenuContent()}
+        </Menu>
+      )}
     </Box>
   );
 
@@ -302,14 +413,26 @@ const DetailedPhasePage = () => {
               <ArrowBackIcon />
             </IconButton>
             <Typography
-              variant={isMobile ? "h5" : "h4"}
+              variant={isMobile ? "h6" : "h4"}
               component="h1"
               fontWeight="bold"
-              sx={{ flexGrow: 1 }}
+              sx={{
+                flexGrow: 1,
+                textAlign: { xs: "left", sm: "left" },
+                order: { xs: 2, sm: 1 },
+                width: { xs: "100%", sm: "auto" },
+              }}
             >
               {phase?.name_phase}
             </Typography>
-            {renderDepartmentMenu()}
+            <Box
+              sx={{
+                order: { xs: 3, sm: 2 },
+                width: { xs: "100%", sm: "auto" },
+              }}
+            >
+              {renderDepartmentMenu()}
+            </Box>
           </Box>
           {renderInfoCard()}
 
@@ -454,6 +577,36 @@ const DetailedPhasePage = () => {
               <Typography variant={isMobile ? "body2" : "body1"} paragraph>
                 {selectedCriterion.description}
               </Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: 2,
+                  my: 2,
+                }}
+              >
+                <Button
+                  variant="contained"
+                  startIcon={<CameraAltIcon />}
+                  onClick={handleCaptureImage}
+                >
+                  Chụp ảnh
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<FileUploadIcon />}
+                  onClick={handleUploadImage}
+                >
+                  Tải ảnh lên
+                </Button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  style={{ display: "none" }}
+                  accept="image/*"
+                />
+              </Box>
             </DialogContent>
             <DialogActions>
               <Button onClick={handleCloseDialog} color="inherit">

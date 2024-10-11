@@ -47,13 +47,15 @@ INSERT INTO tb_workshop (name_workshop) VALUES
 ('XƯỞNG 2'), -- id 2
 ('XƯỞNG 3'), -- id 3
 ('XƯỞNG 4'), -- id 4
-('PHÒNG NHÂN SỰ'), -- id 5
-('PHÒNG HÀNH CHÍNH QUẢN TRỊ'), -- id 6
-('PHÒNG KẾ TOÁN'), -- id 7
-('PHÒNG KẾ HOẠCH SẢN XUẤT'), -- id 8
-('PHÒNG KỸ THUẬT'), -- id 9
-('PHÒNG QA'), -- id 10
-('PHÒNG CN-LEAN'); -- id 11
+('XƯỞNG CẮT'), -- id 5
+('PHÒNG NHÂN SỰ'), -- id 6
+('PHÒNG HÀNH CHÍNH QUẢN TRỊ'), -- id 7
+('PHÒNG KẾ TOÁN'), -- id 8
+('PHÒNG KẾ HOẠCH SẢN XUẤT'), -- id 9
+('PHÒNG KỸ THUẬT'), -- id 10
+('PHÒNG QA'), -- id 11
+('PHÒNG CN-LEAN'), -- id 12
+('CƠ ĐIỆN'); -- id 13
 
 -- nhập liệu bộ phận department
 INSERT INTO tb_department (id_workshop, name_department) VALUES
@@ -114,31 +116,37 @@ INSERT INTO tb_department (id_workshop, name_department) VALUES
 ('4','CHUYỀN HOÀN THÀNH 2 - XƯỞNG 4'), -- id 48
 ('4','NGOÀI CHUYỀN MAY X4'), -- id 49
 
--- PHÒNG NHÂN SỰ ID 5
-('5','PHÒNG NHÂN SỰ'), -- id 50
+-- XƯỞNG CẮT ID 5
+('5','XƯỞNG CẮT'), -- id 50
 
--- PHÒNG HÀNH CHÍNH QUẢN TRỊ ID 6
-('6','PHÒNG HÀNH CHÍNH QUẢN TRỊ'), -- id 51
-('6','BẢO VỆ'), -- id 52
-('6','NHÀ ĂN'), -- id 53
+-- PHÒNG NHÂN SỰ ID 6
+('6','PHÒNG NHÂN SỰ'), -- id 51
 
--- PHÒNG KẾ TOÁN ID 7
-('7','PHÒNG KẾ TOÁN'), -- id 54
+-- PHÒNG HÀNH CHÍNH QUẢN TRỊ ID 7
+('7','PHÒNG HÀNH CHÍNH QUẢN TRỊ'), -- id 52
+('7','BẢO VỆ'), -- id 53
+('7','NHÀ ĂN'), -- id 54
 
--- PHÒNG KẾ HOẠCH SẢN XUẤT ID 8
-('8','PHÒNG KẾ HOẠCH SẢN XUẤT'), -- id 55
-('8','KHO THÀNH PHẨM'), -- id 56
-('8','KHO NGUYÊN PHỤ LIỆU'), -- id 57
+-- PHÒNG KẾ TOÁN ID 8
+('8','PHÒNG KẾ TOÁN'), -- id 55
 
--- PHÒNG KỸ THUẬT ID 9
-('9','PHÒNG KỸ THUẬT'), -- id 58
-('9','MAY MẪU'), -- id 59
+-- PHÒNG KẾ HOẠCH SẢN XUẤT ID 9
+('9','PHÒNG KẾ HOẠCH SẢN XUẤT'), -- id 56
+('9','KHO THÀNH PHẨM'), -- id 57
+('9','KHO NGUYÊN PHỤ LIỆU'), -- id 58
 
--- PHÒNG QA ID 10
-('10','PHÒNG QA'), -- id 60
+-- PHÒNG KỸ THUẬT ID 10
+('10','PHÒNG KỸ THUẬT'), -- id 59
+('10','MAY MẪU'), -- id 60
 
--- PHÒNG CN-LEAN ID 11
-('11','PHÒNG CN-LEAN'); -- id 61
+-- PHÒNG QA ID 11
+('11','PHÒNG QA'), -- id 61
+
+-- PHÒNG CN-LEAN ID 12
+('12','PHÒNG CN-LEAN'), -- id 62
+
+-- CƠ ĐIỆN ID 13
+('13','BỘ PHẬN CƠ ĐIỆN'); -- id 63
 
 -- nhập liệu tiêu chí criteria
 INSERT INTO tb_criteria (id_category, codename, name_criteria, description, failing_point_type) VALUES
