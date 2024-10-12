@@ -22,10 +22,8 @@ import {
   TextField,
   InputAdornment,
   Menu,
-  MenuItem,
   IconButton,
   Paper,
-  ListItemText,
   Collapse,
   List,
   ListItemButton,
@@ -51,10 +49,14 @@ const WorkshopText = styled(Typography)(({ theme }) => ({
   fontSize: "1.2rem",
   color: theme.palette.primary.main,
   textTransform: "uppercase",
+  borderRadius: "4px",
+  padding: "2px",
+  display: "inline-block",
+  margin: "2px",
 }));
 
 const DepartmentText = styled(Typography)(({ theme }) => ({
-  fontSize: "1rem",
+  fontSize: "0.9rem",
   // fontStyle: "italic",
   // color: theme.palette.text.secondary,
   color: "#000000",
@@ -229,22 +231,22 @@ const DetailedPhasePage = () => {
                         selectedDepartment && selectedDepartment.id === dept.id
                           ? "bold"
                           : "normal",
-                      textDecoration:
-                        selectedDepartment && selectedDepartment.id === dept.id
-                          ? "underline"
-                          : "none",
+                      // textDecoration:
+                      //   selectedDepartment && selectedDepartment.id === dept.id
+                      //     ? "underline"
+                      //     : "none",
                       // color:
                       //   selectedDepartment && selectedDepartment.id === dept.id
-                      //     ? "#75876e"
+                      //     ? "#000000"
                       //     : "inherit",
                       // border:
                       //   selectedDepartment && selectedDepartment.id === dept.id
-                      //     ? "2px solid #75876e"
+                      //     ? "2px solid #1976d2"
                       //     : "2px solid transparent",
-                      // borderRadius: "4px",
-                      // padding: "2px",
-                      // display: "inline-block",
-                      // margin: "2px",
+                      borderRadius: "4px",
+                      padding: "2px",
+                      display: "inline-block",
+                      margin: "2px",
                     }}
                   >
                     {dept.name}
