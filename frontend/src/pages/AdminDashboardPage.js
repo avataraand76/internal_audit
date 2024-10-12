@@ -1,1 +1,1 @@
-// src/pages/AdminDashboardPages.js
+// frontend/src/pages/AdminDashboardPages.js

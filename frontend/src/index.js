@@ -1,4 +1,4 @@
-// src/index.js
+// frontend/src/index.js
 import React from "react";
 import ReactDOM from "react-dom";
 import App from "./App";

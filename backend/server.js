@@ -360,6 +360,36 @@ app.get("/workshops", (req, res) => {
   });
 });
 
+// Get count of criteria for each department
+app.get("/departments/criteria-count", (req, res) => {
+  const query = `
+    SELECT 
+      d.id_department,
+      d.name_department,
+      COUNT(DISTINCT dc.id_criteria) AS criteria_count
+    FROM 
+      tb_department d
+    LEFT JOIN 
+      tb_department_criteria dc ON d.id_department = dc.id_department
+    GROUP BY 
+      d.id_department
+    ORDER BY 
+      d.id_department
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching criteria count by department:", err);
+      res
+        .status(500)
+        .json({ error: "Error fetching criteria count by department" });
+      return;
+    }
+
+    res.json(results);
+  });
+});
+
 const PORT = 8081;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

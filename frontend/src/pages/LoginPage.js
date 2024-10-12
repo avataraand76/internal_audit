@@ -1,4 +1,4 @@
-// src/pages/LoginPage.js
+// frontend/src/pages/LoginPage.js
 import React, { useState } from "react";
 import {
   Container,

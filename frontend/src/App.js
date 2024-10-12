@@ -1,4 +1,4 @@
-// src/App.js
+// frontend/src/App.js
 import React from "react";
 import AppRoutes from "./routes";
 
