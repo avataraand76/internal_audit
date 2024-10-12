@@ -3,6 +3,7 @@ const express = require("express");
 const mysql = require("mysql");
 const cors = require("cors");
 const moment = require("moment-timezone");
+const bcrypt = require("bcryptjs");
 
 const app = express();
 app.use(cors());
@@ -29,12 +30,11 @@ app.get("/login", (req, res) => {
 });
 
 // Check user password is valid in LoginPage.js
-app.post("/login", (req, res) => {
+app.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
-  const query =
-    "SELECT * FROM tb_user WHERE name_user = ? AND password_user = ?";
-  db.query(query, [username, password], (err, results) => {
+  const query = "SELECT * FROM tb_user WHERE name_user = ?";
+  db.query(query, [username], async (err, results) => {
     if (err) {
       console.error("Error during login:", err);
       res.status(500).json({ error: "Error during login" });
@@ -42,10 +42,23 @@ app.post("/login", (req, res) => {
     }
 
     if (results.length > 0) {
-      // User found, login successful
-      res.json({ success: true, user: results[0] });
+      const user = results[0];
+      const isMatch = await bcrypt.compare(password, user.password_user);
+
+      if (isMatch) {
+        // Password is correct, login successful
+        res.json({
+          success: true,
+          user: { ...user, password_user: undefined },
+        });
+      } else {
+        // Password is incorrect
+        res
+          .status(401)
+          .json({ success: false, message: "Invalid credentials" });
+      }
     } else {
-      // No user found with given credentials
+      // No user found with given username
       res.status(401).json({ success: false, message: "Invalid credentials" });
     }
   });
