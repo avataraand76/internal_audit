@@ -8,30 +8,30 @@ INSERT INTO tb_category (name_category) VALUES
 ('Trật tự nội vụ'); -- id 6
 
 -- nhập liệu tài khoản user
-INSERT INTO tb_user (name_user, password_user) VALUES
-('admin','password'), -- id 1
-('admin1','password'), -- id 2
-('admin2','password'), -- id 3
-('admin3','password'), -- id 4
-('atld','atld'), -- id 5
-('ctpat','ctpat'), -- id 6
-('lean','lean'), -- id 7
-('pnkl','pnkl'), -- id 8
-('qms','qms'), -- id 9
-('ttnv','ttnv'); -- id 10
+-- INSERT INTO tb_user (name_user, password_user) VALUES
+-- ('admin','password'), -- id 1
+-- ('admin1','password'), -- id 2
+-- ('admin2','password'), -- id 3
+-- ('admin3','password'), -- id 4
+-- ('atld','atld'), -- id 5
+-- ('ctpat','ctpat'), -- id 6
+-- ('lean','lean'), -- id 7
+-- ('pnkl','pnkl'), -- id 8
+-- ('qms','qms'), -- id 9
+-- ('ttnv','ttnv'); -- id 10
 
 -- nhập liệu tài khoản user mã hóa
--- INSERT INTO tb_user (name_user, password_user) VALUES
--- ('admin','$2a$10$lb7LtygD0R97/j0t4Kgmye1P7XQiN7kAjk3.lMlqsNEijO6RkAgkW'), -- id 1 -- password: password
--- ('admin1','$2a$10$lb7LtygD0R97/j0t4Kgmye1P7XQiN7kAjk3.lMlqsNEijO6RkAgkW'), -- id 2 -- password: password
--- ('admin2','$2a$10$lb7LtygD0R97/j0t4Kgmye1P7XQiN7kAjk3.lMlqsNEijO6RkAgkW'), -- id 3 -- password: password
--- ('admin3','$2a$10$lb7LtygD0R97/j0t4Kgmye1P7XQiN7kAjk3.lMlqsNEijO6RkAgkW'), -- id 4 -- password: password
--- ('atld','$2a$10$.Nh4O3qBireQ2iUrkRGInefwwMe/PjTiwzHlpWh92Zrwin0EOXnpG'), -- id 5 -- password: atld
--- ('ctpat','$2a$10$QnP4B.6ANsVa6QuY8TteOO8mB57J0VWivxlZFGNzyRk/fw26zlqte'), -- id 6 -- password: ctpat
--- ('lean','$2a$10$sUDcixiOU5ushEX8PTpBe.1IXkZBOHQshqWzZH0YDpuIM5anxQ1VW'), -- id 7 -- password: lean
--- ('pnkl','$2a$10$uvVqQvfO64RTwpkRD8zL5e.404oMhAiP5XySOm1I5Row2.Ytlmis2'), -- id 8 -- password: pnkl
--- ('qms','$2a$10$seDTRF80WEi4fcTD950U8.fPlXKdTmj0bw0v/0TVcQq.ceZWhaFFq'), -- id 9 -- password: qms
--- ('ttnv','$2a$10$6vBpBNvFx1Ll.cgAbjUCaOISGeUtc.eiJCfcwBQJMYdCiTSZWN7VC'); -- id 10 -- password: ttnv
+INSERT INTO tb_user (name_user, password_user) VALUES
+('admin','$2a$10$lb7LtygD0R97/j0t4Kgmye1P7XQiN7kAjk3.lMlqsNEijO6RkAgkW'), -- id 1 -- password: password
+('admin1','$2a$10$lb7LtygD0R97/j0t4Kgmye1P7XQiN7kAjk3.lMlqsNEijO6RkAgkW'), -- id 2 -- password: password
+('admin2','$2a$10$lb7LtygD0R97/j0t4Kgmye1P7XQiN7kAjk3.lMlqsNEijO6RkAgkW'), -- id 3 -- password: password
+('admin3','$2a$10$lb7LtygD0R97/j0t4Kgmye1P7XQiN7kAjk3.lMlqsNEijO6RkAgkW'), -- id 4 -- password: password
+('atld','$2a$10$.Nh4O3qBireQ2iUrkRGInefwwMe/PjTiwzHlpWh92Zrwin0EOXnpG'), -- id 5 -- password: atld
+('ctpat','$2a$10$QnP4B.6ANsVa6QuY8TteOO8mB57J0VWivxlZFGNzyRk/fw26zlqte'), -- id 6 -- password: ctpat
+('lean','$2a$10$sUDcixiOU5ushEX8PTpBe.1IXkZBOHQshqWzZH0YDpuIM5anxQ1VW'), -- id 7 -- password: lean
+('pnkl','$2a$10$uvVqQvfO64RTwpkRD8zL5e.404oMhAiP5XySOm1I5Row2.Ytlmis2'), -- id 8 -- password: pnkl
+('qms','$2a$10$seDTRF80WEi4fcTD950U8.fPlXKdTmj0bw0v/0TVcQq.ceZWhaFFq'), -- id 9 -- password: qms
+('ttnv','$2a$10$6vBpBNvFx1Ll.cgAbjUCaOISGeUtc.eiJCfcwBQJMYdCiTSZWN7VC'); -- id 10 -- password: ttnv
 
 -- nhập liệu phân quyền hạng mục chấm điểm cho user kiểm soát
 INSERT INTO tb_user_supervisor (id_category, id_user) VALUES

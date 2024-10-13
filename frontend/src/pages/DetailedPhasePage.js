@@ -81,6 +81,7 @@ const DetailedPhasePage = () => {
   const [openWorkshops, setOpenWorkshops] = useState({});
   const [drawerOpen, setDrawerOpen] = useState(false);
   const fileInputRef = useRef(null);
+  const [failedCriteria, setFailedCriteria] = useState(new Set());
 
   // chụp/upload ảnh
   const handleCaptureImage = () => {
@@ -129,6 +130,26 @@ const DetailedPhasePage = () => {
 
     fetchData();
   }, [phaseId, navigate]);
+
+  useEffect(() => {
+    const fetchFailedCriteria = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/failed-check/${phaseId}`);
+        const newFailedCriteria = new Map();
+        response.data.forEach((item) => {
+          if (!newFailedCriteria.has(item.id_department)) {
+            newFailedCriteria.set(item.id_department, new Set());
+          }
+          newFailedCriteria.get(item.id_department).add(item.id_criteria);
+        });
+        setFailedCriteria(newFailedCriteria);
+      } catch (error) {
+        console.error("Error fetching failed criteria:", error);
+      }
+    };
+
+    fetchFailedCriteria();
+  }, [phaseId]);
 
   // Add a new useEffect to fetch categories when department changes
   useEffect(() => {
@@ -339,12 +360,6 @@ const DetailedPhasePage = () => {
     </Card>
   );
 
-  const handleScore = (score) => {
-    // Here you would typically send the score to your backend
-    console.log(`Scored criterion ${selectedCriterion.id} as ${score}`);
-    handleCloseDialog();
-  };
-
   const handleSearch = (event) => {
     const newSearchTerm = event.target.value;
     setSearchTerm(newSearchTerm);
@@ -403,6 +418,45 @@ const DetailedPhasePage = () => {
       }))
       .filter((category) => category.criteria.length > 0);
   }, [categories, searchTerm]);
+
+  const handleScore = async (score) => {
+    if (!selectedCriterion || !selectedDepartment || !user) {
+      console.error("Missing required data for scoring");
+      return;
+    }
+
+    const scoreData = {
+      id_department: selectedDepartment.id,
+      id_criteria: selectedCriterion.id,
+      id_phase: phaseId,
+      id_user: user.id_user,
+      is_fail: score === "không đạt" ? 1 : 0,
+      date_updated: new Date().toISOString(),
+    };
+
+    try {
+      await axios.post(`${API_URL}/phase-details`, scoreData);
+
+      setFailedCriteria((prev) => {
+        const newMap = new Map(prev);
+        if (!newMap.has(selectedDepartment.id)) {
+          newMap.set(selectedDepartment.id, new Set());
+        }
+        const departmentSet = newMap.get(selectedDepartment.id);
+        if (score === "không đạt") {
+          departmentSet.add(selectedCriterion.id);
+        } else {
+          departmentSet.delete(selectedCriterion.id);
+        }
+        return newMap;
+      });
+
+      handleCloseDialog();
+    } catch (error) {
+      console.error("Error saving score:", error);
+      alert("Có lỗi xảy ra khi lưu điểm. Vui lòng thử lại.");
+    }
+  };
 
   if (!phase) {
     return <Typography>Loading...</Typography>;
@@ -551,7 +605,16 @@ const DetailedPhasePage = () => {
                           flexDirection: "column",
                           cursor: "pointer",
                           "&:hover": { boxShadow: 6 },
-                          border: "1px solid black",
+                          border: failedCriteria
+                            .get(selectedDepartment?.id)
+                            ?.has(criterion.id)
+                            ? "2px solid #FF0000"
+                            : "1px solid black",
+                          backgroundColor: failedCriteria
+                            .get(selectedDepartment?.id)
+                            ?.has(criterion.id)
+                            ? "#FFEBEE"
+                            : "inherit",
                         }}
                         onClick={() => handleCriterionClick(criterion)}
                       >
@@ -645,20 +708,23 @@ const DetailedPhasePage = () => {
               <Button onClick={handleCloseDialog} color="inherit">
                 Hủy
               </Button>
-              <Button
-                onClick={() => handleScore("không đạt")}
-                variant="contained"
-                color="error"
-              >
-                Không đạt
-              </Button>
-              {/* <Button
-                onClick={() => handleScore("đạt")}
-                variant="contained"
-                color="success"
-              >
-                Đạt
-              </Button> */}
+              {failedCriteria.has(selectedCriterion.id) ? (
+                <Button
+                  onClick={() => handleScore("đạt")}
+                  variant="contained"
+                  color="success"
+                >
+                  Đạt
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => handleScore("không đạt")}
+                  variant="contained"
+                  color="error"
+                >
+                  Không đạt
+                </Button>
+              )}
             </DialogActions>
           </>
         )}

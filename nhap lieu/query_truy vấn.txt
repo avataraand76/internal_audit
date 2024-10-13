@@ -1,0 +1,29 @@
+-- xóa dữ liệu giải phóng bộ nhớ
+-- SET FOREIGN_KEY_CHECKS=0;
+-- TRUNCATE TABLE tb_user_supervised;
+-- TRUNCATE TABLE tb_user_supervisor;
+-- TRUNCATE TABLE tb_total_point;
+-- TRUNCATE TABLE tb_phase_details;
+-- TRUNCATE TABLE tb_department_criteria;
+-- TRUNCATE TABLE tb_criteria;
+-- TRUNCATE TABLE tb_department;
+-- TRUNCATE TABLE tb_workshop;
+-- TRUNCATE TABLE tb_user;
+-- TRUNCATE TABLE tb_phase;
+-- TRUNCATE TABLE tb_category;
+-- SET FOREIGN_KEY_CHECKS=1;
+
+-- xóa bảng
+-- SET FOREIGN_KEY_CHECKS=0;
+-- DROP TABLE tb_user_supervised;
+-- DROP TABLE tb_user_supervisor;
+-- DROP TABLE tb_total_point;
+-- DROP TABLE tb_phase_details;
+-- DROP TABLE tb_department_criteria;
+-- DROP TABLE tb_criteria;
+-- DROP TABLE tb_department;
+-- DROP TABLE tb_workshop;
+-- DROP TABLE tb_user;
+-- DROP TABLE tb_phase;
+-- DROP TABLE tb_category;
+-- SET FOREIGN_KEY_CHECKS=1;

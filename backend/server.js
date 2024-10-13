@@ -361,7 +361,7 @@ app.get("/workshops", (req, res) => {
 });
 
 // Get count of criteria for each department
-app.get("/departments/criteria-count", (req, res) => {
+app.get("/departments/count", (req, res) => {
   const query = `
     SELECT 
       d.id_department,
@@ -386,6 +386,97 @@ app.get("/departments/criteria-count", (req, res) => {
       return;
     }
 
+    res.json(results);
+  });
+});
+
+// Save phase details
+app.post("/phase-details", (req, res) => {
+  const {
+    id_department,
+    id_criteria,
+    id_phase,
+    id_user,
+    is_fail,
+    date_updated,
+  } = req.body;
+
+  const query = `
+    INSERT INTO tb_phase_details (id_department, id_criteria, id_phase, id_user, is_fail, date_updated)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+    is_fail = VALUES(is_fail),
+    date_updated = VALUES(date_updated)
+  `;
+
+  db.query(
+    query,
+    [id_department, id_criteria, id_phase, id_user, is_fail, date_updated],
+    (err, result) => {
+      if (err) {
+        console.error("Error saving phase details:", err);
+        res.status(500).json({ error: "Error saving phase details" });
+        return;
+      }
+      res.status(201).json({ message: "Phase details saved successfully" });
+    }
+  );
+});
+
+// Get failed criteria for a specific phase
+app.get("/failed/:phaseId", (req, res) => {
+  const phaseId = req.params.phaseId;
+
+  const query = `
+    SELECT 
+      p.name_phase AS phase_name,  
+      d.name_department AS department_name,
+      c.codename AS criterion_codename,
+      c.name_criteria AS criterion_name,
+      u.name_user AS user_name,
+      CAST(pd.is_fail AS UNSIGNED) AS is_fail,
+      pd.date_updated
+    FROM 
+      tb_phase_details pd
+    JOIN 
+      tb_department d ON pd.id_department = d.id_department
+    JOIN 
+      tb_criteria c ON pd.id_criteria = c.id_criteria
+    JOIN 
+      tb_phase p ON pd.id_phase = p.id_phase
+    JOIN 
+      tb_user u ON pd.id_user = u.id_user
+    WHERE 
+      pd.id_phase = ?
+    ORDER BY 
+      pd.date_updated DESC
+  `;
+
+  db.query(query, [phaseId], (err, results) => {
+    if (err) {
+      console.error("Error fetching criteria details:", err);
+      res.status(500).json({ error: "Error fetching criteria details" });
+      return;
+    }
+    res.json(results);
+  });
+});
+
+// Get failed check for a specific phase
+app.get("/failed-check/:phaseId", (req, res) => {
+  const phaseId = req.params.phaseId;
+  const query = `
+    SELECT id_criteria, id_department
+    FROM tb_phase_details
+    WHERE id_phase = ? AND is_fail = 1
+  `;
+
+  db.query(query, [phaseId], (err, results) => {
+    if (err) {
+      console.error("Error fetching failed criteria:", err);
+      res.status(500).json({ error: "Error fetching failed criteria" });
+      return;
+    }
     res.json(results);
   });
 });

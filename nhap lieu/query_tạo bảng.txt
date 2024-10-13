@@ -62,7 +62,6 @@ CREATE TABLE tb_department_criteria
 
 CREATE TABLE tb_phase_details
 (
-	id_phase_details BIGINT NOT NULL AUTO_INCREMENT,
 	id_department BIGINT,
 	id_criteria BIGINT,
 	id_phase BIGINT,
@@ -70,9 +69,9 @@ CREATE TABLE tb_phase_details
 	is_fail BIT,
 	status_phase_details VARCHAR(10), -- (khắc phục hay chưa khắc phục)
 	date_updated DATETIME,
-	link_img_before VARCHAR(100),
-	link_img_after VARCHAR(100),
-	PRIMARY KEY (id_phase_details),
+	link_img_before VARCHAR(500),
+	link_img_after VARCHAR(500),
+	PRIMARY KEY (id_department, id_criteria, id_phase),
 	FOREIGN KEY (id_department) REFERENCES tb_department(id_department),
 	FOREIGN KEY (id_criteria) REFERENCES tb_criteria(id_criteria),
 	FOREIGN KEY (id_phase) REFERENCES tb_phase(id_phase),
