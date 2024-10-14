@@ -87,6 +87,8 @@ const DetailedPhasePage = () => {
   const [totalPoint, setTotalPoint] = useState(100);
   const [totalCriteria, setTotalCriteria] = useState(0);
   const [failedCriteria, setFailedCriteria] = useState({});
+  const [hasRedStar, setHasRedStar] = useState(false);
+  const [hasAbsoluteKnockout, setHasAbsoluteKnockout] = useState(false);
 
   // chụp/upload ảnh
   const handleCaptureImage = () => {
@@ -191,6 +193,8 @@ const DetailedPhasePage = () => {
             `${API_URL}/total-point/${phaseId}/${selectedDepartment.id}`
           );
           setTotalPoint(response.data.total_point);
+          setHasRedStar(response.data.has_red_star);
+          setHasAbsoluteKnockout(response.data.has_absolute_knockout);
         } catch (error) {
           console.error("Error fetching total point:", error);
         }
@@ -391,10 +395,19 @@ const DetailedPhasePage = () => {
         </Typography>
         <Box sx={{ display: "flex", alignItems: "center" }}>
           <Typography variant={isMobile ? "body2" : "body1"} sx={{ mr: 1 }}>
-            Điểm: {totalPoint}% -{" "}
+            Điểm: {hasAbsoluteKnockout ? 0 : totalPoint}% -{" "}
             {selectedDepartment ? selectedDepartment.name : "Chưa chọn bộ phận"}
           </Typography>
-          <StarIcon sx={{ color: totalPoint >= 80 ? "#4CAF50" : "#FF0000" }} />
+          <StarIcon
+            sx={{
+              color:
+                hasRedStar || hasAbsoluteKnockout
+                  ? "#FF0000"
+                  : totalPoint >= 80
+                  ? "#4CAF50"
+                  : "#FF0000",
+            }}
+          />
         </Box>
         <Typography variant="body2" color="text.secondary">
           Số tiêu chí không đạt:{" "}
@@ -403,6 +416,16 @@ const DetailedPhasePage = () => {
             : 0}{" "}
           / {totalCriteria}
         </Typography>
+        {hasRedStar && (
+          <Typography variant="body2" color="error">
+            Có tiêu chí sao đỏ không đạt
+          </Typography>
+        )}
+        {hasAbsoluteKnockout && (
+          <Typography variant="body2" color="error">
+            Có tiêu chí loại trừ tuyệt đối không đạt
+          </Typography>
+        )}
       </CardContent>
     </Card>
   );

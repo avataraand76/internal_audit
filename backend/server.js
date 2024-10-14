@@ -574,20 +574,55 @@ app.get("/failed-check/:phaseId", (req, res) => {
 // Add a new endpoint to get the total point for a department in a phase
 app.get("/total-point/:phaseId/:departmentId", (req, res) => {
   const { phaseId, departmentId } = req.params;
+
   const query = `
-    SELECT total_point
-    FROM tb_total_point
-    WHERE id_phase = ? AND id_department = ?
+    SELECT 
+      tp.total_point,
+      CASE WHEN EXISTS (
+        SELECT 1
+        FROM tb_phase_details pd
+        JOIN tb_criteria c ON pd.id_criteria = c.id_criteria
+        WHERE pd.id_phase = ? AND pd.id_department = ? AND pd.is_fail = 1 AND c.failing_point_type = 1
+      ) THEN TRUE ELSE FALSE END as has_red_star,
+      CASE WHEN EXISTS (
+        SELECT 1
+        FROM tb_phase_details pd
+        JOIN tb_criteria c ON pd.id_criteria = c.id_criteria
+        WHERE pd.id_phase = ? AND pd.id_department = ? AND pd.is_fail = 1 AND c.failing_point_type = -1
+      ) THEN TRUE ELSE FALSE END as has_absolute_knockout
+    FROM tb_total_point tp
+    WHERE tp.id_phase = ? AND tp.id_department = ?
   `;
 
-  db.query(query, [phaseId, departmentId], (err, results) => {
-    if (err) {
-      console.error("Error fetching total point:", err);
-      res.status(500).json({ error: "Error fetching total point" });
-      return;
+  db.query(
+    query,
+    [phaseId, departmentId, phaseId, departmentId, phaseId, departmentId],
+    (err, results) => {
+      if (err) {
+        console.error("Error fetching total point and knockout criteria:", err);
+        res
+          .status(500)
+          .json({ error: "Error fetching total point and knockout criteria" });
+        return;
+      }
+
+      if (results.length === 0) {
+        // Nếu không có kết quả, trả về giá trị mặc định
+        res.json({
+          total_point: 100,
+          has_red_star: false,
+          has_absolute_knockout: false,
+        });
+      } else {
+        const result = results[0];
+        // Nếu có tiêu chí loại trừ tuyệt đối, đặt tổng điểm về 0
+        if (result.has_absolute_knockout) {
+          result.total_point = 0;
+        }
+        res.json(result);
+      }
     }
-    res.json(results[0] || { total_point: 100 }); // Default to 100 if no record found
-  });
+  );
 });
 
 // Get knockout criteria
