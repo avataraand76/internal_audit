@@ -1,5 +1,5 @@
 // frontend/src/components/Header.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AppBar,
   Toolbar,
@@ -13,6 +13,8 @@ import {
   ListItemText,
   ListItemIcon,
   useMediaQuery,
+  Typography,
+  Avatar,
 } from "@mui/material";
 import { styled } from "@mui/system";
 import { useTheme } from "@mui/material/styles";
@@ -22,6 +24,7 @@ import HomeIcon from "@mui/icons-material/Home";
 import GradeIcon from "@mui/icons-material/Grade";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import LogoutIcon from "@mui/icons-material/Logout";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import logo from "../assets/logo_cty.png";
 
 const CustomAppBar = styled(AppBar)(({ theme }) => ({
@@ -61,6 +64,15 @@ const NavButton = styled(Button)(({ theme, isactive }) => ({
   },
 }));
 
+const UserInfo = styled(Box)(({ theme }) => ({
+  display: "flex",
+  alignItems: "center",
+  marginRight: theme.spacing(2),
+  [theme.breakpoints.down("sm")]: {
+    display: "none",
+  },
+}));
+
 const LogoutButton = styled(Button)({
   color: "#d32f2f",
   marginLeft: "16px",
@@ -83,6 +95,14 @@ const Header = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [mobileOpen, setMobileOpen] = useState(false);
   const isLoginPage = location.pathname === "/login";
+  const [userName, setUserName] = useState("");
+
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (user && user.name_user) {
+      setUserName(user.name_user);
+    }
+  }, []);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -116,6 +136,14 @@ const Header = () => {
   const drawer = (
     <Box onClick={handleDrawerToggle} sx={{ textAlign: "center" }}>
       <List>
+        {!isLoginPage && (
+          <ListItem>
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <AccountCircleIcon />
+            </ListItemIcon>
+            <ListItemText primary={userName} />
+          </ListItem>
+        )}
         {!isLoginPage &&
           filteredNavItems.map((item) => (
             <ListItem
@@ -178,7 +206,15 @@ const Header = () => {
               <MenuIcon />
             </IconButton>
           ) : (
-            <Box>
+            <Box display="flex" alignItems="center">
+              <UserInfo>
+                <Avatar sx={{ width: 32, height: 32, marginRight: 1 }}>
+                  <AccountCircleIcon />
+                </Avatar>
+                <Typography variant="body2" color="black">
+                  {userName}
+                </Typography>
+              </UserInfo>
               {filteredNavItems.map((item) => (
                 <NavButton
                   key={item.text}
