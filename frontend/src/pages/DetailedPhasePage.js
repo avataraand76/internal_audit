@@ -85,7 +85,7 @@ const DetailedPhasePage = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const fileInputRef = useRef(null);
   const [totalPoint, setTotalPoint] = useState(100);
-  const [totalCriteria, setTotalCriteria] = useState(0);
+  const [totalCriteria, setTotalCriteria] = useState({ total: 0 });
   const [failedCriteria, setFailedCriteria] = useState({});
   const [hasRedStar, setHasRedStar] = useState(false);
   const [hasAbsoluteKnockout, setHasAbsoluteKnockout] = useState(false);
@@ -207,7 +207,12 @@ const DetailedPhasePage = () => {
           const response = await axios.get(
             `${API_URL}/total-criteria/${selectedDepartment.id}`
           );
-          setTotalCriteria(response.data.total_criteria);
+          setTotalCriteria((prev) => ({
+            ...prev,
+            total: response.data.total_criteria,
+            [selectedDepartment.id]:
+              failedCriteria[selectedDepartment.id]?.size || 0,
+          }));
         } catch (error) {
           console.error("Error fetching total criteria count:", error);
         }
@@ -216,7 +221,7 @@ const DetailedPhasePage = () => {
 
     fetchTotalPoint();
     fetchTotalCriteria();
-  }, [selectedDepartment, phaseId]);
+  }, [selectedDepartment, phaseId, failedCriteria]);
 
   const handleCriterionClick = (criterion) => {
     setSelectedCriterion(criterion);
@@ -411,24 +416,34 @@ const DetailedPhasePage = () => {
         </Box>
         <Typography variant="body2" color="text.secondary">
           Số tiêu chí không đạt:{" "}
-          {selectedDepartment && failedCriteria[selectedDepartment.id]
-            ? failedCriteria[selectedDepartment.id].size
-            : 0}{" "}
-          / {totalCriteria}
+          {selectedDepartment ? totalCriteria[selectedDepartment.id] || 0 : 0} /{" "}
+          {totalCriteria.total || 0}
         </Typography>
-        {hasRedStar && (
-          <Typography variant="body2" color="error">
-            Có tiêu chí sao đỏ không đạt
-          </Typography>
-        )}
-        {hasAbsoluteKnockout && (
-          <Typography variant="body2" color="error">
-            Có tiêu chí loại trừ tuyệt đối không đạt
-          </Typography>
-        )}
       </CardContent>
     </Card>
   );
+
+  const updateInfoCard = async () => {
+    if (selectedDepartment && phaseId) {
+      try {
+        const totalPointResponse = await axios.get(
+          `${API_URL}/total-point/${phaseId}/${selectedDepartment.id}`
+        );
+        setTotalPoint(totalPointResponse.data.total_point);
+        setHasRedStar(totalPointResponse.data.has_red_star);
+        setHasAbsoluteKnockout(totalPointResponse.data.has_absolute_knockout);
+
+        // Cập nhật số tiêu chí không đạt
+        const failedCount = failedCriteria[selectedDepartment.id]?.size || 0;
+        setTotalCriteria((prevTotal) => ({
+          ...prevTotal,
+          [selectedDepartment.id]: failedCount,
+        }));
+      } catch (error) {
+        console.error("Error updating info card:", error);
+      }
+    }
+  };
 
   const handleSearch = (event) => {
     const newSearchTerm = event.target.value;
@@ -520,11 +535,8 @@ const DetailedPhasePage = () => {
         return newFailedCriteria;
       });
 
-      // Fetch updated total point
-      const totalPointResponse = await axios.get(
-        `${API_URL}/total-point/${phaseId}/${selectedDepartment.id}`
-      );
-      setTotalPoint(totalPointResponse.data.total_point);
+      // Gọi hàm cập nhật thông tin
+      await updateInfoCard();
 
       handleCloseDialog();
     } catch (error) {
