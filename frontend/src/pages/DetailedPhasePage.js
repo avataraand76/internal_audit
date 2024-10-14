@@ -72,7 +72,6 @@ const DetailedPhasePage = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedCriterion, setSelectedCriterion] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [score, setScore] = useState(100);
   const [workshops, setWorkshops] = useState([]);
   const [selectedDepartment, setSelectedDepartment] = useState(null);
   const theme = useTheme();
@@ -81,7 +80,9 @@ const DetailedPhasePage = () => {
   const [openWorkshops, setOpenWorkshops] = useState({});
   const [drawerOpen, setDrawerOpen] = useState(false);
   const fileInputRef = useRef(null);
-  const [failedCriteria, setFailedCriteria] = useState(new Set());
+  const [totalPoint, setTotalPoint] = useState(100);
+  const [totalCriteria, setTotalCriteria] = useState(0);
+  const [failedCriteria, setFailedCriteria] = useState({});
 
   // chụp/upload ảnh
   const handleCaptureImage = () => {
@@ -133,18 +134,22 @@ const DetailedPhasePage = () => {
 
   useEffect(() => {
     const fetchFailedCriteria = async () => {
-      try {
-        const response = await axios.get(`${API_URL}/failed-check/${phaseId}`);
-        const newFailedCriteria = new Map();
-        response.data.forEach((item) => {
-          if (!newFailedCriteria.has(item.id_department)) {
-            newFailedCriteria.set(item.id_department, new Set());
-          }
-          newFailedCriteria.get(item.id_department).add(item.id_criteria);
-        });
-        setFailedCriteria(newFailedCriteria);
-      } catch (error) {
-        console.error("Error fetching failed criteria:", error);
+      if (phaseId) {
+        try {
+          const response = await axios.get(
+            `${API_URL}/failed-check/${phaseId}`
+          );
+          const newFailedCriteria = {};
+          response.data.forEach((item) => {
+            if (!newFailedCriteria[item.id_department]) {
+              newFailedCriteria[item.id_department] = new Set();
+            }
+            newFailedCriteria[item.id_department].add(item.id_criteria);
+          });
+          setFailedCriteria(newFailedCriteria);
+        } catch (error) {
+          console.error("Error fetching failed criteria:", error);
+        }
       }
     };
 
@@ -173,6 +178,37 @@ const DetailedPhasePage = () => {
 
     fetchCategoriesForDepartment();
   }, [selectedDepartment, user]);
+
+  useEffect(() => {
+    const fetchTotalPoint = async () => {
+      if (selectedDepartment && phaseId) {
+        try {
+          const response = await axios.get(
+            `${API_URL}/total-point/${phaseId}/${selectedDepartment.id}`
+          );
+          setTotalPoint(response.data.total_point);
+        } catch (error) {
+          console.error("Error fetching total point:", error);
+        }
+      }
+    };
+
+    const fetchTotalCriteria = async () => {
+      if (selectedDepartment) {
+        try {
+          const response = await axios.get(
+            `${API_URL}/total-criteria/${selectedDepartment.id}`
+          );
+          setTotalCriteria(response.data.total_criteria);
+        } catch (error) {
+          console.error("Error fetching total criteria count:", error);
+        }
+      }
+    };
+
+    fetchTotalPoint();
+    fetchTotalCriteria();
+  }, [selectedDepartment, phaseId]);
 
   const handleCriterionClick = (criterion) => {
     setSelectedCriterion(criterion);
@@ -351,11 +387,18 @@ const DetailedPhasePage = () => {
         </Typography>
         <Box sx={{ display: "flex", alignItems: "center" }}>
           <Typography variant={isMobile ? "body2" : "body1"} sx={{ mr: 1 }}>
-            Điểm: {score} -{" "}
+            Điểm: {totalPoint}% -{" "}
             {selectedDepartment ? selectedDepartment.name : "Chưa chọn bộ phận"}
           </Typography>
-          <StarIcon sx={{ color: score >= 80 ? "#4CAF50" : "#FF0000" }} />
+          <StarIcon sx={{ color: totalPoint >= 80 ? "#4CAF50" : "#FF0000" }} />
         </Box>
+        <Typography variant="body2" color="text.secondary">
+          Số tiêu chí không đạt:{" "}
+          {selectedDepartment && failedCriteria[selectedDepartment.id]
+            ? failedCriteria[selectedDepartment.id].size
+            : 0}{" "}
+          / {totalCriteria}
+        </Typography>
       </CardContent>
     </Card>
   );
@@ -438,18 +481,23 @@ const DetailedPhasePage = () => {
       await axios.post(`${API_URL}/phase-details`, scoreData);
 
       setFailedCriteria((prev) => {
-        const newMap = new Map(prev);
-        if (!newMap.has(selectedDepartment.id)) {
-          newMap.set(selectedDepartment.id, new Set());
+        const newFailedCriteria = { ...prev };
+        if (!newFailedCriteria[selectedDepartment.id]) {
+          newFailedCriteria[selectedDepartment.id] = new Set();
         }
-        const departmentSet = newMap.get(selectedDepartment.id);
         if (score === "không đạt") {
-          departmentSet.add(selectedCriterion.id);
+          newFailedCriteria[selectedDepartment.id].add(selectedCriterion.id);
         } else {
-          departmentSet.delete(selectedCriterion.id);
+          newFailedCriteria[selectedDepartment.id].delete(selectedCriterion.id);
         }
-        return newMap;
+        return newFailedCriteria;
       });
+
+      // Fetch updated total point
+      const totalPointResponse = await axios.get(
+        `${API_URL}/total-point/${phaseId}/${selectedDepartment.id}`
+      );
+      setTotalPoint(totalPointResponse.data.total_point);
 
       handleCloseDialog();
     } catch (error) {
@@ -605,14 +653,14 @@ const DetailedPhasePage = () => {
                           flexDirection: "column",
                           cursor: "pointer",
                           "&:hover": { boxShadow: 6 },
-                          border: failedCriteria
-                            .get(selectedDepartment?.id)
-                            ?.has(criterion.id)
+                          border: failedCriteria[selectedDepartment?.id]?.has(
+                            criterion.id
+                          )
                             ? "2px solid #FF0000"
                             : "1px solid black",
-                          backgroundColor: failedCriteria
-                            .get(selectedDepartment?.id)
-                            ?.has(criterion.id)
+                          backgroundColor: failedCriteria[
+                            selectedDepartment?.id
+                          ]?.has(criterion.id)
                             ? "#FFEBEE"
                             : "inherit",
                         }}
@@ -708,7 +756,9 @@ const DetailedPhasePage = () => {
               <Button onClick={handleCloseDialog} color="inherit">
                 Hủy
               </Button>
-              {failedCriteria.has(selectedCriterion.id) ? (
+              {failedCriteria[selectedDepartment?.id]?.has(
+                selectedCriterion.id
+              ) ? (
                 <Button
                   onClick={() => handleScore("đạt")}
                   variant="contained"

@@ -72,6 +72,7 @@ CREATE TABLE tb_phase_details
 	link_img_before VARCHAR(500),
 	link_img_after VARCHAR(500),
 	PRIMARY KEY (id_department, id_criteria, id_phase),
+	UNIQUE (id_department, id_criteria, id_phase),
 	FOREIGN KEY (id_department) REFERENCES tb_department(id_department),
 	FOREIGN KEY (id_criteria) REFERENCES tb_criteria(id_criteria),
 	FOREIGN KEY (id_phase) REFERENCES tb_phase(id_phase),
@@ -81,10 +82,12 @@ CREATE TABLE tb_phase_details
 CREATE TABLE tb_total_point
 (
 	id_department BIGINT,
-	id_phase_details BIGINT,
+	id_phase BIGINT,
 	total_point INT DEFAULT 100 CHECK (total_point <= 100),
+	PRIMARY KEY (id_department, id_phase),
+	UNIQUE (id_department, id_phase),
 	FOREIGN KEY (id_department) REFERENCES tb_department(id_department),
-	FOREIGN KEY (id_phase_details) REFERENCES tb_phase_details(id_phase_details)
+	FOREIGN KEY (id_phase) REFERENCES tb_phase(id_phase)
 );
 
 CREATE TABLE tb_user_supervised

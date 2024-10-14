@@ -390,7 +390,26 @@ app.get("/departments/count", (req, res) => {
   });
 });
 
-// Save phase details
+// Get total criteria count for a department
+app.get("/total-criteria/:departmentId", (req, res) => {
+  const departmentId = req.params.departmentId;
+  const query = `
+    SELECT COUNT(*) as total_criteria
+    FROM tb_department_criteria
+    WHERE id_department = ?
+  `;
+
+  db.query(query, [departmentId], (err, results) => {
+    if (err) {
+      console.error("Error fetching criteria count:", err);
+      res.status(500).json({ error: "Error fetching criteria count" });
+      return;
+    }
+    res.json(results[0]);
+  });
+});
+
+// Save phase details into tb_phase_details and update total point into tb_total_point
 app.post("/phase-details", (req, res) => {
   const {
     id_department,
@@ -401,26 +420,97 @@ app.post("/phase-details", (req, res) => {
     date_updated,
   } = req.body;
 
-  const query = `
-    INSERT INTO tb_phase_details (id_department, id_criteria, id_phase, id_user, is_fail, date_updated)
-    VALUES (?, ?, ?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-    is_fail = VALUES(is_fail),
-    date_updated = VALUES(date_updated)
-  `;
+  const updatePhaseDetails = () => {
+    const query = `
+      INSERT INTO tb_phase_details (id_department, id_criteria, id_phase, id_user, is_fail, date_updated)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+      is_fail = VALUES(is_fail),
+      date_updated = VALUES(date_updated)
+    `;
 
-  db.query(
-    query,
-    [id_department, id_criteria, id_phase, id_user, is_fail, date_updated],
-    (err, result) => {
-      if (err) {
-        console.error("Error saving phase details:", err);
-        res.status(500).json({ error: "Error saving phase details" });
-        return;
+    db.query(
+      query,
+      [id_department, id_criteria, id_phase, id_user, is_fail, date_updated],
+      (err, result) => {
+        if (err) {
+          console.error("Error saving phase details:", err);
+          res.status(500).json({ error: "Error saving phase details" });
+          return;
+        }
+        updateTotalPoint();
       }
-      res.status(201).json({ message: "Phase details saved successfully" });
-    }
-  );
+    );
+  };
+
+  const updateTotalPoint = () => {
+    const getFailedCriteriaCount = `
+      SELECT COUNT(*) as failed_count
+      FROM tb_phase_details
+      WHERE id_department = ? AND id_phase = ? AND is_fail = 1
+    `;
+
+    db.query(
+      getFailedCriteriaCount,
+      [id_department, id_phase],
+      (err, failedResults) => {
+        if (err) {
+          console.error("Error getting failed criteria count:", err);
+          res.status(500).json({ error: "Error updating total point" });
+          return;
+        }
+
+        const failedCount = failedResults[0].failed_count;
+
+        const getTotalCriteriaCount = `
+        SELECT COUNT(*) as total_criteria
+        FROM tb_department_criteria
+        WHERE id_department = ?
+      `;
+
+        db.query(
+          getTotalCriteriaCount,
+          [id_department],
+          (err, totalResults) => {
+            if (err) {
+              console.error("Error getting total criteria count:", err);
+              res.status(500).json({ error: "Error updating total point" });
+              return;
+            }
+
+            const totalCriteria = totalResults[0].total_criteria;
+            const totalPoint = Math.round(
+              ((totalCriteria - failedCount) / totalCriteria) * 100
+            );
+
+            const updateTotalPointQuery = `
+          INSERT INTO tb_total_point (id_department, id_phase, total_point)
+          VALUES (?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+          total_point = VALUES(total_point)
+        `;
+
+            db.query(
+              updateTotalPointQuery,
+              [id_department, id_phase, totalPoint],
+              (err, result) => {
+                if (err) {
+                  console.error("Error updating total point:", err);
+                  res.status(500).json({ error: "Error updating total point" });
+                  return;
+                }
+                res.status(201).json({
+                  message: "Phase details and total point updated successfully",
+                });
+              }
+            );
+          }
+        );
+      }
+    );
+  };
+
+  updatePhaseDetails();
 });
 
 // Get failed criteria for a specific phase
@@ -478,6 +568,25 @@ app.get("/failed-check/:phaseId", (req, res) => {
       return;
     }
     res.json(results);
+  });
+});
+
+// Add a new endpoint to get the total point for a department in a phase
+app.get("/total-point/:phaseId/:departmentId", (req, res) => {
+  const { phaseId, departmentId } = req.params;
+  const query = `
+    SELECT total_point
+    FROM tb_total_point
+    WHERE id_phase = ? AND id_department = ?
+  `;
+
+  db.query(query, [phaseId, departmentId], (err, results) => {
+    if (err) {
+      console.error("Error fetching total point:", err);
+      res.status(500).json({ error: "Error fetching total point" });
+      return;
+    }
+    res.json(results[0] || { total_point: 100 }); // Default to 100 if no record found
   });
 });
 
