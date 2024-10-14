@@ -60,6 +60,10 @@ const DepartmentText = styled(Typography)(({ theme }) => ({
   // fontStyle: "italic",
   // color: theme.palette.text.secondary,
   color: "#000000",
+  borderRadius: "4px",
+  padding: "2px",
+  display: "inline-block",
+  margin: "2px",
 }));
 
 const DetailedPhasePage = () => {

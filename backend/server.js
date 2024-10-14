@@ -590,6 +590,44 @@ app.get("/total-point/:phaseId/:departmentId", (req, res) => {
   });
 });
 
+// Get knockout criteria
+app.get("/knockout-criteria", (req, res) => {
+  const query = `
+    SELECT 
+      c.id_criteria,
+      c.codename,
+      c.name_criteria,
+      c.description,
+      cat.name_category,
+      c.failing_point_type
+    FROM 
+      tb_criteria c
+    JOIN
+      tb_category cat ON c.id_category = cat.id_category
+    WHERE 
+      c.failing_point_type IN (-1, 1, 0)
+    ORDER BY 
+      c.failing_point_type, cat.id_category, c.id_criteria
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching knockout criteria:", err);
+      res.status(500).json({ error: "Error fetching knockout criteria" });
+      return;
+    }
+
+    // Categorize results
+    const categorizedResults = {
+      redStar: results.filter((r) => r.failing_point_type === 1),
+      absoluteKnockout: results.filter((r) => r.failing_point_type === -1),
+      // safe: results.filter((r) => r.failing_point_type === 0),
+    };
+
+    res.json(categorizedResults);
+  });
+});
+
 const PORT = 8081;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
