@@ -89,6 +89,8 @@ const DetailedPhasePage = () => {
   const [failedCriteria, setFailedCriteria] = useState({});
   const [hasRedStar, setHasRedStar] = useState(false);
   const [hasAbsoluteKnockout, setHasAbsoluteKnockout] = useState(false);
+  const [redStarCriteria, setRedStarCriteria] = useState([]);
+  const [absoluteKnockoutCriteria, setAbsoluteKnockoutCriteria] = useState([]);
 
   // chụp/upload ảnh
   const handleCaptureImage = () => {
@@ -222,6 +224,24 @@ const DetailedPhasePage = () => {
     fetchTotalPoint();
     fetchTotalCriteria();
   }, [selectedDepartment, phaseId, failedCriteria]);
+
+  useEffect(() => {
+    const fetchKnockoutCriteria = async () => {
+      if (selectedDepartment && phaseId) {
+        try {
+          const response = await axios.get(
+            `${API_URL}/knockout-criteria/${phaseId}/${selectedDepartment.id}`
+          );
+          setRedStarCriteria(response.data.redStar);
+          setAbsoluteKnockoutCriteria(response.data.absoluteKnockout);
+        } catch (error) {
+          console.error("Error fetching knockout criteria:", error);
+        }
+      }
+    };
+
+    fetchKnockoutCriteria();
+  }, [selectedDepartment, phaseId]);
 
   const handleCriterionClick = (criterion) => {
     setSelectedCriterion(criterion);
@@ -419,6 +439,15 @@ const DetailedPhasePage = () => {
           {selectedDepartment ? totalCriteria[selectedDepartment.id] || 0 : 0} /{" "}
           {totalCriteria.total || 0}
         </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Tiêu chí điểm liệt:{" "}
+          {redStarCriteria.map((c) => c.codename).join(", ") || "Không có"}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Tiêu chí điểm liệt PNKL:{" "}
+          {absoluteKnockoutCriteria.map((c) => c.codename).join(", ") ||
+            "Không có"}
+        </Typography>
       </CardContent>
     </Card>
   );
@@ -439,6 +468,13 @@ const DetailedPhasePage = () => {
           ...prevTotal,
           [selectedDepartment.id]: failedCount,
         }));
+
+        // Fetch and update knockout criteria
+        const knockoutResponse = await axios.get(
+          `${API_URL}/knockout-criteria/${phaseId}/${selectedDepartment.id}`
+        );
+        setRedStarCriteria(knockoutResponse.data.redStar);
+        setAbsoluteKnockoutCriteria(knockoutResponse.data.absoluteKnockout);
       } catch (error) {
         console.error("Error updating info card:", error);
       }

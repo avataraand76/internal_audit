@@ -655,8 +655,47 @@ app.get("/knockout-criteria", (req, res) => {
     // Categorize results
     const categorizedResults = {
       redStar: results.filter((r) => r.failing_point_type === 1),
-      absoluteKnockout: results.filter((r) => r.failing_point_type === -1),
+      PNKL: results.filter((r) => r.failing_point_type === -1),
       // safe: results.filter((r) => r.failing_point_type === 0),
+    };
+
+    res.json(categorizedResults);
+  });
+});
+
+// Get knockout criteria for a specific phase and department
+app.get("/knockout-criteria/:phaseId/:departmentId", (req, res) => {
+  const { phaseId, departmentId } = req.params;
+  const query = `
+    SELECT 
+      c.id_criteria,
+      c.codename,
+      c.name_criteria,
+      c.failing_point_type
+    FROM 
+      tb_criteria c
+    JOIN
+      tb_phase_details pd ON c.id_criteria = pd.id_criteria
+    WHERE 
+      pd.id_phase = ? 
+      AND pd.id_department = ?
+      AND pd.is_fail = 1
+      AND c.failing_point_type IN (-1, 1)
+    ORDER BY 
+      c.failing_point_type, c.id_criteria
+  `;
+
+  db.query(query, [phaseId, departmentId], (err, results) => {
+    if (err) {
+      console.error("Error fetching knockout criteria:", err);
+      res.status(500).json({ error: "Error fetching knockout criteria" });
+      return;
+    }
+
+    // Categorize results
+    const categorizedResults = {
+      redStar: results.filter((r) => r.failing_point_type === 1),
+      absoluteKnockout: results.filter((r) => r.failing_point_type === -1),
     };
 
     res.json(categorizedResults);
