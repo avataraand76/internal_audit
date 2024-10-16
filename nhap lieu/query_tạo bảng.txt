@@ -69,8 +69,8 @@ CREATE TABLE tb_phase_details
 	is_fail BIT,
 	status_phase_details VARCHAR(10), -- (khắc phục hay chưa khắc phục)
 	date_updated DATETIME,
-	link_img_before VARCHAR(500),
-	link_img_after VARCHAR(500),
+	imgURL_before TEXT,
+	imgURL_after TEXT,
 	PRIMARY KEY (id_department, id_criteria, id_phase),
 	UNIQUE (id_department, id_criteria, id_phase),
 	FOREIGN KEY (id_department) REFERENCES tb_department(id_department),

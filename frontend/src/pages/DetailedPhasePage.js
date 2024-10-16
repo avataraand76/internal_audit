@@ -1,5 +1,5 @@
 // frontend/src/pages/DetailedPhasePage.js
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Typography,
@@ -36,13 +36,12 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SearchIcon from "@mui/icons-material/Search";
 import StarIcon from "@mui/icons-material/Star";
 import ClearIcon from "@mui/icons-material/Clear";
-import CameraAltIcon from "@mui/icons-material/CameraAlt";
-import FileUploadIcon from "@mui/icons-material/FileUpload";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import Header from "../components/Header";
 import axios from "axios";
 import API_URL from "../data/api";
+import ImageHandler from "../components/ImageHandler";
 
 const WorkshopText = styled(Typography)(({ theme }) => ({
   fontWeight: "bold",
@@ -83,7 +82,6 @@ const DetailedPhasePage = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [openWorkshops, setOpenWorkshops] = useState({});
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const fileInputRef = useRef(null);
   const [totalPoint, setTotalPoint] = useState(100);
   const [totalCriteria, setTotalCriteria] = useState({ total: 0 });
   const [failedCriteria, setFailedCriteria] = useState({});
@@ -91,26 +89,6 @@ const DetailedPhasePage = () => {
   const [hasAbsoluteKnockout, setHasAbsoluteKnockout] = useState(false);
   const [redStarCriteria, setRedStarCriteria] = useState([]);
   const [absoluteKnockoutCriteria, setAbsoluteKnockoutCriteria] = useState([]);
-
-  // chụp/upload ảnh
-  const handleCaptureImage = () => {
-    // This function would typically open the device camera
-    // For this example, we'll just log a message
-    console.log("Opening camera to capture image");
-  };
-
-  const handleUploadImage = () => {
-    fileInputRef.current.click();
-  };
-
-  const handleFileChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      // Here you would typically handle the file upload
-      // For this example, we'll just log the file name
-      console.log(`Uploading file: ${file.name}`);
-    }
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -796,36 +774,16 @@ const DetailedPhasePage = () => {
               <Typography variant={isMobile ? "body2" : "body1"} paragraph>
                 {selectedCriterion.description}
               </Typography>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "center",
-                  gap: 2,
-                  my: 2,
+              <ImageHandler
+                onImageCapture={() => {
+                  // Xử lý khi chụp ảnh
+                  console.log("Image captured");
                 }}
-              >
-                <Button
-                  variant="contained"
-                  startIcon={<CameraAltIcon />}
-                  onClick={handleCaptureImage}
-                >
-                  Chụp ảnh
-                </Button>
-                <Button
-                  variant="contained"
-                  startIcon={<FileUploadIcon />}
-                  onClick={handleUploadImage}
-                >
-                  Tải ảnh lên
-                </Button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  style={{ display: "none" }}
-                  accept="image/*"
-                />
-              </Box>
+                onImageUpload={(file) => {
+                  // Xử lý khi upload ảnh
+                  console.log("Image uploaded:", file.name);
+                }}
+              />
             </DialogContent>
             <DialogActions>
               <Button onClick={handleCloseDialog} color="inherit">
