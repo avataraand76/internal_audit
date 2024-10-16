@@ -4,10 +4,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   Typography,
   Container,
-  Stack,
   Card,
   CardContent,
-  Grid,
   Button,
   Dialog,
   DialogTitle,
@@ -16,54 +14,22 @@ import {
   useTheme,
   useMediaQuery,
   Box,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   TextField,
   InputAdornment,
-  Menu,
   IconButton,
   Paper,
-  Collapse,
-  List,
-  ListItemButton,
-  SwipeableDrawer,
-  styled,
 } from "@mui/material";
-import ExpandLess from "@mui/icons-material/ExpandLess";
-import ExpandMore from "@mui/icons-material/ExpandMore";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+
 import SearchIcon from "@mui/icons-material/Search";
 import StarIcon from "@mui/icons-material/Star";
 import ClearIcon from "@mui/icons-material/Clear";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import Header from "../components/Header";
 import axios from "axios";
 import API_URL from "../data/api";
 import ImageHandler from "../components/ImageHandler";
-
-const WorkshopText = styled(Typography)(({ theme }) => ({
-  fontWeight: "bold",
-  fontSize: "1.2rem",
-  color: theme.palette.primary.main,
-  textTransform: "uppercase",
-  borderRadius: "4px",
-  padding: "2px",
-  display: "inline-block",
-  margin: "2px",
-}));
-
-const DepartmentText = styled(Typography)(({ theme }) => ({
-  fontSize: "0.9rem",
-  // fontStyle: "italic",
-  // color: theme.palette.text.secondary,
-  color: "#000000",
-  borderRadius: "4px",
-  padding: "2px",
-  display: "inline-block",
-  margin: "2px",
-}));
+import DepartmentSelector from "../components/DepartmentSelector";
+import CategoriesDisplay from "../components/CategoriesDisplay";
 
 const DetailedPhasePage = () => {
   const { phaseId } = useParams();
@@ -79,9 +45,6 @@ const DetailedPhasePage = () => {
   const [selectedDepartment, setSelectedDepartment] = useState(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [openWorkshops, setOpenWorkshops] = useState({});
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [totalPoint, setTotalPoint] = useState(100);
   const [totalCriteria, setTotalCriteria] = useState({ total: 0 });
   const [failedCriteria, setFailedCriteria] = useState({});
@@ -230,156 +193,6 @@ const DetailedPhasePage = () => {
     setOpenDialog(false);
     setSelectedCriterion(null);
   };
-
-  const handleDepartmentClick = (event) => {
-    if (isMobile) {
-      setDrawerOpen(true);
-    } else {
-      setAnchorEl(event.currentTarget);
-    }
-  };
-
-  const handleDepartmentClose = () => {
-    if (isMobile) {
-      setDrawerOpen(false);
-    } else {
-      setAnchorEl(null);
-    }
-  };
-
-  const handleWorkshopClick = (workshopId) => {
-    setOpenWorkshops((prev) => {
-      const newOpenWorkshops = { ...prev };
-      Object.keys(newOpenWorkshops).forEach((key) => {
-        if (key !== workshopId.toString()) {
-          newOpenWorkshops[key] = false;
-        }
-      });
-      newOpenWorkshops[workshopId] = !prev[workshopId];
-      return newOpenWorkshops;
-    });
-  };
-
-  const handleDepartmentSelect = (dept) => {
-    setSelectedDepartment(dept);
-    setSearchTerm(""); // Clear the search term
-    setExpandedCategories(new Set()); // Reset expanded categories
-    handleDepartmentClose();
-  };
-
-  const renderDepartmentMenuContent = () => (
-    <List component="nav" dense>
-      {workshops.map((workshop) => (
-        <React.Fragment key={workshop.id}>
-          <ListItemButton onClick={() => handleWorkshopClick(workshop.id)}>
-            <WorkshopText>{workshop.name}</WorkshopText>
-            {openWorkshops[workshop.id] ? <ExpandLess /> : <ExpandMore />}
-          </ListItemButton>
-          <Collapse
-            in={openWorkshops[workshop.id]}
-            timeout="auto"
-            unmountOnExit
-          >
-            <List component="div" disablePadding>
-              {workshop.departments.map((dept) => (
-                <ListItemButton
-                  key={dept.id}
-                  sx={{
-                    pl: 4,
-                    backgroundColor:
-                      selectedDepartment && selectedDepartment.id === dept.id
-                        ? theme.palette.action.selected
-                        : "inherit",
-                  }}
-                  onClick={() => handleDepartmentSelect(dept)}
-                >
-                  <DepartmentText
-                    sx={{
-                      fontWeight:
-                        selectedDepartment && selectedDepartment.id === dept.id
-                          ? "bold"
-                          : "normal",
-                      // textDecoration:
-                      //   selectedDepartment && selectedDepartment.id === dept.id
-                      //     ? "underline"
-                      //     : "none",
-                      // color:
-                      //   selectedDepartment && selectedDepartment.id === dept.id
-                      //     ? "#000000"
-                      //     : "inherit",
-                      // border:
-                      //   selectedDepartment && selectedDepartment.id === dept.id
-                      //     ? "2px solid #1976d2"
-                      //     : "2px solid transparent",
-                    }}
-                  >
-                    {dept.name}
-                  </DepartmentText>
-                </ListItemButton>
-              ))}
-            </List>
-          </Collapse>
-        </React.Fragment>
-      ))}
-    </List>
-  );
-
-  // Render workshop/department menu
-  const renderDepartmentMenu = () => (
-    <Box>
-      <Button
-        variant="outlined"
-        onClick={handleDepartmentClick}
-        endIcon={<ArrowDropDownIcon />}
-        sx={{
-          borderRadius: "20px",
-          textTransform: "none",
-          minWidth: 200,
-          justifyContent: "space-between",
-        }}
-      >
-        {selectedDepartment ? selectedDepartment.name : "Chọn bộ phận"}
-      </Button>
-      {isMobile ? (
-        <SwipeableDrawer
-          anchor="right"
-          open={drawerOpen}
-          onClose={handleDepartmentClose}
-          onOpen={() => setDrawerOpen(true)}
-          disableSwipeToOpen={false}
-          ModalProps={{
-            keepMounted: true,
-          }}
-          PaperProps={{
-            sx: {
-              width: "75%",
-              maxWidth: 300,
-              height: "100%",
-              top: "0 !important",
-              borderBottomLeftRadius: "30px",
-              borderTopLeftRadius: "30px",
-              boxShadow: 3,
-            },
-          }}
-        >
-          <Box sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Chọn bộ phận
-            </Typography>
-            {renderDepartmentMenuContent()}
-          </Box>
-        </SwipeableDrawer>
-      ) : (
-        <Menu
-          anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={handleDepartmentClose}
-        >
-          {renderDepartmentMenuContent()}
-        </Menu>
-      )}
-    </Box>
-  );
 
   // Update the Card content in your JSX to use selectedDepartment
   const renderInfoCard = () => (
@@ -615,7 +428,15 @@ const DetailedPhasePage = () => {
                 width: { xs: "100%", sm: "auto" },
               }}
             >
-              {renderDepartmentMenu()}
+              <DepartmentSelector
+                workshops={workshops}
+                selectedDepartment={selectedDepartment}
+                onDepartmentSelect={(dept) => {
+                  setSelectedDepartment(dept);
+                  setSearchTerm("");
+                  setExpandedCategories(new Set());
+                }}
+              />
             </Box>
           </Box>
           {renderInfoCard()}
@@ -655,97 +476,25 @@ const DetailedPhasePage = () => {
         maxWidth="lg"
         sx={{ mt: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}
       >
-        <Stack spacing={{ xs: 2, sm: 3, md: 4 }}>
-          {/* Phần Hạng mục chấm điểm */}
-          <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
-            Hạng mục và tiêu chí chấm điểm
-          </Typography>
-
-          {/* Danh sách Accordion cho các hạng mục */}
-          {filteredCategories.map((category) => (
-            <Accordion
-              key={category.id}
-              sx={{ border: "1px solid black" }}
-              expanded={expandedCategories.has(category.id)}
-              onChange={() => {
-                setExpandedCategories((prev) => {
-                  const newExpanded = new Set(prev);
-                  if (newExpanded.has(category.id)) {
-                    newExpanded.delete(category.id);
-                  } else {
-                    newExpanded.add(category.id);
-                  }
-                  return newExpanded;
-                });
-              }}
-            >
-              <AccordionSummary
-                expandIcon={<ExpandMoreIcon />}
-                aria-controls={`category-${category.id}-content`}
-                id={`category-${category.id}-header`}
-              >
-                <Typography
-                  variant={isMobile ? "subtitle1" : "h6"}
-                  fontWeight="bold"
-                >
-                  {category.name}
-                </Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Grid container spacing={{ xs: 2, sm: 3 }}>
-                  {category.criteria.map((criterion) => (
-                    <Grid item xs={12} sm={6} md={4} key={criterion.id}>
-                      <Card
-                        sx={{
-                          height: "100%",
-                          display: "flex",
-                          flexDirection: "column",
-                          cursor: "pointer",
-                          "&:hover": { boxShadow: 6 },
-                          border: failedCriteria[selectedDepartment?.id]?.has(
-                            criterion.id
-                          )
-                            ? "2px solid #FF0000"
-                            : "1px solid black",
-                          backgroundColor: failedCriteria[
-                            selectedDepartment?.id
-                          ]?.has(criterion.id)
-                            ? "#FFEBEE"
-                            : "inherit",
-                        }}
-                        onClick={() => handleCriterionClick(criterion)}
-                      >
-                        <CardContent sx={{ flexGrow: 1 }}>
-                          <Typography
-                            gutterBottom
-                            variant={isMobile ? "subtitle1" : "h6"}
-                            component="div"
-                            fontWeight="bold"
-                          >
-                            {criterion.name}
-                          </Typography>
-                          <Typography
-                            variant={isMobile ? "body2" : "body1"}
-                            color="text.secondary"
-                          >
-                            {criterion.description}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ mt: 1, display: "block" }}
-                          >
-                            Mã: {criterion.codename}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  ))}
-                </Grid>
-              </AccordionDetails>
-            </Accordion>
-          ))}
-        </Stack>
+        <CategoriesDisplay
+          categories={filteredCategories}
+          expandedCategories={expandedCategories}
+          onExpandCategory={(categoryId) => {
+            setExpandedCategories((prev) => {
+              const newExpanded = new Set(prev);
+              if (newExpanded.has(categoryId)) {
+                newExpanded.delete(categoryId);
+              } else {
+                newExpanded.add(categoryId);
+              }
+              return newExpanded;
+            });
+          }}
+          failedCriteria={failedCriteria}
+          selectedDepartment={selectedDepartment}
+          onCriterionClick={handleCriterionClick}
+          isMobile={isMobile}
+        />
       </Container>
 
       {/* Dialog chi tiết tiêu chí */}

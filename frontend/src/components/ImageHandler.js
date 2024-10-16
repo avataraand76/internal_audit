@@ -1,5 +1,6 @@
 // frontend/src/components/ImageHandler.js
 import React, { useRef, useState } from "react";
+import axios from "axios";
 import {
   Box,
   Button,
@@ -10,6 +11,7 @@ import {
   Typography,
   styled,
   Alert,
+  CircularProgress,
 } from "@mui/material";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
@@ -38,6 +40,7 @@ const VideoPreview = styled("video")({
 // Định nghĩa các định dạng file được phép
 const ALLOWED_FILE_TYPES = ["image/jpeg", "image/jpg", "image/png"];
 const ALLOWED_FILE_EXTENSIONS = [".jpg", ".jpeg", ".png"];
+const TINYPNG_API_KEY = "fL7KN55Z2zDvrQtDhtf1SPWCVSypkMXZ";
 
 const ImageHandler = ({ onImageCapture, onImageUpload }) => {
   const fileInputRef = useRef(null);
@@ -47,6 +50,7 @@ const ImageHandler = ({ onImageCapture, onImageUpload }) => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [showCamera, setShowCamera] = useState(false);
   const [error, setError] = useState(null);
+  const [isCompressing, setIsCompressing] = useState(false);
 
   // Kiểm tra định dạng file
   const isValidFileType = (file) => {
@@ -127,7 +131,45 @@ const ImageHandler = ({ onImageCapture, onImageUpload }) => {
     setError(null);
   };
 
-  const captureImage = () => {
+  const compressWithTinyPNG = async (file) => {
+    setIsCompressing(true);
+    try {
+      // Upload to TinyPNG
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await axios.post(
+        "https://api.tinify.com/shrink",
+        formData,
+        {
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Authorization: `Basic ${btoa(`api:${TINYPNG_API_KEY}`)}`,
+          },
+        }
+      );
+
+      // Download the compressed image
+      const compressedImageUrl = response.data.output.url;
+      const compressedImageResponse = await axios.get(compressedImageUrl, {
+        responseType: "blob",
+      });
+      const compressedFile = new File(
+        [compressedImageResponse.data],
+        file.name,
+        { type: file.type }
+      );
+
+      return URL.createObjectURL(compressedFile);
+    } catch (error) {
+      console.error("Error compressing image with TinyPNG:", error);
+      throw error;
+    } finally {
+      setIsCompressing(false);
+    }
+  };
+
+  const captureImage = async () => {
     try {
       const video = videoRef.current;
       const canvas = document.createElement("canvas");
@@ -137,24 +179,33 @@ const ImageHandler = ({ onImageCapture, onImageUpload }) => {
       const context = canvas.getContext("2d");
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Chỉ định rõ định dạng JPEG cho ảnh chụp
-      const imageUrl = canvas.toDataURL("image/jpeg", 0.8);
+      const blob = await new Promise((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg")
+      );
+      const file = new File(
+        [blob],
+        `Captured_${new Date().toLocaleString()}.jpg`,
+        { type: "image/jpeg" }
+      );
+
+      const compressedImageUrl = await compressWithTinyPNG(file);
+
       const newImage = {
         id: Date.now(),
-        url: imageUrl,
-        name: `Captured_${new Date().toLocaleString()}.jpg`,
+        url: compressedImageUrl,
+        name: file.name,
       };
 
       setImages((prev) => [...prev, newImage]);
       if (onImageCapture) {
-        onImageCapture(imageUrl);
+        onImageCapture(compressedImageUrl);
       }
 
       stopCamera();
       setError(null);
     } catch (err) {
-      console.error("Lỗi khi chụp ảnh:", err);
-      setError("Không thể chụp ảnh. Vui lòng thử lại.");
+      console.error("Lỗi khi chụp và nén ảnh:", err);
+      setError("Không thể chụp hoặc nén ảnh. Vui lòng thử lại.");
     }
   };
 
@@ -166,35 +217,42 @@ const ImageHandler = ({ onImageCapture, onImageUpload }) => {
     fileInputRef.current.click();
   };
 
-  const handleFileChange = (event) => {
+  const handleFileChange = async (event) => {
     const files = Array.from(event.target.files);
     let hasInvalidFile = false;
 
-    files.forEach((file) => {
+    for (const file of files) {
       if (!isValidFileType(file)) {
         hasInvalidFile = true;
-        return;
+        continue;
       }
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
+      try {
+        const compressedImageUrl = await compressWithTinyPNG(file);
+
         const newImage = {
           id: Date.now(),
-          url: e.target.result,
+          url: compressedImageUrl,
           name: file.name,
         };
+
         setImages((prev) => [...prev, newImage]);
-      };
-      reader.readAsDataURL(file);
-    });
+
+        if (onImageUpload) {
+          const response = await fetch(compressedImageUrl);
+          const blob = await response.blob();
+          onImageUpload(new File([blob], file.name, { type: file.type }));
+        }
+      } catch (err) {
+        console.error("Lỗi khi xử lý và nén file:", err);
+        setError("Có lỗi xảy ra khi xử lý hoặc nén file. Vui lòng thử lại.");
+      }
+    }
 
     if (hasInvalidFile) {
       setError("Chỉ chấp nhận file ảnh có định dạng JPG/JPEG hoặc PNG");
     } else {
       setError(null);
-      if (onImageUpload && files.length > 0) {
-        onImageUpload(files[0]);
-      }
     }
 
     event.target.value = null;
@@ -280,6 +338,15 @@ const ImageHandler = ({ onImageCapture, onImageUpload }) => {
             </Box>
           </CameraContainer>
         </Dialog>
+      )}
+
+      {isCompressing && (
+        <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+          <CircularProgress />
+          <Typography variant="body2" sx={{ ml: 2 }}>
+            Đang nén ảnh...
+          </Typography>
+        </Box>
       )}
 
       {images.length > 0 && (
