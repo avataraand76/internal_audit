@@ -1,6 +1,5 @@
 // frontend/src/components/ImageHandler.js
-import React, { useRef, useState } from "react";
-import axios from "axios";
+import React, { useState, useRef } from "react";
 import {
   Box,
   Button,
@@ -11,18 +10,33 @@ import {
   Typography,
   styled,
   Alert,
-  CircularProgress,
 } from "@mui/material";
+import Camera from "react-html5-camera-photo";
+import "react-html5-camera-photo/build/css/index.css";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CloseIcon from "@mui/icons-material/Close";
 
+const ImageContainer = styled(Box)({
+  position: "relative",
+  width: "100%",
+  paddingTop: "100%",
+  overflow: "hidden",
+});
+
 const PreviewImage = styled("img")({
+  position: "absolute",
+  top: 0,
+  left: 0,
   width: "100%",
   height: "100%",
   objectFit: "cover",
   cursor: "pointer",
+  transition: "transform 0.2s ease-in-out",
+  "&:hover": {
+    transform: "scale(1.05)",
+  },
 });
 
 const CameraContainer = styled(Box)({
@@ -30,29 +44,52 @@ const CameraContainer = styled(Box)({
   width: "100%",
   maxWidth: "600px",
   margin: "0 auto",
+  "& > div": {
+    borderRadius: "8px",
+    overflow: "hidden",
+  },
+  "& .react-html5-camera-photo": {
+    position: "relative",
+    width: "100%",
+  },
+  "& .react-html5-camera-photo > video": {
+    width: "100%",
+    height: "auto",
+  },
+  "& .react-html5-camera-photo > img": {
+    width: "100%",
+    height: "auto",
+  },
+  // Hiển thị nút chụp ảnh của camera
+  "& .react-html5-camera-photo > .display-controls": {
+    display: "block !important",
+    position: "absolute",
+    bottom: 20,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+  },
 });
 
-const VideoPreview = styled("video")({
-  width: "100%",
-  height: "auto",
+const PreviewDialog = styled(Dialog)({
+  "& .MuiDialog-paper": {
+    margin: 16,
+    maxHeight: "calc(100% - 32px)",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
 });
 
-// Định nghĩa các định dạng file được phép
 const ALLOWED_FILE_TYPES = ["image/jpeg", "image/jpg", "image/png"];
 const ALLOWED_FILE_EXTENSIONS = [".jpg", ".jpeg", ".png"];
-const TINYPNG_API_KEY = "fL7KN55Z2zDvrQtDhtf1SPWCVSypkMXZ";
 
 const ImageHandler = ({ onImageCapture, onImageUpload }) => {
   const fileInputRef = useRef(null);
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
   const [images, setImages] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
   const [showCamera, setShowCamera] = useState(false);
   const [error, setError] = useState(null);
-  const [isCompressing, setIsCompressing] = useState(false);
 
-  // Kiểm tra định dạng file
   const isValidFileType = (file) => {
     const extension = file.name
       .toLowerCase()
@@ -63,211 +100,45 @@ const ImageHandler = ({ onImageCapture, onImageUpload }) => {
     );
   };
 
-  const startCamera = async () => {
+  const handleTakePhoto = (dataUri) => {
     try {
-      // Kiểm tra xem trình duyệt có hỗ trợ getUserMedia không
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("Trình duyệt của bạn không hỗ trợ truy cập camera");
-      }
-
-      // Kiểm tra xem đang sử dụng HTTPS hay không
-      if (
-        window.location.protocol !== "https:" &&
-        window.location.hostname !== "localhost"
-      ) {
-        throw new Error("Camera chỉ hoạt động trên HTTPS hoặc localhost");
-      }
-
-      // Thử truy cập camera với các tùy chọn khác nhau
-      let stream;
-      try {
-        // Thử sử dụng camera sau trước
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-          audio: false,
-        });
-      } catch (err) {
-        // Nếu không có camera sau, thử camera trước
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false,
-        });
-      }
-
-      if (!stream) {
-        throw new Error("Không thể kết nối với camera");
-      }
-
-      videoRef.current.srcObject = stream;
-      streamRef.current = stream;
-      setShowCamera(true);
-      setError(null);
-    } catch (err) {
-      console.error("Lỗi camera:", err);
-      let errorMessage = "Không thể truy cập camera. ";
-
-      if (err.name === "NotAllowedError") {
-        errorMessage +=
-          "Vui lòng cấp quyền truy cập camera trong cài đặt trình duyệt.";
-      } else if (err.name === "NotFoundError") {
-        errorMessage += "Không tìm thấy thiết bị camera.";
-      } else if (err.name === "NotReadableError") {
-        errorMessage += "Camera đang được sử dụng bởi ứng dụng khác.";
-      } else {
-        errorMessage +=
-          err.message || "Vui lòng kiểm tra lại thiết bị và thử lại.";
-      }
-
-      setError(errorMessage);
-    }
-  };
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    setShowCamera(false);
-    setError(null);
-  };
-
-  const compressWithTinyPNG = async (file) => {
-    setIsCompressing(true);
-    try {
-      // Upload to TinyPNG
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await axios.post(
-        "https://api.tinify.com/shrink",
-        formData,
-        {
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            Authorization: `Basic ${btoa(`api:${TINYPNG_API_KEY}`)}`,
-          },
-        }
-      );
-
-      // Download the compressed image
-      const compressedImageUrl = response.data.output.url;
-      const compressedImageResponse = await axios.get(compressedImageUrl, {
-        responseType: "blob",
-      });
-      const compressedFile = new File(
-        [compressedImageResponse.data],
-        file.name,
-        { type: file.type }
-      );
-
-      return URL.createObjectURL(compressedFile);
-    } catch (error) {
-      console.error("Error compressing image with TinyPNG:", error);
-      throw error;
-    } finally {
-      setIsCompressing(false);
-    }
-  };
-
-  const captureImage = async () => {
-    try {
-      const video = videoRef.current;
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-
-      const context = canvas.getContext("2d");
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      const blob = await new Promise((resolve) =>
-        canvas.toBlob(resolve, "image/jpeg")
-      );
-      const file = new File(
-        [blob],
-        `Captured_${new Date().toLocaleString()}.jpg`,
-        { type: "image/jpeg" }
-      );
-
-      const compressedImageUrl = await compressWithTinyPNG(file);
-
       const newImage = {
         id: Date.now(),
-        url: compressedImageUrl,
-        name: file.name,
+        url: dataUri,
+        name: `Captured_${new Date().toLocaleString()}.jpg`,
       };
 
       setImages((prev) => [...prev, newImage]);
       if (onImageCapture) {
-        onImageCapture(compressedImageUrl);
+        onImageCapture(dataUri);
       }
 
-      stopCamera();
+      setShowCamera(false);
       setError(null);
     } catch (err) {
-      console.error("Lỗi khi chụp và nén ảnh:", err);
-      setError("Không thể chụp hoặc nén ảnh. Vui lòng thử lại.");
+      console.error("Lỗi khi chụp ảnh:", err);
+      setError("Không thể chụp ảnh. Vui lòng thử lại.");
     }
   };
 
-  const handleCaptureImage = () => {
-    startCamera();
-  };
+  const handleCameraError = (error) => {
+    console.error("Lỗi camera:", error);
+    let errorMessage = "Không thể truy cập camera. ";
 
-  const handleUploadImage = () => {
-    fileInputRef.current.click();
-  };
-
-  const handleFileChange = async (event) => {
-    const files = Array.from(event.target.files);
-    let hasInvalidFile = false;
-
-    for (const file of files) {
-      if (!isValidFileType(file)) {
-        hasInvalidFile = true;
-        continue;
-      }
-
-      try {
-        const compressedImageUrl = await compressWithTinyPNG(file);
-
-        const newImage = {
-          id: Date.now(),
-          url: compressedImageUrl,
-          name: file.name,
-        };
-
-        setImages((prev) => [...prev, newImage]);
-
-        if (onImageUpload) {
-          const response = await fetch(compressedImageUrl);
-          const blob = await response.blob();
-          onImageUpload(new File([blob], file.name, { type: file.type }));
-        }
-      } catch (err) {
-        console.error("Lỗi khi xử lý và nén file:", err);
-        setError("Có lỗi xảy ra khi xử lý hoặc nén file. Vui lòng thử lại.");
-      }
-    }
-
-    if (hasInvalidFile) {
-      setError("Chỉ chấp nhận file ảnh có định dạng JPG/JPEG hoặc PNG");
+    if (error.name === "NotAllowedError") {
+      errorMessage +=
+        "Vui lòng cấp quyền truy cập camera trong cài đặt trình duyệt.";
+    } else if (error.name === "NotFoundError") {
+      errorMessage += "Không tìm thấy thiết bị camera.";
+    } else if (error.name === "NotReadableError") {
+      errorMessage += "Camera đang được sử dụng bởi ứng dụng khác.";
     } else {
-      setError(null);
+      errorMessage +=
+        error.message || "Vui lòng kiểm tra lại thiết bị và thử lại.";
     }
 
-    event.target.value = null;
-  };
-
-  const handleDeleteImage = (imageId) => {
-    setImages((prev) => prev.filter((img) => img.id !== imageId));
-  };
-
-  const handlePreviewClick = (image) => {
-    setSelectedImage(image);
-  };
-
-  const handleClosePreview = () => {
-    setSelectedImage(null);
+    setError(errorMessage);
+    setShowCamera(false);
   };
 
   return (
@@ -277,141 +148,175 @@ const ImageHandler = ({ onImageCapture, onImageUpload }) => {
           {error}
         </Alert>
       )}
+
       <Box sx={{ display: "flex", justifyContent: "center", gap: 2, my: 2 }}>
         <Button
           variant="contained"
           startIcon={<CameraAltIcon />}
-          onClick={handleCaptureImage}
+          onClick={() => setShowCamera(true)}
         >
           Chụp ảnh
         </Button>
         <Button
           variant="contained"
           startIcon={<FileUploadIcon />}
-          onClick={handleUploadImage}
+          onClick={() => fileInputRef.current.click()}
         >
           Tải ảnh lên
         </Button>
         <input
           type="file"
           ref={fileInputRef}
-          onChange={handleFileChange}
+          onChange={(e) => {
+            const files = Array.from(e.target.files);
+            files.forEach((file) => {
+              if (isValidFileType(file)) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                  setImages((prev) => [
+                    ...prev,
+                    {
+                      id: Date.now(),
+                      url: event.target.result,
+                      name: file.name,
+                    },
+                  ]);
+                };
+                reader.readAsDataURL(file);
+              } else {
+                setError(
+                  "Chỉ chấp nhận file ảnh có định dạng JPG/JPEG hoặc PNG"
+                );
+              }
+            });
+            e.target.value = null;
+          }}
           style={{ display: "none" }}
           accept=".jpg,.jpeg,.png"
           multiple
         />
       </Box>
 
-      {showCamera && (
-        <Dialog
-          open={showCamera}
-          onClose={stopCamera}
-          maxWidth="md"
-          fullWidth
-          PaperProps={{
-            sx: { bgcolor: "background.default" },
-          }}
-        >
-          <CameraContainer>
-            <VideoPreview
-              ref={videoRef}
-              autoPlay
-              playsInline
-              onError={(e) => {
-                console.error("Video error:", e);
-                setError("Lỗi khi hiển thị video từ camera");
-              }}
-            />
-            <Box
-              sx={{ display: "flex", justifyContent: "center", gap: 2, p: 2 }}
+      {/* Camera Dialog */}
+      <Dialog
+        open={showCamera}
+        onClose={() => setShowCamera(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: "background.default",
+            overflow: "hidden",
+            borderRadius: 2,
+            height: "auto",
+          },
+        }}
+      >
+        <CameraContainer>
+          <Camera
+            onTakePhoto={handleTakePhoto}
+            onCameraError={handleCameraError}
+            isImageMirror={false}
+            idealFacingMode="environment"
+            isFullscreen={false}
+          />
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 2,
+              p: 2,
+              position: "flex",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              zIndex: 1000,
+            }}
+          >
+            <Button
+              variant="contained"
+              color="error"
+              onClick={() => setShowCamera(false)}
+              sx={{ minWidth: 120 }}
             >
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={captureImage}
-              >
-                Chụp
-              </Button>
-              <Button variant="outlined" color="error" onClick={stopCamera}>
-                Hủy
-              </Button>
-            </Box>
-          </CameraContainer>
-        </Dialog>
-      )}
+              Hủy
+            </Button>
+          </Box>
+        </CameraContainer>
+      </Dialog>
 
-      {isCompressing && (
-        <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
-          <CircularProgress />
-          <Typography variant="body2" sx={{ ml: 2 }}>
-            Đang nén ảnh...
-          </Typography>
-        </Box>
-      )}
-
+      {/* Image Grid */}
       {images.length > 0 && (
         <Box sx={{ mt: 2 }}>
           <Typography variant="subtitle1" gutterBottom>
             Ảnh đã tải lên ({images.length})
           </Typography>
-          <ImageList cols={3} gap={8}>
+          <ImageList cols={3} gap={16} sx={{ overflow: "visible" }}>
             {images.map((image) => (
               <ImageListItem
                 key={image.id}
                 sx={{
-                  border: "1px solid #ddd",
-                  borderRadius: 1,
                   overflow: "hidden",
-                  position: "relative",
+                  borderRadius: 2,
+                  boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
                 }}
               >
-                <PreviewImage
-                  src={image.url}
-                  alt={image.name}
-                  loading="lazy"
-                  onClick={() => handlePreviewClick(image)}
-                />
-                <IconButton
-                  sx={{
-                    position: "absolute",
-                    top: 4,
-                    right: 4,
-                    bgcolor: "rgba(255, 255, 255, 0.8)",
-                    "&:hover": {
-                      bgcolor: "rgba(255, 255, 255, 0.9)",
-                    },
-                  }}
-                  size="small"
-                  onClick={() => handleDeleteImage(image.id)}
-                >
-                  <DeleteIcon />
-                </IconButton>
+                <ImageContainer>
+                  <PreviewImage
+                    src={image.url}
+                    alt={image.name}
+                    loading="lazy"
+                    onClick={() => setSelectedImage(image)}
+                  />
+                  <IconButton
+                    sx={{
+                      position: "absolute",
+                      top: 8,
+                      right: 8,
+                      bgcolor: "rgba(255,255,255,0.9)",
+                      "&:hover": {
+                        bgcolor: "rgba(255,255,255,1)",
+                      },
+                    }}
+                    size="small"
+                    onClick={() =>
+                      setImages((prev) =>
+                        prev.filter((img) => img.id !== image.id)
+                      )
+                    }
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </ImageContainer>
               </ImageListItem>
             ))}
           </ImageList>
         </Box>
       )}
 
-      <Dialog
+      {/* Preview Dialog */}
+      <PreviewDialog
         open={!!selectedImage}
-        onClose={handleClosePreview}
-        maxWidth="md"
+        onClose={() => setSelectedImage(null)}
+        maxWidth="lg"
         fullWidth
       >
         {selectedImage && (
-          <Box sx={{ position: "relative" }}>
+          <Box sx={{ position: "relative", bgcolor: "black" }}>
             <IconButton
               sx={{
                 position: "absolute",
-                right: 8,
-                top: 8,
+                right: 16,
+                top: 16,
                 color: "white",
-                bgcolor: "rgba(0, 0, 0, 0.5)",
+                bgcolor: "rgba(0,0,0,0.5)",
                 "&:hover": {
-                  bgcolor: "rgba(0, 0, 0, 0.7)",
+                  bgcolor: "rgba(0,0,0,0.7)",
                 },
+                zIndex: 1,
               }}
-              onClick={handleClosePreview}
+              onClick={() => setSelectedImage(null)}
             >
               <CloseIcon />
             </IconButton>
@@ -420,14 +325,15 @@ const ImageHandler = ({ onImageCapture, onImageUpload }) => {
               alt={selectedImage.name}
               style={{
                 width: "100%",
-                height: "auto",
-                maxHeight: "80vh",
+                height: "90vh",
                 objectFit: "contain",
+                display: "block",
+                margin: "0 auto",
               }}
             />
           </Box>
         )}
-      </Dialog>
+      </PreviewDialog>
     </Box>
   );
 };
