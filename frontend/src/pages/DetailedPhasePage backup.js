@@ -6,11 +6,6 @@ import {
   Container,
   Card,
   CardContent,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   useTheme,
   useMediaQuery,
   Box,
@@ -27,9 +22,9 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import Header from "../components/Header";
 import axios from "axios";
 import API_URL from "../data/api";
-import ImageHandler from "../components/ImageHandler";
 import DepartmentSelector from "../components/DepartmentSelector";
 import CategoriesDisplay from "../components/CategoriesDisplay";
+import CriterionDialog from "../components/ImageHandler2";
 
 const DetailedPhasePage = () => {
   const { phaseId } = useParams();
@@ -189,11 +184,6 @@ const DetailedPhasePage = () => {
     setOpenDialog(true);
   };
 
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setSelectedCriterion(null);
-  };
-
   // Update the Card content in your JSX to use selectedDepartment
   const renderInfoCard = () => (
     <Card sx={{ mb: 2, border: "1px solid black" }}>
@@ -327,47 +317,6 @@ const DetailedPhasePage = () => {
       .filter((category) => category.criteria.length > 0);
   }, [categories, searchTerm]);
 
-  const handleScore = async (score) => {
-    if (!selectedCriterion || !selectedDepartment || !user) {
-      console.error("Missing required data for scoring");
-      return;
-    }
-
-    const scoreData = {
-      id_department: selectedDepartment.id,
-      id_criteria: selectedCriterion.id,
-      id_phase: phaseId,
-      id_user: user.id_user,
-      is_fail: score === "không đạt" ? 1 : 0,
-      date_updated: new Date().toISOString(),
-    };
-
-    try {
-      await axios.post(`${API_URL}/phase-details`, scoreData);
-
-      setFailedCriteria((prev) => {
-        const newFailedCriteria = { ...prev };
-        if (!newFailedCriteria[selectedDepartment.id]) {
-          newFailedCriteria[selectedDepartment.id] = new Set();
-        }
-        if (score === "không đạt") {
-          newFailedCriteria[selectedDepartment.id].add(selectedCriterion.id);
-        } else {
-          newFailedCriteria[selectedDepartment.id].delete(selectedCriterion.id);
-        }
-        return newFailedCriteria;
-      });
-
-      // Gọi hàm cập nhật thông tin
-      await updateInfoCard();
-
-      handleCloseDialog();
-    } catch (error) {
-      console.error("Error saving score:", error);
-      alert("Có lỗi xảy ra khi lưu điểm. Vui lòng thử lại.");
-    }
-  };
-
   if (!phase) {
     return <Typography>Loading...</Typography>;
   }
@@ -382,7 +331,7 @@ const DetailedPhasePage = () => {
       <Paper
         elevation={3}
         sx={{
-          position: "sticky",
+          // position: "sticky",
           top: 0,
           zIndex: 1100,
           backgroundColor: "background.paper",
@@ -498,65 +447,37 @@ const DetailedPhasePage = () => {
       </Container>
 
       {/* Dialog chi tiết tiêu chí */}
-      <Dialog
+      <CriterionDialog
         open={openDialog}
-        onClose={handleCloseDialog}
-        maxWidth="sm"
-        fullWidth
-        // fullScreen={isMobile}
-      >
-        {selectedCriterion && (
-          <>
-            <DialogTitle>
-              <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
-                {selectedCriterion.name}
-              </Typography>
-            </DialogTitle>
-            <DialogContent>
-              <Typography variant="caption" color="text.secondary" gutterBottom>
-                Mã: {selectedCriterion.codename}
-              </Typography>
-              <Typography variant={isMobile ? "body2" : "body1"} paragraph>
-                {selectedCriterion.description}
-              </Typography>
-              <ImageHandler
-                onImageCapture={() => {
-                  // Xử lý khi chụp ảnh
-                  console.log("Image captured");
-                }}
-                onImageUpload={(file) => {
-                  // Xử lý khi upload ảnh
-                  console.log("Image uploaded:", file.name);
-                }}
-              />
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={handleCloseDialog} color="inherit">
-                Hủy
-              </Button>
-              {failedCriteria[selectedDepartment?.id]?.has(
-                selectedCriterion.id
-              ) ? (
-                <Button
-                  onClick={() => handleScore("đạt")}
-                  variant="contained"
-                  color="success"
-                >
-                  Đạt
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => handleScore("không đạt")}
-                  variant="contained"
-                  color="error"
-                >
-                  Không đạt
-                </Button>
-              )}
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
+        onClose={async (score) => {
+          if (score) {
+            setFailedCriteria((prev) => {
+              const newFailedCriteria = { ...prev };
+              if (!newFailedCriteria[selectedDepartment.id]) {
+                newFailedCriteria[selectedDepartment.id] = new Set();
+              }
+              if (score === "không đạt") {
+                newFailedCriteria[selectedDepartment.id].add(
+                  selectedCriterion.id
+                );
+              } else {
+                newFailedCriteria[selectedDepartment.id].delete(
+                  selectedCriterion.id
+                );
+              }
+              return newFailedCriteria;
+            });
+            await updateInfoCard();
+          }
+          setOpenDialog(false);
+          setSelectedCriterion(null);
+        }}
+        criterion={selectedCriterion}
+        selectedDepartment={selectedDepartment}
+        failedCriteria={failedCriteria}
+        phaseId={phaseId}
+        user={user}
+      />
     </Box>
   );
 };

@@ -569,7 +569,7 @@ const DetailedPhasePage = () => {
       <Paper
         elevation={3}
         sx={{
-          position: "sticky",
+          // position: "sticky",
           top: 0,
           zIndex: 1100,
           backgroundColor: "background.paper",
@@ -717,6 +717,13 @@ const DetailedPhasePage = () => {
                       >
                         <CardContent sx={{ flexGrow: 1 }}>
                           <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ mt: 1, display: "block" }}
+                          >
+                            Mã: {criterion.codename}
+                          </Typography>
+                          <Typography
                             gutterBottom
                             variant={isMobile ? "subtitle1" : "h6"}
                             component="div"
@@ -729,13 +736,6 @@ const DetailedPhasePage = () => {
                             color="text.secondary"
                           >
                             {criterion.description}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ mt: 1, display: "block" }}
-                          >
-                            Mã: {criterion.codename}
                           </Typography>
                         </CardContent>
                       </Card>
@@ -759,14 +759,14 @@ const DetailedPhasePage = () => {
         {selectedCriterion && (
           <>
             <DialogTitle>
+              <Typography variant="caption" color="text.secondary" gutterBottom>
+                Mã: {selectedCriterion.codename}
+              </Typography>
               <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
                 {selectedCriterion.name}
               </Typography>
             </DialogTitle>
             <DialogContent>
-              <Typography variant="caption" color="text.secondary" gutterBottom>
-                Mã: {selectedCriterion.codename}
-              </Typography>
               <Typography variant={isMobile ? "body2" : "body1"} paragraph>
                 {selectedCriterion.description}
               </Typography>

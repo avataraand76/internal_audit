@@ -5,6 +5,7 @@ import HomePage from "./pages/HomePage.js";
 import LoginPage from "./pages/LoginPage.js";
 import CreatePhasePage from "./pages/CreatePhasePage.js";
 import DetailedPhasePage from "./pages/DetailedPhasePage.js";
+// import DetailedPhasePage from "./pages/DetailedPhasePage backup.js";
 import ReportPage from "./pages/ReportPage.js";
 
 const AppRoutes = () => {
