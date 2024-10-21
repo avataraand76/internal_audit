@@ -1,5 +1,5 @@
 // frontend/src/components/ImageHandler.js
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Box,
   Button,
@@ -83,12 +83,33 @@ const PreviewDialog = styled(Dialog)({
 const ALLOWED_FILE_TYPES = ["image/jpeg", "image/jpg", "image/png"];
 const ALLOWED_FILE_EXTENSIONS = [".jpg", ".jpeg", ".png"];
 
-const ImageHandler = ({ onImagesChange }) => {
+const ImageHandler = ({ onImagesChange, images: propImages }) => {
   const fileInputRef = useRef(null);
   const [images, setImages] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
   const [showCamera, setShowCamera] = useState(false);
   const [error, setError] = useState(null);
+  const imageIdRef = useRef(Date.now());
+
+  useEffect(() => {
+    if (propImages && propImages.length > 0) {
+      const imagesWithIds = propImages.map((img) => ({
+        ...img,
+        id: img.id || `existing-${imageIdRef.current++}`,
+      }));
+      setImages(imagesWithIds);
+      console.log(
+        "Existing images IDs:",
+        imagesWithIds.map((img) => img.id)
+      );
+    } else {
+      setImages([]);
+    }
+  }, [propImages]);
+
+  const generateUniqueId = () => {
+    return `new-${imageIdRef.current++}`;
+  };
 
   const isValidFileType = (file) => {
     const extension = file.name
@@ -103,7 +124,7 @@ const ImageHandler = ({ onImagesChange }) => {
   const handleTakePhoto = (dataUri) => {
     try {
       const newImage = {
-        id: Date.now(),
+        id: generateUniqueId(),
         url: dataUri,
         name: `Captured_${new Date().toLocaleString()}.jpg`,
       };
@@ -113,6 +134,12 @@ const ImageHandler = ({ onImagesChange }) => {
       if (onImagesChange) {
         onImagesChange(updatedImages);
       }
+
+      console.log("New captured image ID:", newImage.id);
+      // console.log(
+      //   "All image IDs after capture:",
+      //   updatedImages.map((img) => img.id)
+      // );
 
       setShowCamera(false);
       setError(null);
@@ -130,10 +157,10 @@ const ImageHandler = ({ onImagesChange }) => {
         const reader = new FileReader();
         reader.onload = (event) => {
           const newImage = {
-            id: Date.now(),
+            id: generateUniqueId(),
             url: event.target.result,
             name: file.name,
-            file: file, // Store the actual file object
+            file: file,
           };
           newImages.push(newImage);
           if (newImages.length === files.length) {
@@ -142,6 +169,14 @@ const ImageHandler = ({ onImagesChange }) => {
             if (onImagesChange) {
               onImagesChange(updatedImages);
             }
+            console.log(
+              "New uploaded image IDs:",
+              newImages.map((img) => img.id)
+            );
+            // console.log(
+            //   "All image IDs after upload:",
+            //   updatedImages.map((img) => img.id)
+            // );
           }
         };
         reader.readAsDataURL(file);
@@ -152,13 +187,27 @@ const ImageHandler = ({ onImagesChange }) => {
     e.target.value = null;
   };
 
-  const handleDeleteImage = (imageId) => {
-    const updatedImages = images.filter((img) => img.id !== imageId);
-    setImages(updatedImages);
-    if (onImagesChange) {
-      onImagesChange(updatedImages);
-    }
-  };
+  const handleDeleteImage = useCallback(
+    (imageId) => {
+      setImages((prevImages) => {
+        const updatedImages = prevImages.filter((img) => img.id !== imageId);
+        if (onImagesChange) {
+          onImagesChange(updatedImages);
+        }
+        console.log("Deleted image ID:", imageId);
+        // console.log(
+        //   "All image IDs after deletion:",
+        //   updatedImages.map((img) => img.id)
+        // );
+        return updatedImages;
+      });
+
+      if (selectedImage && selectedImage.id === imageId) {
+        setSelectedImage(null);
+      }
+    },
+    [onImagesChange, selectedImage]
+  );
 
   const handleCameraError = (error) => {
     console.error("Lỗi camera:", error);
@@ -296,11 +345,7 @@ const ImageHandler = ({ onImagesChange }) => {
                       },
                     }}
                     size="small"
-                    onClick={() =>
-                      setImages((prev) =>
-                        prev.filter((img) => img.id !== image.id)
-                      )
-                    }
+                    onClick={() => handleDeleteImage(image.id)}
                   >
                     <DeleteIcon />
                   </IconButton>

@@ -804,7 +804,7 @@ async function createMediaItem(uploadToken) {
     {
       newMediaItems: [
         {
-          description: "Uploaded from Node.js",
+          description: "Uploaded from KSNB",
           simpleMediaItem: { uploadToken },
         },
       ],
@@ -856,6 +856,31 @@ app.post("/upload", upload.array("photos", 10), async (req, res) => {
       processingTime: endTime - startTime,
     });
   }
+});
+
+// API to save image URLs to the database
+app.post("/save-image-urls", async (req, res) => {
+  const { id_department, id_criteria, id_phase, imageUrls } = req.body;
+  const imgURL_before = imageUrls.join("; ");
+
+  const query = `
+    UPDATE tb_phase_details 
+    SET imgURL_before = ?
+    WHERE id_department = ? AND id_criteria = ? AND id_phase = ?
+  `;
+
+  db.query(
+    query,
+    [imgURL_before, id_department, id_criteria, id_phase],
+    (err, result) => {
+      if (err) {
+        console.error("Error saving image URLs:", err);
+        res.status(500).json({ error: "Error saving image URLs" });
+        return;
+      }
+      res.status(200).json({ message: "Image URLs saved successfully" });
+    }
+  );
 });
 
 ///////////upload ảnh////////////

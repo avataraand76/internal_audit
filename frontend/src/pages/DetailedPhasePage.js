@@ -230,6 +230,7 @@ const DetailedPhasePage = () => {
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setSelectedCriterion(null);
+    handleClearImages(); // Clear images when closing the dialog
   };
 
   const handleDepartmentClick = (event) => {
@@ -266,6 +267,10 @@ const DetailedPhasePage = () => {
     setSearchTerm(""); // Clear the search term
     setExpandedCategories(new Set()); // Reset expanded categories
     handleDepartmentClose();
+  };
+
+  const handleClearImages = () => {
+    setSelectedImages([]);
   };
 
   const renderDepartmentMenuContent = () => (
@@ -560,6 +565,17 @@ const DetailedPhasePage = () => {
         });
 
         console.log("Images uploaded successfully:", uploadResponse.data);
+
+        // Save image URLs to the database
+        const imageUrls = uploadResponse.data.mediaItems.map(
+          (item) => item.productUrl
+        );
+        await axios.post(`${API_URL}/save-image-urls`, {
+          id_department: selectedDepartment.id,
+          id_criteria: selectedCriterion.id,
+          id_phase: phaseId,
+          imageUrls: imageUrls,
+        });
       }
 
       setFailedCriteria((prev) => {
@@ -800,7 +816,11 @@ const DetailedPhasePage = () => {
                 {selectedCriterion.description}
               </Typography>
               <ImageHandler
-                onImagesChange={(images) => setSelectedImages(images)}
+                onImagesChange={(updatedImages) => {
+                  setSelectedImages(updatedImages);
+                  // Thực hiện bất kỳ xử lý bổ sung nào cần thiết
+                }}
+                images={selectedImages}
               />
             </DialogContent>
             <DialogActions>
