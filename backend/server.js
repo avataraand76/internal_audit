@@ -4,6 +4,11 @@ const mysql = require("mysql");
 const cors = require("cors");
 const moment = require("moment-timezone");
 const bcrypt = require("bcryptjs");
+const multer = require("multer");
+require("dotenv").config();
+const { google } = require("googleapis");
+const fs = require("fs");
+const compression = require("compression");
 
 const app = express();
 app.use(cors());
@@ -15,6 +20,12 @@ const db = mysql.createConnection({
   password: "",
   database: "internal_audit_database",
 });
+// const db = mysql.createConnection({
+//   host: "171.244.39.87",
+//   user: "vietthanh",
+//   password: "Vt@vlh123",
+//   database: "kiemsoatnoibo",
+// });
 
 // Get all users in LoginPage.js
 app.get("/login", (req, res) => {
@@ -702,6 +713,156 @@ app.get("/knockout-criteria/:phaseId/:departmentId", (req, res) => {
   });
 });
 
+///////////upload ảnh////////////
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // Giới hạn kích thước file, ví dụ: 10MB
+});
+
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  process.env.GOOGLE_REDIRECT_URI
+);
+let cachedAccessToken = null;
+let tokenExpirationTime = 0;
+
+async function getAccessToken() {
+  const currentTime = Date.now();
+  if (cachedAccessToken && currentTime < tokenExpirationTime) {
+    return cachedAccessToken;
+  }
+
+  const { token, expiry_date } = await oauth2Client.getAccessToken();
+  cachedAccessToken = token;
+  tokenExpirationTime = expiry_date;
+  return token;
+}
+oauth2Client.on("tokens", (tokens) => {
+  if (tokens.refresh_token) {
+    // Lưu refresh_token mới nếu nhận được
+    process.env.GOOGLE_REFRESH_TOKEN = tokens.refresh_token;
+  }
+});
+
+oauth2Client.setCredentials({
+  refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+});
+
+async function retryWithBackoff(fn, maxRetries = 5, initialDelay = 1000) {
+  let delay = initialDelay;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (
+        error.response &&
+        (error.response.status === 429 || error.response.status >= 500)
+      ) {
+        if (i === maxRetries - 1) throw error;
+        console.log(
+          `Retrying after ${delay}ms due to ${error.response.status} error`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff
+      } else {
+        throw error;
+      }
+    }
+  }
+}
+
+async function uploadPhoto(fileBuffer, fileName) {
+  return retryWithBackoff(async () => {
+    const accessToken = await getAccessToken();
+
+    if (!fileBuffer || fileBuffer.length === 0) {
+      throw new Error("File buffer is empty");
+    }
+
+    const response = await axios.post(
+      "https://photoslibrary.googleapis.com/v1/uploads",
+      fileBuffer,
+      {
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "X-Goog-Upload-File-Name": fileName,
+          "X-Goog-Upload-Protocol": "raw",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+    return response.data;
+  });
+}
+
+async function createMediaItem(uploadToken) {
+  const accessToken = await getAccessToken();
+  const response = await axios.post(
+    "https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate",
+    {
+      newMediaItems: [
+        {
+          description: "Uploaded from Node.js",
+          simpleMediaItem: { uploadToken },
+        },
+      ],
+    },
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+  return response.data.newMediaItemResults[0].mediaItem;
+}
+
+app.post(
+  "/upload",
+  upload.fields([{ name: "photo1" }, { name: "photo2" }]),
+  async (req, res) => {
+    const startTime = Date.now();
+    try {
+      if (!req.files || Object.keys(req.files).length === 0) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Không có file được tải lên" });
+      }
+
+      const mediaItems = [];
+      for (const [fieldName, files] of Object.entries(req.files)) {
+        const file = files[0];
+        const { buffer, originalname: fileName } = file;
+
+        const uploadToken = await uploadPhoto(buffer, fileName);
+        const mediaItem = await createMediaItem(uploadToken);
+        mediaItems.push(mediaItem);
+      }
+
+      const endTime = Date.now();
+      console.log(`Upload completed in ${endTime - startTime}ms`);
+      res.json({
+        success: true,
+        mediaItems,
+        processingTime: endTime - startTime,
+      });
+    } catch (error) {
+      const endTime = Date.now();
+      console.error(
+        `Upload failed in ${endTime - startTime}ms:`,
+        error.response?.data || error.message
+      );
+      res.status(500).json({
+        success: false,
+        error: "Không thể tải ảnh lên",
+        processingTime: endTime - startTime,
+      });
+    }
+  }
+);
+
+///////////upload ảnh////////////
 const PORT = 8081;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
