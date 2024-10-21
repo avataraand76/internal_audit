@@ -9,6 +9,7 @@ require("dotenv").config();
 const { google } = require("googleapis");
 const fs = require("fs");
 const compression = require("compression");
+const axios = require("axios");
 
 const app = express();
 app.use(cors());
@@ -818,49 +819,44 @@ async function createMediaItem(uploadToken) {
   return response.data.newMediaItemResults[0].mediaItem;
 }
 
-app.post(
-  "/upload",
-  upload.fields([{ name: "photo1" }, { name: "photo2" }]),
-  async (req, res) => {
-    const startTime = Date.now();
-    try {
-      if (!req.files || Object.keys(req.files).length === 0) {
-        return res
-          .status(400)
-          .json({ success: false, error: "Không có file được tải lên" });
-      }
-
-      const mediaItems = [];
-      for (const [fieldName, files] of Object.entries(req.files)) {
-        const file = files[0];
-        const { buffer, originalname: fileName } = file;
-
-        const uploadToken = await uploadPhoto(buffer, fileName);
-        const mediaItem = await createMediaItem(uploadToken);
-        mediaItems.push(mediaItem);
-      }
-
-      const endTime = Date.now();
-      console.log(`Upload completed in ${endTime - startTime}ms`);
-      res.json({
-        success: true,
-        mediaItems,
-        processingTime: endTime - startTime,
-      });
-    } catch (error) {
-      const endTime = Date.now();
-      console.error(
-        `Upload failed in ${endTime - startTime}ms:`,
-        error.response?.data || error.message
-      );
-      res.status(500).json({
-        success: false,
-        error: "Không thể tải ảnh lên",
-        processingTime: endTime - startTime,
-      });
+app.post("/upload", upload.array("photos", 10), async (req, res) => {
+  const startTime = Date.now();
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, error: "No files were uploaded" });
     }
+
+    const mediaItems = [];
+    for (const file of req.files) {
+      const { buffer, originalname: fileName } = file;
+
+      const uploadToken = await uploadPhoto(buffer, fileName);
+      const mediaItem = await createMediaItem(uploadToken);
+      mediaItems.push(mediaItem);
+    }
+
+    const endTime = Date.now();
+    console.log(`Upload completed in ${endTime - startTime}ms`);
+    res.json({
+      success: true,
+      mediaItems,
+      processingTime: endTime - startTime,
+    });
+  } catch (error) {
+    const endTime = Date.now();
+    console.error(
+      `Upload failed in ${endTime - startTime}ms:`,
+      error.response?.data || error.message
+    );
+    res.status(500).json({
+      success: false,
+      error: "Unable to upload images",
+      processingTime: endTime - startTime,
+    });
   }
-);
+});
 
 ///////////upload ảnh////////////
 const PORT = 8081;

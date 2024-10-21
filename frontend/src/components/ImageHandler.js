@@ -83,7 +83,7 @@ const PreviewDialog = styled(Dialog)({
 const ALLOWED_FILE_TYPES = ["image/jpeg", "image/jpg", "image/png"];
 const ALLOWED_FILE_EXTENSIONS = [".jpg", ".jpeg", ".png"];
 
-const ImageHandler = ({ onImageCapture, onImageUpload }) => {
+const ImageHandler = ({ onImagesChange }) => {
   const fileInputRef = useRef(null);
   const [images, setImages] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -108,9 +108,10 @@ const ImageHandler = ({ onImageCapture, onImageUpload }) => {
         name: `Captured_${new Date().toLocaleString()}.jpg`,
       };
 
-      setImages((prev) => [...prev, newImage]);
-      if (onImageCapture) {
-        onImageCapture(dataUri);
+      const updatedImages = [...images, newImage];
+      setImages(updatedImages);
+      if (onImagesChange) {
+        onImagesChange(updatedImages);
       }
 
       setShowCamera(false);
@@ -118,6 +119,44 @@ const ImageHandler = ({ onImageCapture, onImageUpload }) => {
     } catch (err) {
       console.error("Lỗi khi chụp ảnh:", err);
       setError("Không thể chụp ảnh. Vui lòng thử lại.");
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    const newImages = [];
+    files.forEach((file) => {
+      if (isValidFileType(file)) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const newImage = {
+            id: Date.now(),
+            url: event.target.result,
+            name: file.name,
+            file: file, // Store the actual file object
+          };
+          newImages.push(newImage);
+          if (newImages.length === files.length) {
+            const updatedImages = [...images, ...newImages];
+            setImages(updatedImages);
+            if (onImagesChange) {
+              onImagesChange(updatedImages);
+            }
+          }
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setError("Chỉ chấp nhận file ảnh có định dạng JPG/JPEG hoặc PNG");
+      }
+    });
+    e.target.value = null;
+  };
+
+  const handleDeleteImage = (imageId) => {
+    const updatedImages = images.filter((img) => img.id !== imageId);
+    setImages(updatedImages);
+    if (onImagesChange) {
+      onImagesChange(updatedImages);
     }
   };
 
@@ -167,30 +206,7 @@ const ImageHandler = ({ onImageCapture, onImageUpload }) => {
         <input
           type="file"
           ref={fileInputRef}
-          onChange={(e) => {
-            const files = Array.from(e.target.files);
-            files.forEach((file) => {
-              if (isValidFileType(file)) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                  setImages((prev) => [
-                    ...prev,
-                    {
-                      id: Date.now(),
-                      url: event.target.result,
-                      name: file.name,
-                    },
-                  ]);
-                };
-                reader.readAsDataURL(file);
-              } else {
-                setError(
-                  "Chỉ chấp nhận file ảnh có định dạng JPG/JPEG hoặc PNG"
-                );
-              }
-            });
-            e.target.value = null;
-          }}
+          onChange={handleFileUpload}
           style={{ display: "none" }}
           accept=".jpg,.jpeg,.png"
           multiple

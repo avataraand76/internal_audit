@@ -89,6 +89,7 @@ const DetailedPhasePage = () => {
   const [hasAbsoluteKnockout, setHasAbsoluteKnockout] = useState(false);
   const [redStarCriteria, setRedStarCriteria] = useState([]);
   const [absoluteKnockoutCriteria, setAbsoluteKnockoutCriteria] = useState([]);
+  const [selectedImages, setSelectedImages] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -530,7 +531,36 @@ const DetailedPhasePage = () => {
     };
 
     try {
+      // First, save the score
       await axios.post(`${API_URL}/phase-details`, scoreData);
+
+      // If the score is "không đạt" and there are images, upload them
+      if (score === "không đạt" && selectedImages.length > 0) {
+        const formData = new FormData();
+        selectedImages.forEach((image, index) => {
+          if (image.file) {
+            formData.append("photos", image.file, image.name);
+          } else {
+            // For images captured by camera, we need to convert the dataURI to a file
+            fetch(image.url)
+              .then((res) => res.blob())
+              .then((blob) => {
+                const file = new File([blob], image.name, {
+                  type: "image/jpeg",
+                });
+                formData.append("photos", file, image.name);
+              });
+          }
+        });
+
+        const uploadResponse = await axios.post(`${API_URL}/upload`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+
+        console.log("Images uploaded successfully:", uploadResponse.data);
+      }
 
       setFailedCriteria((prev) => {
         const newFailedCriteria = { ...prev };
@@ -545,13 +575,12 @@ const DetailedPhasePage = () => {
         return newFailedCriteria;
       });
 
-      // Gọi hàm cập nhật thông tin
       await updateInfoCard();
 
       handleCloseDialog();
     } catch (error) {
-      console.error("Error saving score:", error);
-      alert("Có lỗi xảy ra khi lưu điểm. Vui lòng thử lại.");
+      console.error("Error saving score or uploading images:", error);
+      alert("Có lỗi xảy ra khi lưu điểm hoặc tải ảnh lên. Vui lòng thử lại.");
     }
   };
 
@@ -771,14 +800,7 @@ const DetailedPhasePage = () => {
                 {selectedCriterion.description}
               </Typography>
               <ImageHandler
-                onImageCapture={() => {
-                  // Xử lý khi chụp ảnh
-                  console.log("Image captured");
-                }}
-                onImageUpload={(file) => {
-                  // Xử lý khi upload ảnh
-                  console.log("Image uploaded:", file.name);
-                }}
+                onImagesChange={(images) => setSelectedImages(images)}
               />
             </DialogContent>
             <DialogActions>
