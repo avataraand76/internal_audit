@@ -32,11 +32,12 @@ const CreatePhasePage = () => {
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [openDialog, setOpenDialog] = useState(false);
-  const [dialogMode, setDialogMode] = useState("create"); // "create" or "edit"
+  const [dialogMode, setDialogMode] = useState("create");
   const [selectedPhase, setSelectedPhase] = useState(null);
   const [phaseName, setPhaseName] = useState("");
   const [phases, setPhases] = useState([]);
   const [user, setUser] = useState(null);
+  const [isSupervisor, setIsSupervisor] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [phaseToDelete, setPhaseToDelete] = useState(null);
 
@@ -45,10 +46,22 @@ const CreatePhasePage = () => {
     const storedUser = JSON.parse(localStorage.getItem("user"));
     if (storedUser) {
       setUser(storedUser);
+      checkUserRole(storedUser.id_user);
     } else {
       navigate("/");
     }
   }, [navigate]);
+
+  const checkUserRole = async (userId) => {
+    try {
+      // Kiểm tra xem user có trong tb_user_supervisor không
+      const response = await fetch(`${API_URL}/check-supervisor/${userId}`);
+      const data = await response.json();
+      setIsSupervisor(data.isSupervisor);
+    } catch (error) {
+      console.error("Error checking user role:", error);
+    }
+  };
 
   const fetchPhases = async () => {
     try {
@@ -65,6 +78,7 @@ const CreatePhasePage = () => {
   };
 
   const handleOpenDialog = (mode, phase = null) => {
+    if (!isSupervisor) return;
     setDialogMode(mode);
     setSelectedPhase(phase);
     setPhaseName(phase ? phase.name_phase : "");
@@ -78,6 +92,7 @@ const CreatePhasePage = () => {
   };
 
   const handleSavePhase = async () => {
+    if (!isSupervisor) return;
     if (phaseName.trim()) {
       try {
         if (dialogMode === "create") {
@@ -127,11 +142,13 @@ const CreatePhasePage = () => {
   };
 
   const handleOpenDeleteDialog = (phase) => {
+    if (!isSupervisor) return;
     setPhaseToDelete(phase);
     setOpenDeleteDialog(true);
   };
 
   const handleDeletePhase = async () => {
+    if (!isSupervisor) return;
     if (phaseToDelete) {
       try {
         const response = await fetch(
@@ -173,9 +190,9 @@ const CreatePhasePage = () => {
               variant={{ xs: "h5", sm: "h4", md: "h3" }}
               component="h1"
             >
-              Quản lý đợt chấm điểm
+              {isSupervisor ? "Quản lý đợt chấm điểm" : "Các đợt chấm điểm"}
             </Typography>
-            {!isMobile && (
+            {!isMobile && isSupervisor && (
               <Button
                 variant="contained"
                 color="primary"
@@ -212,20 +229,24 @@ const CreatePhasePage = () => {
                         Ngày tạo:{" "}
                         {new Date(phase.date_recorded).toLocaleDateString()}
                       </Typography>
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={() => handleOpenDialog("edit", phase)}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleOpenDeleteDialog(phase)}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
+                      {isSupervisor && (
+                        <>
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => handleOpenDialog("edit", phase)}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleOpenDeleteDialog(phase)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </>
+                      )}
                     </Stack>
                   </Stack>
                 </CardContent>
@@ -243,7 +264,7 @@ const CreatePhasePage = () => {
           </Stack>
         </Stack>
 
-        {isMobile && (
+        {isMobile && isSupervisor && (
           <Fab
             color="primary"
             sx={{

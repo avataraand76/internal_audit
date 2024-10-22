@@ -26,6 +26,7 @@ import AssessmentIcon from "@mui/icons-material/Assessment";
 import LogoutIcon from "@mui/icons-material/Logout";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import logo from "../assets/logo_cty.png";
+import API_URL from "../data/api";
 
 const CustomAppBar = styled(AppBar)(({ theme }) => ({
   backgroundColor: "white",
@@ -82,12 +83,6 @@ const LogoutButton = styled(Button)({
   },
 });
 
-const navItems = [
-  { text: "Trang chủ", path: "/", icon: <HomeIcon /> },
-  { text: "Chấm điểm", path: "/create-phase", icon: <GradeIcon /> },
-  { text: "Báo cáo", path: "/report", icon: <AssessmentIcon /> },
-];
-
 const Header = () => {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -96,13 +91,48 @@ const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const isLoginPage = location.pathname === "/login";
   const [userName, setUserName] = useState("");
+  const [isSupervisor, setIsSupervisor] = useState(false);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (user && user.name_user) {
       setUserName(user.name_user);
+      checkUserRole(user.id_user);
     }
   }, []);
+
+  const checkUserRole = async (userId) => {
+    try {
+      const response = await fetch(`${API_URL}/check-supervisor/${userId}`);
+      const data = await response.json();
+      setIsSupervisor(data.isSupervisor);
+    } catch (error) {
+      console.error("Error checking user role:", error);
+    }
+  };
+
+  // Tạo navItems dựa trên vai trò của user
+  const getNavItems = () => {
+    const baseItems = [
+      { text: "Trang chủ", path: "/", icon: <HomeIcon /> },
+      {
+        text: isSupervisor ? "Chấm điểm" : "Các đợt chấm điểm",
+        path: "/create-phase",
+        icon: <GradeIcon />,
+      },
+    ];
+
+    // Thêm nút báo cáo chỉ cho supervisor
+    if (isSupervisor) {
+      baseItems.push({
+        text: "Báo cáo",
+        path: "/report",
+        icon: <AssessmentIcon />,
+      });
+    }
+
+    return baseItems;
+  };
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -124,7 +154,7 @@ const Header = () => {
   };
 
   // Filter out navigation items based on current route
-  const filteredNavItems = navItems.filter((item) => {
+  const filteredNavItems = getNavItems().filter((item) => {
     if (location.pathname === "/" && item.path === "/") return false;
     if (location.pathname === "/create-phase" && item.path === "/create-phase")
       return false;

@@ -7,6 +7,22 @@ INSERT INTO tb_category (name_category) VALUES
 ('QMS'), -- id 5
 ('Trật tự nội vụ'); -- id 6
 
+-- nhập liệu xưởng workshop
+INSERT INTO tb_workshop (name_workshop) VALUES
+('XƯỞNG 1'), -- id 1
+('XƯỞNG 2'), -- id 2
+('XƯỞNG 3'), -- id 3
+('XƯỞNG 4'), -- id 4
+('XƯỞNG CẮT'), -- id 5
+('PHÒNG NHÂN SỰ'), -- id 6
+('PHÒNG HÀNH CHÍNH QUẢN TRỊ'), -- id 7
+('PHÒNG KẾ TOÁN'), -- id 8
+('PHÒNG KẾ HOẠCH SẢN XUẤT'), -- id 9
+('PHÒNG KỸ THUẬT'), -- id 10
+('PHÒNG QA'), -- id 11
+('PHÒNG CN-LEAN'), -- id 12
+('CƠ ĐIỆN'); -- id 13
+
 -- nhập liệu tài khoản user
 -- INSERT INTO tb_user (name_user, password_user) VALUES
 -- ('admin','password'), -- id 1
@@ -31,7 +47,20 @@ INSERT INTO tb_user (name_user, password_user) VALUES
 ('lean','$2a$10$sUDcixiOU5ushEX8PTpBe.1IXkZBOHQshqWzZH0YDpuIM5anxQ1VW'), -- id 7 -- password: lean
 ('pnkl','$2a$10$uvVqQvfO64RTwpkRD8zL5e.404oMhAiP5XySOm1I5Row2.Ytlmis2'), -- id 8 -- password: pnkl
 ('qms','$2a$10$seDTRF80WEi4fcTD950U8.fPlXKdTmj0bw0v/0TVcQq.ceZWhaFFq'), -- id 9 -- password: qms
-('ttnv','$2a$10$6vBpBNvFx1Ll.cgAbjUCaOISGeUtc.eiJCfcwBQJMYdCiTSZWN7VC'); -- id 10 -- password: ttnv
+('ttnv','$2a$10$6vBpBNvFx1Ll.cgAbjUCaOISGeUtc.eiJCfcwBQJMYdCiTSZWN7VC'), -- id 10 -- password: ttnv
+('xuong1','$2a$10$VecZBZCmfDmgdVI3/z.BFO.GUmu1syRMenNpu8VeIESjJUrRqIjRe'), -- id 11 -- password: vlh
+('xuong2','$2a$10$VecZBZCmfDmgdVI3/z.BFO.GUmu1syRMenNpu8VeIESjJUrRqIjRe'), -- id 12 -- password: vlh
+('xuong3','$2a$10$VecZBZCmfDmgdVI3/z.BFO.GUmu1syRMenNpu8VeIESjJUrRqIjRe'), -- id 13 -- password: vlh
+('xuong4','$2a$10$VecZBZCmfDmgdVI3/z.BFO.GUmu1syRMenNpu8VeIESjJUrRqIjRe'), -- id 14 -- password: vlh
+('xuongcat','$2a$10$VecZBZCmfDmgdVI3/z.BFO.GUmu1syRMenNpu8VeIESjJUrRqIjRe'), -- id 15 -- password: vlh
+('nhansu','$2a$10$VecZBZCmfDmgdVI3/z.BFO.GUmu1syRMenNpu8VeIESjJUrRqIjRe'), -- id 16 -- password: vlh
+('hcqt','$2a$10$VecZBZCmfDmgdVI3/z.BFO.GUmu1syRMenNpu8VeIESjJUrRqIjRe'), -- id 17 -- password: vlh
+('ketoan','$2a$10$VecZBZCmfDmgdVI3/z.BFO.GUmu1syRMenNpu8VeIESjJUrRqIjRe'), -- id 18 -- password: vlh
+('khsx','$2a$10$VecZBZCmfDmgdVI3/z.BFO.GUmu1syRMenNpu8VeIESjJUrRqIjRe'), -- id 19 -- password: vlh
+('kythuat','$2a$10$VecZBZCmfDmgdVI3/z.BFO.GUmu1syRMenNpu8VeIESjJUrRqIjRe'), -- id 20 -- password: vlh
+('qa','$2a$10$VecZBZCmfDmgdVI3/z.BFO.GUmu1syRMenNpu8VeIESjJUrRqIjRe'), -- id 21 -- password: vlh
+('cnlean','$2a$10$VecZBZCmfDmgdVI3/z.BFO.GUmu1syRMenNpu8VeIESjJUrRqIjRe'), -- id 22 -- password: vlh
+('codien','$2a$10$VecZBZCmfDmgdVI3/z.BFO.GUmu1syRMenNpu8VeIESjJUrRqIjRe'); -- id 23 -- password: vlh
 
 -- nhập liệu phân quyền hạng mục chấm điểm cho user kiểm soát
 INSERT INTO tb_user_supervisor (id_category, id_user) VALUES
@@ -54,21 +83,21 @@ INSERT INTO tb_user_supervisor (id_category, id_user) VALUES
 ('5','9'),
 ('6','10');
 
--- nhập liệu xưởng workshop
-INSERT INTO tb_workshop (name_workshop) VALUES
-('XƯỞNG 1'), -- id 1
-('XƯỞNG 2'), -- id 2
-('XƯỞNG 3'), -- id 3
-('XƯỞNG 4'), -- id 4
-('XƯỞNG CẮT'), -- id 5
-('PHÒNG NHÂN SỰ'), -- id 6
-('PHÒNG HÀNH CHÍNH QUẢN TRỊ'), -- id 7
-('PHÒNG KẾ TOÁN'), -- id 8
-('PHÒNG KẾ HOẠCH SẢN XUẤT'), -- id 9
-('PHÒNG KỸ THUẬT'), -- id 10
-('PHÒNG QA'), -- id 11
-('PHÒNG CN-LEAN'), -- id 12
-('CƠ ĐIỆN'); -- id 13
+-- nhập liệu phân quyền hạng mục chấm điểm cho user từng phòng ban
+INSERT INTO tb_user_supervised (id_workshop, id_user) VALUES
+('1','11'),
+('2','12'),
+('3','13'),
+('4','14'),
+('5','15'),
+('6','16'),
+('7','17'),
+('8','18'),
+('9','19'),
+('10','20'),
+('11','21'),
+('12','22'),
+('13','23');
 
 -- nhập liệu bộ phận department
 INSERT INTO tb_department (id_workshop, name_department) VALUES

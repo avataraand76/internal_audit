@@ -74,7 +74,6 @@ const DetailedPhasePage = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [phase, setPhase] = useState(null);
-  const [categories, setCategories] = useState([]);
   const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedCriterion, setSelectedCriterion] = useState(null);
@@ -95,6 +94,8 @@ const DetailedPhasePage = () => {
   const [absoluteKnockoutCriteria, setAbsoluteKnockoutCriteria] = useState([]);
   const [selectedImages, setSelectedImages] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSupervisor, setIsSupervisor] = useState(false);
+  const [allCategories, setAllCategories] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -108,13 +109,29 @@ const DetailedPhasePage = () => {
         }
         setUser(storedUser);
 
+        // Kiểm tra role của user
+        const supervisorResponse = await axios.get(
+          `${API_URL}/check-supervisor/${storedUser.id_user}`
+        );
+        setIsSupervisor(supervisorResponse.data.isSupervisor);
+
         // Fetch phase details
         const phaseResponse = await axios.get(`${API_URL}/phases/${phaseId}`);
         setPhase(phaseResponse.data);
 
-        // Fetch workshops and departments
-        const workshopsResponse = await axios.get(`${API_URL}/workshops`);
+        // Fetch workshops theo user ID
+        const workshopsResponse = await axios.get(
+          `${API_URL}/workshops/${storedUser.id_user}`
+        );
         setWorkshops(workshopsResponse.data);
+
+        // Nếu là user supervised, tự động chọn workshop đầu tiên
+        if (workshopsResponse.data.length === 1) {
+          setOpenWorkshops({ [workshopsResponse.data[0].id]: true });
+          if (workshopsResponse.data[0].departments.length === 1) {
+            setSelectedDepartment(workshopsResponse.data[0].departments[0]);
+          }
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
         alert("Đã xảy ra lỗi khi tải dữ liệu. Vui lòng thử lại sau.");
@@ -153,11 +170,17 @@ const DetailedPhasePage = () => {
     const fetchCategoriesForDepartment = async () => {
       if (selectedDepartment && user) {
         try {
-          const response = await axios.get(
-            `${API_URL}/categories/${user.id_user}/${selectedDepartment.id}`
-          );
-          setCategories(response.data);
-          // Reset expanded categories when changing department
+          let response;
+          if (isSupervisor) {
+            response = await axios.get(
+              `${API_URL}/categories/${user.id_user}/${selectedDepartment.id}`
+            );
+          } else {
+            response = await axios.get(
+              `${API_URL}/supervised-categories/${user.id_user}/${selectedDepartment.id}`
+            );
+          }
+          setAllCategories(response.data);
           setExpandedCategories(new Set());
         } catch (error) {
           console.error("Error fetching categories for department:", error);
@@ -169,7 +192,7 @@ const DetailedPhasePage = () => {
     };
 
     fetchCategoriesForDepartment();
-  }, [selectedDepartment, user]);
+  }, [selectedDepartment, user, isSupervisor]);
 
   useEffect(() => {
     const fetchTotalPoint = async () => {
@@ -277,6 +300,10 @@ const DetailedPhasePage = () => {
   const handleClearImages = () => {
     setSelectedImages([]);
   };
+
+  const searchPlaceholder = isSupervisor
+    ? "Tìm kiếm theo tên hạng mục, mã tiêu chí hoặc tên tiêu chí..."
+    : "Tìm kiếm trong các tiêu chí không đạt...";
 
   const renderDepartmentMenuContent = () => (
     <List component="nav" dense>
@@ -466,9 +493,22 @@ const DetailedPhasePage = () => {
           />
         </Box>
         <Typography variant="body2" color="text.secondary">
-          Số tiêu chí không đạt:{" "}
-          {selectedDepartment ? totalCriteria[selectedDepartment.id] || 0 : 0} /{" "}
-          {totalCriteria.total || 0}
+          {isSupervisor ? (
+            <>
+              Số tiêu chí không đạt:{" "}
+              {selectedDepartment
+                ? totalCriteria[selectedDepartment.id] || 0
+                : 0}{" "}
+              / {totalCriteria.total || 0}
+            </>
+          ) : (
+            <>
+              Số tiêu chí không đạt:{" "}
+              {selectedDepartment
+                ? totalCriteria[selectedDepartment.id] || 0
+                : 0}
+            </>
+          )}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Tiêu chí điểm liệt:{" "}
@@ -519,7 +559,7 @@ const DetailedPhasePage = () => {
     // Automatically expand categories with matching criteria
     if (newSearchTerm.trim()) {
       const categoriesToExpand = new Set();
-      categories.forEach((category) => {
+      allCategories.forEach((category) => {
         if (
           category.criteria.some((criterion) =>
             criterionMatchesSearch(criterion, newSearchTerm)
@@ -557,19 +597,41 @@ const DetailedPhasePage = () => {
 
   // Update the filteredCategories memo to include search filtering
   const filteredCategories = useMemo(() => {
-    if (!searchTerm.trim()) {
-      return categories;
+    // Bắt đầu với danh sách categories ban đầu
+    let processedCategories = allCategories;
+
+    // Nếu là user supervised, chỉ hiển thị các tiêu chí không đạt
+    if (!isSupervisor) {
+      processedCategories = allCategories
+        .map((category) => ({
+          ...category,
+          criteria: category.criteria.filter((criterion) =>
+            failedCriteria[selectedDepartment?.id]?.has(criterion.id)
+          ),
+        }))
+        .filter((category) => category.criteria.length > 0);
     }
 
-    return categories
-      .map((category) => ({
-        ...category,
-        criteria: category.criteria.filter((criterion) =>
-          criterionMatchesSearch(criterion, searchTerm)
-        ),
-      }))
-      .filter((category) => category.criteria.length > 0);
-  }, [categories, searchTerm]);
+    // Áp dụng tìm kiếm nếu có
+    if (searchTerm.trim()) {
+      return processedCategories
+        .map((category) => ({
+          ...category,
+          criteria: category.criteria.filter((criterion) =>
+            criterionMatchesSearch(criterion, searchTerm)
+          ),
+        }))
+        .filter((category) => category.criteria.length > 0);
+    }
+
+    return processedCategories;
+  }, [
+    allCategories,
+    searchTerm,
+    isSupervisor,
+    failedCriteria,
+    selectedDepartment,
+  ]);
 
   const handleScore = async (score) => {
     if (!selectedCriterion || !selectedDepartment || !user) {
@@ -731,7 +793,7 @@ const DetailedPhasePage = () => {
             fullWidth
             variant="outlined"
             // sx={{ border: "1px solid black" }}
-            placeholder="Tìm kiếm theo tên hạng mục, mã tiêu chí hoặc tên tiêu chí..."
+            placeholder={searchPlaceholder}
             value={searchTerm}
             onChange={handleSearch}
             InputProps={{

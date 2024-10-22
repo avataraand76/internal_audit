@@ -77,6 +77,203 @@ app.post("/login", async (req, res) => {
   });
 });
 
+// check có phải là người giám sát kp
+app.get("/check-supervisor/:userId", (req, res) => {
+  const userId = req.params.userId;
+  const query = "SELECT * FROM tb_user_supervisor WHERE id_user = ?";
+
+  db.query(query, [userId], (err, results) => {
+    if (err) {
+      console.error("Error checking supervisor role:", err);
+      res.status(500).json({ error: "Error checking supervisor role" });
+      return;
+    }
+
+    res.json({ isSupervisor: results.length > 0 });
+  });
+});
+
+// lấy phòng ban theo user
+app.get("/user-workshop/:userId", (req, res) => {
+  const userId = req.params.userId;
+  const query = `
+    SELECT DISTINCT w.* 
+    FROM tb_workshop w 
+    JOIN tb_user_supervised us ON w.id_workshop = us.id_workshop
+    WHERE us.id_user = ?
+  `;
+
+  db.query(query, [userId], (err, results) => {
+    if (err) {
+      console.error("Error fetching user workshop:", err);
+      res.status(500).json({ error: "Error fetching user workshop" });
+      return;
+    }
+    res.json(results);
+  });
+});
+
+// Lấy bộ phận theo user
+app.get("/workshops/:userId", async (req, res) => {
+  const userId = req.params.userId;
+
+  try {
+    // Kiểm tra xem user có phải là supervisor không
+    const supervisorQuery =
+      "SELECT * FROM tb_user_supervisor WHERE id_user = ?";
+    const [supervisorResults] = await new Promise((resolve, reject) => {
+      db.query(supervisorQuery, [userId], (err, results) => {
+        if (err) reject(err);
+        else resolve([results, null]);
+      });
+    });
+
+    let workshopQuery;
+    let queryParams;
+
+    if (supervisorResults.length > 0) {
+      // Nếu là supervisor, lấy tất cả workshops
+      workshopQuery = `
+        SELECT 
+          w.id_workshop,
+          w.name_workshop,
+          d.id_department,
+          d.name_department
+        FROM tb_workshop w
+        LEFT JOIN tb_department d ON w.id_workshop = d.id_workshop
+        ORDER BY w.id_workshop, d.id_department
+      `;
+      queryParams = [];
+    } else {
+      // Nếu là supervised, chỉ lấy workshop được phân công
+      workshopQuery = `
+        SELECT 
+          w.id_workshop,
+          w.name_workshop,
+          d.id_department,
+          d.name_department
+        FROM tb_workshop w
+        LEFT JOIN tb_department d ON w.id_workshop = d.id_workshop
+        WHERE w.id_workshop IN (
+          SELECT id_workshop 
+          FROM tb_user_supervised 
+          WHERE id_user = ?
+        )
+        ORDER BY w.id_workshop, d.id_department
+      `;
+      queryParams = [userId];
+    }
+
+    const results = await new Promise((resolve, reject) => {
+      db.query(workshopQuery, queryParams, (err, results) => {
+        if (err) reject(err);
+        else resolve(results);
+      });
+    });
+
+    // Chuyển đổi kết quả phẳng thành cấu trúc phân cấp
+    const workshops = results.reduce((acc, row) => {
+      const workshop = acc.find((w) => w.id === row.id_workshop);
+
+      if (!workshop) {
+        acc.push({
+          id: row.id_workshop,
+          name: row.name_workshop,
+          departments: row.id_department
+            ? [
+                {
+                  id: row.id_department,
+                  name: row.name_department,
+                },
+              ]
+            : [],
+        });
+      } else if (row.id_department) {
+        workshop.departments.push({
+          id: row.id_department,
+          name: row.name_department,
+        });
+      }
+
+      return acc;
+    }, []);
+
+    res.json(workshops);
+  } catch (error) {
+    console.error("Error in /workshops/:userId:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Lấy hạng mục và tiêu chí cho các tài khoản supervised
+app.get("/supervised-categories/:userId/:departmentId", (req, res) => {
+  const { userId, departmentId } = req.params;
+
+  // Query để lấy categories và criteria cho user supervised
+  const query = `
+    SELECT DISTINCT
+      c.id_category,
+      c.name_category,
+      cr.id_criteria,
+      cr.codename,
+      cr.name_criteria,
+      cr.description,
+      cr.failing_point_type
+    FROM tb_category c
+    INNER JOIN tb_criteria cr ON c.id_category = cr.id_category
+    INNER JOIN tb_department_criteria dc ON cr.id_criteria = dc.id_criteria
+    INNER JOIN tb_user_supervised us ON us.id_workshop = (
+      SELECT id_workshop FROM tb_department WHERE id_department = ?
+    )
+    WHERE us.id_user = ? 
+    AND dc.id_department = ?
+    ORDER BY c.id_category, cr.id_criteria
+  `;
+
+  db.query(query, [departmentId, userId, departmentId], (err, results) => {
+    if (err) {
+      console.error("Error fetching supervised categories:", err);
+      res.status(500).json({ error: "Error fetching supervised categories" });
+      return;
+    }
+
+    // Chuyển đổi kết quả phẳng thành cấu trúc phân cấp
+    const categories = results.reduce((acc, row) => {
+      const category = acc.find((c) => c.id === row.id_category);
+
+      if (!category) {
+        acc.push({
+          id: row.id_category,
+          name: row.name_category,
+          criteria: row.id_criteria
+            ? [
+                {
+                  id: row.id_criteria,
+                  codename: row.codename,
+                  name: row.name_criteria,
+                  description: row.description,
+                  failingPointType: row.failing_point_type,
+                },
+              ]
+            : [],
+        });
+      } else if (row.id_criteria) {
+        category.criteria.push({
+          id: row.id_criteria,
+          codename: row.codename,
+          name: row.name_criteria,
+          description: row.description,
+          failingPointType: row.failing_point_type,
+        });
+      }
+
+      return acc;
+    }, []);
+
+    res.json(categories);
+  });
+});
+
 // Get all phases in CreatePhasePage.js
 app.get("/phases", (req, res) => {
   const query = "SELECT * FROM tb_phase ORDER BY date_recorded DESC";
