@@ -43,6 +43,9 @@ import axios from "axios";
 import API_URL from "../data/api";
 import ImageHandler from "../components/ImageHandler";
 import LoadingOverlay from "../components/LoadingOverlay";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import Zoom from "@mui/material/Zoom";
+import useScrollTrigger from "@mui/material/useScrollTrigger";
 
 const WorkshopText = styled(Typography)(({ theme }) => ({
   fontWeight: "bold",
@@ -331,6 +334,52 @@ const DetailedPhasePage = () => {
       ))}
     </List>
   );
+
+  const ScrollToTop = () => {
+    const trigger = useScrollTrigger({
+      threshold: 400,
+      disableHysteresis: true,
+    });
+
+    const handleClick = () => {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    };
+
+    return (
+      <Zoom in={trigger}>
+        <Box
+          onClick={handleClick}
+          role="presentation"
+          sx={{
+            position: "fixed",
+            bottom: 16,
+            right: 16,
+            zIndex: 1000,
+          }}
+        >
+          <Button
+            variant="contained"
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              minWidth: "unset",
+              backgroundColor: (theme) => theme.palette.primary.main,
+              "&:hover": {
+                backgroundColor: (theme) => theme.palette.primary.dark,
+              },
+              boxShadow: 3,
+            }}
+          >
+            <KeyboardArrowUpIcon />
+          </Button>
+        </Box>
+      </Zoom>
+    );
+  };
 
   // Render workshop/department menu
   const renderDepartmentMenu = () => (
@@ -804,6 +853,8 @@ const DetailedPhasePage = () => {
           ))}
         </Stack>
       </Container>
+
+      <ScrollToTop />
 
       {/* Dialog chi tiết tiêu chí */}
       <Dialog
