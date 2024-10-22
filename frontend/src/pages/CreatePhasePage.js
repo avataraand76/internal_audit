@@ -205,9 +205,9 @@ const CreatePhasePage = () => {
                       {phase.name_phase}
                     </Typography>
                     <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography variant="body2" color="text.secondary">
+                      {/* <Typography variant="body2" color="text.secondary">
                         ID: {phase.id_phase}
-                      </Typography>
+                      </Typography> */}
                       <Typography variant="body2" color="text.secondary">
                         Ngày tạo:{" "}
                         {new Date(phase.date_recorded).toLocaleDateString()}

@@ -1276,6 +1276,7 @@ app.post("/upload", upload.array("photos", 10), async (req, res) => {
     // Process files sequentially
     for (const file of req.files) {
       try {
+        const fileStartTime = Date.now();
         console.log(`\nProcessing file: ${file.originalname}`);
 
         // Basic validations
@@ -1293,13 +1294,17 @@ app.post("/upload", upload.array("photos", 10), async (req, res) => {
           file.originalname,
           folderId
         );
+        const fileEndTime = Date.now();
+        const fileUploadTime = (fileEndTime - fileStartTime) / 1000; // Convert to seconds
         console.log(`Successfully uploaded: ${file.originalname}`);
+        console.log(`File uploaded in ${fileUploadTime.toFixed(2)} seconds`);
 
         uploadedFiles.push({
           ...uploadedFile,
           originalName: file.originalname,
           size: file.size,
           mimeType: file.mimetype,
+          uploadTime: fileUploadTime,
         });
       } catch (error) {
         console.error(`Error uploading ${file.originalname}:`, error);
@@ -1309,6 +1314,11 @@ app.post("/upload", upload.array("photos", 10), async (req, res) => {
         });
       }
     }
+
+    const totalTime = (Date.now() - startTime) / 1000; // Convert to seconds
+    console.log(
+      `\nTOTAL UPLOAD PROCESS COMPLETED IN ${totalTime.toFixed(2)} SECONDS`
+    );
 
     // Send response
     res.json({
@@ -1320,15 +1330,27 @@ app.post("/upload", upload.array("photos", 10), async (req, res) => {
         totalFiles: req.files.length,
         successfulUploads: uploadedFiles.length,
         failedUploads: errors.length,
-        processingTime: Date.now() - startTime,
+        processingTimeSeconds: totalTime,
+        averageUploadTimeSeconds:
+          uploadedFiles.length > 0
+            ? (
+                uploadedFiles.reduce((acc, file) => acc + file.uploadTime, 0) /
+                uploadedFiles.length
+              ).toFixed(2)
+            : 0,
       },
     });
   } catch (error) {
-    console.error("Upload process failed:", error);
+    const totalTime = (Date.now() - startTime) / 1000;
+    console.error(
+      `Upload process failed after ${totalTime.toFixed(2)} seconds:`,
+      error
+    );
     res.status(500).json({
       success: false,
       error: "Không thể tải ảnh lên",
       details: error.message,
+      processingTimeSeconds: totalTime,
     });
   }
 });
