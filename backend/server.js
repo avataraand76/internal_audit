@@ -10,6 +10,7 @@ const { google } = require("googleapis");
 const fs = require("fs");
 const compression = require("compression");
 const axios = require("axios");
+const { Readable } = require("stream");
 
 const app = express();
 app.use(cors());
@@ -430,20 +431,38 @@ app.post("/phase-details", (req, res) => {
     id_user,
     is_fail,
     date_updated,
+    status_phase_details,
   } = req.body;
 
   const updatePhaseDetails = () => {
     const query = `
-      INSERT INTO tb_phase_details (id_department, id_criteria, id_phase, id_user, is_fail, date_updated)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO tb_phase_details (
+        id_department, 
+        id_criteria, 
+        id_phase, 
+        id_user, 
+        is_fail, 
+        date_updated,
+        status_phase_details
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
       is_fail = VALUES(is_fail),
-      date_updated = VALUES(date_updated)
+      date_updated = VALUES(date_updated),
+      status_phase_details = VALUES(status_phase_details)
     `;
 
     db.query(
       query,
-      [id_department, id_criteria, id_phase, id_user, is_fail, date_updated],
+      [
+        id_department,
+        id_criteria,
+        id_phase,
+        id_user,
+        is_fail,
+        date_updated,
+        status_phase_details,
+      ],
       (err, result) => {
         if (err) {
           console.error("Error saving phase details:", err);
@@ -714,151 +733,525 @@ app.get("/knockout-criteria/:phaseId/:departmentId", (req, res) => {
   });
 });
 
-///////////upload ảnh////////////
+///////////upload ảnh gg photos////////////
+// const upload = multer({
+//   storage: multer.memoryStorage(),
+//   limits: { fileSize: 10 * 1024 * 1024 }, // Giới hạn kích thước file, ví dụ: 10MB
+// });
+
+// const oauth2Client = new google.auth.OAuth2(
+//   process.env.GOOGLE_CLIENT_ID,
+//   process.env.GOOGLE_CLIENT_SECRET,
+//   process.env.GOOGLE_REDIRECT_URI
+// );
+// let cachedAccessToken = null;
+// let tokenExpirationTime = 0;
+
+// async function getAccessToken() {
+//   const currentTime = Date.now();
+//   if (cachedAccessToken && currentTime < tokenExpirationTime) {
+//     return cachedAccessToken;
+//   }
+
+//   const { token, expiry_date } = await oauth2Client.getAccessToken();
+//   cachedAccessToken = token;
+//   tokenExpirationTime = expiry_date;
+//   return token;
+// }
+// oauth2Client.on("tokens", (tokens) => {
+//   if (tokens.refresh_token) {
+//     // Lưu refresh_token mới nếu nhận được
+//     process.env.GOOGLE_REFRESH_TOKEN = tokens.refresh_token;
+//   }
+// });
+
+// oauth2Client.setCredentials({
+//   refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+// });
+
+// async function retryWithBackoff(fn, maxRetries = 5, initialDelay = 1000) {
+//   let delay = initialDelay;
+//   for (let i = 0; i < maxRetries; i++) {
+//     try {
+//       return await fn();
+//     } catch (error) {
+//       if (
+//         error.response &&
+//         (error.response.status === 429 || error.response.status >= 500)
+//       ) {
+//         if (i === maxRetries - 1) throw error;
+//         console.log(
+//           `Retrying after ${delay}ms due to ${error.response.status} error`
+//         );
+//         await new Promise((resolve) => setTimeout(resolve, delay));
+//         delay *= 2; // Exponential backoff
+//       } else {
+//         throw error;
+//       }
+//     }
+//   }
+// }
+
+// async function uploadPhoto(fileBuffer, fileName) {
+//   return retryWithBackoff(async () => {
+//     const accessToken = await getAccessToken();
+
+//     if (!fileBuffer || fileBuffer.length === 0) {
+//       throw new Error("File buffer is empty");
+//     }
+
+//     try {
+//       const response = await axios.post(
+//         "https://photoslibrary.googleapis.com/v1/uploads",
+//         fileBuffer,
+//         {
+//           headers: {
+//             "Content-Type": "application/octet-stream",
+//             "X-Goog-Upload-File-Name": encodeURIComponent(fileName),
+//             "X-Goog-Upload-Protocol": "raw",
+//             Authorization: `Bearer ${accessToken}`,
+//           },
+//         }
+//       );
+//       return response.data;
+//     } catch (error) {
+//       console.error(
+//         "Error in uploadPhoto:",
+//         error.response?.data || error.message
+//       );
+//       throw error;
+//     }
+//   });
+// }
+
+// async function createMediaItemInAlbum(uploadToken, albumId) {
+//   try {
+//     const accessToken = await getAccessToken();
+//     const response = await axios.post(
+//       "https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate",
+//       {
+//         albumId: albumId,
+//         newMediaItems: [
+//           {
+//             description: "Uploaded from Node.js",
+//             simpleMediaItem: {
+//               uploadToken: uploadToken,
+//             },
+//           },
+//         ],
+//       },
+//       {
+//         headers: {
+//           "Content-Type": "application/json",
+//           Authorization: `Bearer ${accessToken}`,
+//         },
+//       }
+//     );
+
+//     if (
+//       !response.data.newMediaItemResults ||
+//       response.data.newMediaItemResults.length === 0
+//     ) {
+//       throw new Error("No media items were created");
+//     }
+
+//     const mediaItem = response.data.newMediaItemResults[0];
+//     if (mediaItem.status && mediaItem.status.message !== "Success") {
+//       throw new Error(
+//         `Failed to create media item: ${mediaItem.status.message}`
+//       );
+//     }
+
+//     return mediaItem.mediaItem;
+//   } catch (error) {
+//     console.error(
+//       "Error in createMediaItemInAlbum:",
+//       error.response?.data || error.message
+//     );
+//     throw error;
+//   }
+// }
+
+// app.post("/upload", upload.array("photos", 10), async (req, res) => {
+//   const startTime = Date.now();
+//   console.log("Received files:", req.files);
+
+//   try {
+//     if (!req.files || req.files.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         error: "No files were uploaded",
+//       });
+//     }
+
+//     const albumId = req.query.albumId;
+//     if (!albumId) {
+//       return res.status(400).json({
+//         success: false,
+//         error: "Album ID is required",
+//       });
+//     }
+
+//     const mediaItems = [];
+//     const errors = [];
+
+//     // Process each file sequentially to avoid rate limiting
+//     for (const file of req.files) {
+//       try {
+//         const { buffer, originalname } = file;
+//         console.log(`Processing file: ${originalname}`);
+
+//         // Upload photo
+//         const uploadToken = await uploadPhoto(buffer, originalname);
+//         console.log(`Upload token received for ${originalname}`);
+
+//         // Create media item
+//         const mediaItem = await createMediaItemInAlbum(uploadToken, albumId);
+//         console.log(`Media item created for ${originalname}`);
+
+//         mediaItems.push(mediaItem);
+//       } catch (error) {
+//         console.error(`Error processing file ${file.originalname}:`, error);
+//         errors.push({
+//           filename: file.originalname,
+//           error: error.message || "Unknown error occurred",
+//         });
+//       }
+//     }
+
+//     const endTime = Date.now();
+//     console.log(`Upload completed in ${endTime - startTime}ms`);
+
+//     res.json({
+//       success: true,
+//       albumId: albumId,
+//       mediaItems: mediaItems,
+//       errors: errors,
+//       totalFiles: req.files.length,
+//       successfulUploads: mediaItems.length,
+//       failedUploads: errors.length,
+//       processingTime: endTime - startTime,
+//     });
+//   } catch (error) {
+//     const endTime = Date.now();
+//     console.error(
+//       `Upload failed in ${endTime - startTime}ms:`,
+//       error.response?.data || error.message
+//     );
+
+//     res.status(500).json({
+//       success: false,
+//       error: "Failed to upload images",
+//       details: error.response?.data || error.message,
+//       processingTime: endTime - startTime,
+//     });
+//   }
+// });
+
+// // API to save image URLs to the database
+// app.post("/save-image-urls", async (req, res) => {
+//   const { id_department, id_criteria, id_phase, imageUrls } = req.body;
+//   const imgURL_before = imageUrls.join("; ");
+
+//   const query = `
+//     UPDATE tb_phase_details
+//     SET imgURL_before = ?
+//     WHERE id_department = ? AND id_criteria = ? AND id_phase = ?
+//   `;
+
+//   db.query(
+//     query,
+//     [imgURL_before, id_department, id_criteria, id_phase],
+//     (err, result) => {
+//       if (err) {
+//         console.error("Error saving image URLs:", err);
+//         res.status(500).json({ error: "Error saving image URLs" });
+//         return;
+//       }
+//       res.status(200).json({ message: "Image URLs saved successfully" });
+//     }
+//   );
+// });
+///////////upload ảnh gg photos////////////
+
+///////////upload ảnh gg drive////////////
+// Multer config
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // Giới hạn kích thước file, ví dụ: 10MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
 });
 
+// Google OAuth2 config
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
   process.env.GOOGLE_REDIRECT_URI
 );
+
+// Token management
 let cachedAccessToken = null;
 let tokenExpirationTime = 0;
-
-async function getAccessToken() {
-  const currentTime = Date.now();
-  if (cachedAccessToken && currentTime < tokenExpirationTime) {
-    return cachedAccessToken;
-  }
-
-  const { token, expiry_date } = await oauth2Client.getAccessToken();
-  cachedAccessToken = token;
-  tokenExpirationTime = expiry_date;
-  return token;
-}
-oauth2Client.on("tokens", (tokens) => {
-  if (tokens.refresh_token) {
-    // Lưu refresh_token mới nếu nhận được
-    process.env.GOOGLE_REFRESH_TOKEN = tokens.refresh_token;
-  }
-});
 
 oauth2Client.setCredentials({
   refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
 });
 
+// Get fresh access token with caching
+async function getAccessToken() {
+  try {
+    const currentTime = Date.now();
+    if (cachedAccessToken && currentTime < tokenExpirationTime - 60000) {
+      // 1 minute buffer
+      return cachedAccessToken;
+    }
+
+    const { token, expiry_date } = await oauth2Client.getAccessToken();
+    cachedAccessToken = token;
+    tokenExpirationTime = expiry_date;
+    return token;
+  } catch (error) {
+    console.error("Error getting access token:", error);
+    throw new Error("Failed to get access token");
+  }
+}
+
+// Retry mechanism for API calls
 async function retryWithBackoff(fn, maxRetries = 5, initialDelay = 1000) {
+  let lastError = null;
   let delay = initialDelay;
-  for (let i = 0; i < maxRetries; i++) {
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error) {
+      lastError = error;
+
+      // Check if error is retryable
       if (
         error.response &&
         (error.response.status === 429 || error.response.status >= 500)
       ) {
-        if (i === maxRetries - 1) throw error;
+        if (attempt === maxRetries) break;
+
         console.log(
-          `Retrying after ${delay}ms due to ${error.response.status} error`
+          `Attempt ${attempt}/${maxRetries} failed. Retrying in ${delay}ms...`
         );
         await new Promise((resolve) => setTimeout(resolve, delay));
         delay *= 2; // Exponential backoff
       } else {
+        // Non-retryable error
         throw error;
       }
     }
   }
+
+  throw lastError;
 }
 
-async function uploadPhoto(fileBuffer, fileName) {
-  return retryWithBackoff(async () => {
-    const accessToken = await getAccessToken();
-
-    if (!fileBuffer || fileBuffer.length === 0) {
-      throw new Error("File buffer is empty");
-    }
-
-    const response = await axios.post(
-      "https://photoslibrary.googleapis.com/v1/uploads",
-      fileBuffer,
-      {
-        headers: {
-          "Content-Type": "application/octet-stream",
-          "X-Goog-Upload-File-Name": fileName,
-          "X-Goog-Upload-Protocol": "raw",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
-    return response.data;
+// Create and configure Drive instance with fresh token
+async function getDriveInstance() {
+  const accessToken = await getAccessToken();
+  return google.drive({
+    version: "v3",
+    auth: oauth2Client,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
   });
 }
 
-async function createMediaItem(uploadToken) {
-  const accessToken = await getAccessToken();
-  const response = await axios.post(
-    "https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate",
-    {
-      newMediaItems: [
-        {
-          description: "Uploaded from KSNB",
-          simpleMediaItem: { uploadToken },
-        },
-      ],
-    },
-    {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }
-  );
-  return response.data.newMediaItemResults[0].mediaItem;
-}
-
-app.post("/upload", upload.array("photos", 10), async (req, res) => {
-  const startTime = Date.now();
+// Set file permissions
+async function setFilePermissions(fileId) {
+  const drive = await getDriveInstance();
   try {
-    if (!req.files || req.files.length === 0) {
-      return res
-        .status(400)
-        .json({ success: false, error: "No files were uploaded" });
-    }
-
-    const mediaItems = [];
-    for (const file of req.files) {
-      const { buffer, originalname: fileName } = file;
-
-      const uploadToken = await uploadPhoto(buffer, fileName);
-      const mediaItem = await createMediaItem(uploadToken);
-      mediaItems.push(mediaItem);
-    }
-
-    const endTime = Date.now();
-    console.log(`Upload completed in ${endTime - startTime}ms`);
-    res.json({
-      success: true,
-      mediaItems,
-      processingTime: endTime - startTime,
+    await drive.permissions.create({
+      fileId: fileId,
+      requestBody: {
+        role: "reader",
+        type: "anyone",
+      },
     });
   } catch (error) {
-    const endTime = Date.now();
-    console.error(
-      `Upload failed in ${endTime - startTime}ms:`,
-      error.response?.data || error.message
-    );
+    console.error("Error setting file permissions:", error);
+    throw error;
+  }
+}
+
+// Main upload function
+async function uploadToDrive(fileBuffer, fileName, folderId) {
+  try {
+    const drive = await getDriveInstance();
+
+    // Validate inputs
+    if (!fileBuffer || fileBuffer.length === 0) {
+      throw new Error("Empty file buffer");
+    }
+
+    if (!fileName) {
+      throw new Error("File name is required");
+    }
+
+    // Tạo metadata với mime type tự động
+    const fileMetadata = {
+      name: fileName,
+      parents: [folderId],
+      description: "Upload from KSNB App",
+    };
+
+    // Tạo media object với stream
+    const stream = Readable.from(fileBuffer);
+    const media = {
+      mimeType: "application/octet-stream",
+      body: stream,
+    };
+
+    // Upload file
+    console.log("Starting file upload...");
+    const response = await drive.files.create({
+      requestBody: fileMetadata,
+      media: media,
+      fields: "id, name, webViewLink, description",
+    });
+
+    console.log("File uploaded successfully, setting permissions...");
+
+    // Set permissions
+    await drive.permissions.create({
+      fileId: response.data.id,
+      requestBody: {
+        role: "reader",
+        type: "anyone",
+      },
+    });
+
+    console.log("Permissions set successfully");
+
+    // Get updated file info
+    const file = await drive.files.get({
+      fileId: response.data.id,
+      fields: "id, name, webViewLink, description",
+    });
+
+    return {
+      id: file.data.id,
+      name: file.data.name,
+      webViewLink: file.data.webViewLink,
+      description: file.data.description,
+      directLink: `https://drive.google.com/uc?export=view&id=${file.data.id}`,
+    };
+  } catch (error) {
+    console.error("Upload error details:", error);
+
+    // Detailed error logging
+    if (error.response) {
+      console.error("Error response:", {
+        status: error.response.status,
+        data: error.response.data,
+        headers: error.response.headers,
+      });
+    }
+
+    // Specific error handling
+    if (error.code === 403) {
+      throw new Error(
+        "Permission denied - check your Google Drive API credentials"
+      );
+    } else if (error.code === 404) {
+      throw new Error("Folder not found - check your folder ID");
+    } else if (error.message.includes("quota")) {
+      throw new Error("Google Drive quota exceeded");
+    } else {
+      throw new Error(`Upload failed: ${error.message}`);
+    }
+  }
+}
+
+// Upload endpoint
+app.post("/upload", upload.array("photos", 10), async (req, res) => {
+  const startTime = Date.now();
+  console.log(`\nStarting upload of ${req.files?.length || 0} files`);
+
+  try {
+    // Validate request
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Không có file được tải lên",
+      });
+    }
+
+    const folderId = req.query.folderId;
+    if (!folderId) {
+      return res.status(400).json({
+        success: false,
+        error: "Folder ID is required",
+      });
+    }
+
+    const uploadedFiles = [];
+    const errors = [];
+
+    // Process files sequentially
+    for (const file of req.files) {
+      try {
+        console.log(`\nProcessing file: ${file.originalname}`);
+
+        // Basic validations
+        if (file.size > 10 * 1024 * 1024) {
+          throw new Error("File size exceeds 10MB limit");
+        }
+
+        if (!file.mimetype.startsWith("image/")) {
+          throw new Error("Only image files are allowed");
+        }
+
+        // Upload file
+        const uploadedFile = await uploadToDrive(
+          file.buffer,
+          file.originalname,
+          folderId
+        );
+        console.log(`Successfully uploaded: ${file.originalname}`);
+
+        uploadedFiles.push({
+          ...uploadedFile,
+          originalName: file.originalname,
+          size: file.size,
+          mimeType: file.mimetype,
+        });
+      } catch (error) {
+        console.error(`Error uploading ${file.originalname}:`, error);
+        errors.push({
+          filename: file.originalname,
+          error: error.message,
+        });
+      }
+    }
+
+    // Send response
+    res.json({
+      success: uploadedFiles.length > 0,
+      folderId,
+      uploadedFiles,
+      errors,
+      stats: {
+        totalFiles: req.files.length,
+        successfulUploads: uploadedFiles.length,
+        failedUploads: errors.length,
+        processingTime: Date.now() - startTime,
+      },
+    });
+  } catch (error) {
+    console.error("Upload process failed:", error);
     res.status(500).json({
       success: false,
-      error: "Unable to upload images",
-      processingTime: endTime - startTime,
+      error: "Không thể tải ảnh lên",
+      details: error.message,
     });
   }
 });
 
-// API to save image URLs to the database
+// Save image URLs to database
 app.post("/save-image-urls", async (req, res) => {
   const { id_department, id_criteria, id_phase, imageUrls } = req.body;
   const imgURL_before = imageUrls.join("; ");
@@ -878,12 +1271,15 @@ app.post("/save-image-urls", async (req, res) => {
         res.status(500).json({ error: "Error saving image URLs" });
         return;
       }
-      res.status(200).json({ message: "Image URLs saved successfully" });
+      res.status(200).json({
+        success: true,
+        message: "Image URLs saved successfully",
+      });
     }
   );
 });
+///////////upload ảnh gg drive////////////
 
-///////////upload ảnh////////////
 const PORT = 8081;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

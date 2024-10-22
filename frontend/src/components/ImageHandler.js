@@ -123,10 +123,13 @@ const ImageHandler = ({ onImagesChange, images: propImages }) => {
 
   const handleTakePhoto = (dataUri) => {
     try {
+      // Generate a filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const newImage = {
         id: generateUniqueId(),
         url: dataUri,
-        name: `Captured_${new Date().toLocaleString()}.jpg`,
+        name: `camera-capture-${timestamp}.jpg`,
+        type: "image/jpeg",
       };
 
       const updatedImages = [...images, newImage];
@@ -135,16 +138,10 @@ const ImageHandler = ({ onImagesChange, images: propImages }) => {
         onImagesChange(updatedImages);
       }
 
-      console.log("New captured image ID:", newImage.id);
-      // console.log(
-      //   "All image IDs after capture:",
-      //   updatedImages.map((img) => img.id)
-      // );
-
       setShowCamera(false);
       setError(null);
     } catch (err) {
-      console.error("Lỗi khi chụp ảnh:", err);
+      console.error("Error capturing photo:", err);
       setError("Không thể chụp ảnh. Vui lòng thử lại.");
     }
   };
@@ -152,39 +149,43 @@ const ImageHandler = ({ onImagesChange, images: propImages }) => {
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
     const newImages = [];
+    let hasError = false;
+
     files.forEach((file) => {
       if (isValidFileType(file)) {
+        if (file.size > 10 * 1024 * 1024) {
+          // 10MB limit
+          setError("File ảnh không được vượt quá 10MB");
+          hasError = true;
+          return;
+        }
+
         const reader = new FileReader();
         reader.onload = (event) => {
           const newImage = {
             id: generateUniqueId(),
             url: event.target.result,
             name: file.name,
-            file: file,
+            file: file, // Store the original file for upload
+            type: file.type,
           };
           newImages.push(newImage);
-          if (newImages.length === files.length) {
+
+          if (newImages.length === files.length && !hasError) {
             const updatedImages = [...images, ...newImages];
             setImages(updatedImages);
             if (onImagesChange) {
               onImagesChange(updatedImages);
             }
-            console.log(
-              "New uploaded image IDs:",
-              newImages.map((img) => img.id)
-            );
-            // console.log(
-            //   "All image IDs after upload:",
-            //   updatedImages.map((img) => img.id)
-            // );
           }
         };
         reader.readAsDataURL(file);
       } else {
         setError("Chỉ chấp nhận file ảnh có định dạng JPG/JPEG hoặc PNG");
+        hasError = true;
       }
     });
-    e.target.value = null;
+    e.target.value = null; // Reset input
   };
 
   const handleDeleteImage = useCallback(

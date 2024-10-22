@@ -42,6 +42,7 @@ import Header from "../components/Header";
 import axios from "axios";
 import API_URL from "../data/api";
 import ImageHandler from "../components/ImageHandler";
+import LoadingOverlay from "../components/LoadingOverlay";
 
 const WorkshopText = styled(Typography)(({ theme }) => ({
   fontWeight: "bold",
@@ -90,6 +91,7 @@ const DetailedPhasePage = () => {
   const [redStarCriteria, setRedStarCriteria] = useState([]);
   const [absoluteKnockoutCriteria, setAbsoluteKnockoutCriteria] = useState([]);
   const [selectedImages, setSelectedImages] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -526,6 +528,8 @@ const DetailedPhasePage = () => {
       return;
     }
 
+    setIsUploading(score === "không đạt" && selectedImages.length > 0);
+
     const scoreData = {
       id_department: selectedDepartment.id,
       id_criteria: selectedCriterion.id,
@@ -533,51 +537,58 @@ const DetailedPhasePage = () => {
       id_user: user.id_user,
       is_fail: score === "không đạt" ? 1 : 0,
       date_updated: new Date().toISOString(),
+      status_phase_details: score === "không đạt" ? "CHƯA KHẮC PHỤC" : null,
     };
 
     try {
-      // First, save the score
+      // Save the score first
       await axios.post(`${API_URL}/phase-details`, scoreData);
 
-      // If the score is "không đạt" and there are images, upload them
+      // If score is "không đạt" and there are images, handle the upload
       if (score === "không đạt" && selectedImages.length > 0) {
         const formData = new FormData();
-        selectedImages.forEach((image, index) => {
-          if (image.file) {
-            formData.append("photos", image.file, image.name);
-          } else {
-            // For images captured by camera, we need to convert the dataURI to a file
-            fetch(image.url)
-              .then((res) => res.blob())
-              .then((blob) => {
-                const file = new File([blob], image.name, {
-                  type: "image/jpeg",
-                });
-                formData.append("photos", file, image.name);
-              });
-          }
-        });
 
+        // Process each image for upload
+        for (const image of selectedImages) {
+          let file;
+          if (image.file) {
+            file = image.file;
+          } else if (image.url && image.url.startsWith("data:image")) {
+            const response = await fetch(image.url);
+            const blob = await response.blob();
+            file = new File([blob], image.name, { type: "image/jpeg" });
+          }
+
+          if (file) {
+            formData.append("photos", file);
+          }
+        }
+
+        // Upload images to Google Drive
         const uploadResponse = await axios.post(`${API_URL}/upload`, formData, {
+          params: {
+            folderId: "1rX0TqD4skCAVOp3lxOuwXL0DdbJ9Adc4",
+          },
           headers: {
             "Content-Type": "multipart/form-data",
           },
         });
 
-        console.log("Images uploaded successfully:", uploadResponse.data);
+        if (uploadResponse.data.success) {
+          const imageUrls = uploadResponse.data.uploadedFiles.map(
+            (file) => file.webViewLink
+          );
 
-        // Save image URLs to the database
-        const imageUrls = uploadResponse.data.mediaItems.map(
-          (item) => item.productUrl
-        );
-        await axios.post(`${API_URL}/save-image-urls`, {
-          id_department: selectedDepartment.id,
-          id_criteria: selectedCriterion.id,
-          id_phase: phaseId,
-          imageUrls: imageUrls,
-        });
+          await axios.post(`${API_URL}/save-image-urls`, {
+            id_department: selectedDepartment.id,
+            id_criteria: selectedCriterion.id,
+            id_phase: phaseId,
+            imageUrls: imageUrls,
+          });
+        }
       }
 
+      // Update failed criteria state
       setFailedCriteria((prev) => {
         const newFailedCriteria = { ...prev };
         if (!newFailedCriteria[selectedDepartment.id]) {
@@ -592,10 +603,11 @@ const DetailedPhasePage = () => {
       });
 
       await updateInfoCard();
-
+      setIsUploading(false);
       handleCloseDialog();
     } catch (error) {
-      console.error("Error saving score or uploading images:", error);
+      console.error("Error in handleScore:", error);
+      setIsUploading(false);
       alert("Có lỗi xảy ra khi lưu điểm hoặc tải ảnh lên. Vui lòng thử lại.");
     }
   };
@@ -796,7 +808,7 @@ const DetailedPhasePage = () => {
       {/* Dialog chi tiết tiêu chí */}
       <Dialog
         open={openDialog}
-        onClose={handleCloseDialog}
+        onClose={!isUploading ? handleCloseDialog : undefined}
         maxWidth="sm"
         fullWidth
         // fullScreen={isMobile}
@@ -818,13 +830,17 @@ const DetailedPhasePage = () => {
               <ImageHandler
                 onImagesChange={(updatedImages) => {
                   setSelectedImages(updatedImages);
-                  // Thực hiện bất kỳ xử lý bổ sung nào cần thiết
                 }}
                 images={selectedImages}
+                disabled={isUploading} // Disable image handler while uploading
               />
             </DialogContent>
             <DialogActions>
-              <Button onClick={handleCloseDialog} color="inherit">
+              <Button
+                onClick={handleCloseDialog}
+                color="inherit"
+                disabled={isUploading}
+              >
                 Hủy
               </Button>
               {failedCriteria[selectedDepartment?.id]?.has(
@@ -834,6 +850,7 @@ const DetailedPhasePage = () => {
                   onClick={() => handleScore("đạt")}
                   variant="contained"
                   color="success"
+                  disabled={isUploading}
                 >
                   Đạt
                 </Button>
@@ -842,6 +859,7 @@ const DetailedPhasePage = () => {
                   onClick={() => handleScore("không đạt")}
                   variant="contained"
                   color="error"
+                  disabled={isUploading}
                 >
                   Không đạt
                 </Button>
@@ -849,6 +867,7 @@ const DetailedPhasePage = () => {
             </DialogActions>
           </>
         )}
+        {isUploading && <LoadingOverlay />}
       </Dialog>
     </Box>
   );
