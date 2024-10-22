@@ -108,6 +108,88 @@ app.get("/phases/:id", (req, res) => {
   });
 });
 
+// Update a phase
+app.put("/phases/:id", (req, res) => {
+  const phaseId = req.params.id;
+  const { name_phase } = req.body;
+
+  const query = "UPDATE tb_phase SET name_phase = ? WHERE id_phase = ?";
+  db.query(query, [name_phase, phaseId], (err, result) => {
+    if (err) {
+      console.error("Error updating phase:", err);
+      res.status(500).json({ error: "Error updating phase" });
+      return;
+    }
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ error: "Phase not found" });
+      return;
+    }
+
+    res.json({ message: "Phase updated successfully" });
+  });
+});
+
+// Delete a phase
+app.delete("/phases/:id", (req, res) => {
+  const phaseId = req.params.id;
+
+  // First delete all related records from tb_phase_details and tb_total_point
+  const deleteRelatedRecords = async () => {
+    try {
+      // Delete from tb_phase_details
+      await new Promise((resolve, reject) => {
+        db.query(
+          "DELETE FROM tb_phase_details WHERE id_phase = ?",
+          [phaseId],
+          (err) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+
+      // Delete from tb_total_point
+      await new Promise((resolve, reject) => {
+        db.query(
+          "DELETE FROM tb_total_point WHERE id_phase = ?",
+          [phaseId],
+          (err) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+
+      // Finally delete the phase itself
+      await new Promise((resolve, reject) => {
+        db.query(
+          "DELETE FROM tb_phase WHERE id_phase = ?",
+          [phaseId],
+          (err, result) => {
+            if (err) reject(err);
+            else if (result.affectedRows === 0) {
+              reject(new Error("Phase not found"));
+            } else resolve();
+          }
+        );
+      });
+
+      res.json({ message: "Phase deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting phase:", error);
+      res.status(error.message === "Phase not found" ? 404 : 500).json({
+        error:
+          error.message === "Phase not found"
+            ? "Phase not found"
+            : "Error deleting phase",
+      });
+    }
+  };
+
+  deleteRelatedRecords();
+});
+
 // Create a new phase in CreatePhasePage.js
 app.post("/phases", (req, res) => {
   const { name_phase } = req.body;

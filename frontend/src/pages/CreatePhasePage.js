@@ -32,18 +32,20 @@ const CreatePhasePage = () => {
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [openDialog, setOpenDialog] = useState(false);
-  const [newPhaseName, setNewPhaseName] = useState("");
+  const [dialogMode, setDialogMode] = useState("create"); // "create" or "edit"
+  const [selectedPhase, setSelectedPhase] = useState(null);
+  const [phaseName, setPhaseName] = useState("");
   const [phases, setPhases] = useState([]);
   const [user, setUser] = useState(null);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [phaseToDelete, setPhaseToDelete] = useState(null);
 
   useEffect(() => {
     fetchPhases();
-    // Lấy thông tin người dùng từ localStorage
     const storedUser = JSON.parse(localStorage.getItem("user"));
     if (storedUser) {
       setUser(storedUser);
     } else {
-      // Nếu không có thông tin người dùng, chuyển hướng về trang đăng nhập
       navigate("/");
     }
   }, [navigate]);
@@ -62,35 +64,97 @@ const CreatePhasePage = () => {
     }
   };
 
-  const handleCreatePhase = async () => {
-    if (newPhaseName.trim()) {
-      try {
-        const response = await fetch(`${API_URL}/phases`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name_phase: newPhaseName,
-          }),
-        });
+  const handleOpenDialog = (mode, phase = null) => {
+    setDialogMode(mode);
+    setSelectedPhase(phase);
+    setPhaseName(phase ? phase.name_phase : "");
+    setOpenDialog(true);
+  };
 
-        if (response.ok) {
-          const savedPhase = await response.json();
-          setPhases([savedPhase, ...phases]);
-          setNewPhaseName("");
-          setOpenDialog(false);
-        } else {
-          console.error("Failed to save new phase");
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setPhaseName("");
+    setSelectedPhase(null);
+  };
+
+  const handleSavePhase = async () => {
+    if (phaseName.trim()) {
+      try {
+        if (dialogMode === "create") {
+          const response = await fetch(`${API_URL}/phases`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name_phase: phaseName,
+            }),
+          });
+
+          if (response.ok) {
+            const savedPhase = await response.json();
+            setPhases([savedPhase, ...phases]);
+          }
+        } else if (dialogMode === "edit") {
+          const response = await fetch(
+            `${API_URL}/phases/${selectedPhase.id_phase}`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                name_phase: phaseName,
+              }),
+            }
+          );
+
+          if (response.ok) {
+            setPhases(
+              phases.map((phase) =>
+                phase.id_phase === selectedPhase.id_phase
+                  ? { ...phase, name_phase: phaseName }
+                  : phase
+              )
+            );
+          }
         }
+        handleCloseDialog();
       } catch (error) {
-        console.error("Error saving new phase:", error);
+        console.error("Error saving phase:", error);
       }
     }
   };
 
+  const handleOpenDeleteDialog = (phase) => {
+    setPhaseToDelete(phase);
+    setOpenDeleteDialog(true);
+  };
+
+  const handleDeletePhase = async () => {
+    if (phaseToDelete) {
+      try {
+        const response = await fetch(
+          `${API_URL}/phases/${phaseToDelete.id_phase}`,
+          {
+            method: "DELETE",
+          }
+        );
+
+        if (response.ok) {
+          setPhases(
+            phases.filter((phase) => phase.id_phase !== phaseToDelete.id_phase)
+          );
+        }
+      } catch (error) {
+        console.error("Error deleting phase:", error);
+      }
+      setOpenDeleteDialog(false);
+      setPhaseToDelete(null);
+    }
+  };
+
   const handleViewDetails = (phaseId) => {
-    // Truyền thông tin người dùng khi chuyển hướng
     navigate(`/scoring-phases/${phaseId}`, { state: { user } });
   };
 
@@ -116,7 +180,7 @@ const CreatePhasePage = () => {
                 variant="contained"
                 color="primary"
                 startIcon={<AddIcon />}
-                onClick={() => setOpenDialog(true)}
+                onClick={() => handleOpenDialog("create")}
                 sx={{ minWidth: { sm: "200px" }, py: { sm: 1, md: 1.5 } }}
               >
                 Tạo đợt chấm điểm mới
@@ -148,10 +212,18 @@ const CreatePhasePage = () => {
                         Ngày tạo:{" "}
                         {new Date(phase.date_recorded).toLocaleDateString()}
                       </Typography>
-                      <IconButton size="small" color="primary">
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handleOpenDialog("edit", phase)}
+                      >
                         <EditIcon />
                       </IconButton>
-                      <IconButton size="small" color="error">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleOpenDeleteDialog(phase)}
+                      >
                         <DeleteIcon />
                       </IconButton>
                     </Stack>
@@ -180,16 +252,16 @@ const CreatePhasePage = () => {
               right: 16,
               zIndex: theme.zIndex.fab,
             }}
-            onClick={() => setOpenDialog(true)}
+            onClick={() => handleOpenDialog("create")}
           >
             <AddIcon />
           </Fab>
         )}
 
+        {/* Create/Edit Dialog */}
         <Dialog
           open={openDialog}
-          onClose={() => setOpenDialog(false)}
-          // fullScreen={isMobile}
+          onClose={handleCloseDialog}
           PaperProps={{
             sx: {
               width: "100%",
@@ -198,7 +270,11 @@ const CreatePhasePage = () => {
             },
           }}
         >
-          <DialogTitle>Tạo đợt chấm điểm mới</DialogTitle>
+          <DialogTitle>
+            {dialogMode === "create"
+              ? "Tạo đợt chấm điểm mới"
+              : "Chỉnh sửa đợt chấm điểm"}
+          </DialogTitle>
           <DialogContent>
             <TextField
               autoFocus
@@ -206,14 +282,38 @@ const CreatePhasePage = () => {
               label="Tên đợt chấm điểm"
               fullWidth
               variant="outlined"
-              value={newPhaseName}
-              onChange={(e) => setNewPhaseName(e.target.value)}
+              value={phaseName}
+              onChange={(e) => setPhaseName(e.target.value)}
             />
           </DialogContent>
           <DialogActions sx={{ p: { xs: 2, sm: 2.5 } }}>
-            <Button onClick={() => setOpenDialog(false)}>Hủy</Button>
-            <Button onClick={handleCreatePhase} variant="contained">
-              Tạo
+            <Button onClick={handleCloseDialog}>Hủy</Button>
+            <Button onClick={handleSavePhase} variant="contained">
+              {dialogMode === "create" ? "Tạo" : "Lưu"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog
+          open={openDeleteDialog}
+          onClose={() => setOpenDeleteDialog(false)}
+        >
+          <DialogTitle>Xác nhận xóa</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Bạn có chắc chắn muốn xóa đợt chấm điểm "
+              {phaseToDelete?.name_phase}" không?
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenDeleteDialog(false)}>Hủy</Button>
+            <Button
+              onClick={handleDeletePhase}
+              color="error"
+              variant="contained"
+            >
+              Xóa
             </Button>
           </DialogActions>
         </Dialog>
