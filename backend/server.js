@@ -308,23 +308,44 @@ app.get("/phases/:id", (req, res) => {
 // Update a phase
 app.put("/phases/:id", (req, res) => {
   const phaseId = req.params.id;
-  const { name_phase } = req.body;
+  const { name_phase, time_limit_start, time_limit_end } = req.body;
 
-  const query = "UPDATE tb_phase SET name_phase = ? WHERE id_phase = ?";
-  db.query(query, [name_phase, phaseId], (err, result) => {
-    if (err) {
-      console.error("Error updating phase:", err);
-      res.status(500).json({ error: "Error updating phase" });
-      return;
+  // Format dates using moment.js
+  const formattedStartDate = time_limit_start
+    ? moment(time_limit_start).format("YYYY-MM-DD HH:mm:ss")
+    : null;
+  const formattedEndDate = time_limit_end
+    ? moment(time_limit_end).format("YYYY-MM-DD HH:mm:ss")
+    : null;
+
+  const query =
+    "UPDATE tb_phase SET name_phase = ?, time_limit_start = ?, time_limit_end = ? WHERE id_phase = ?";
+  db.query(
+    query,
+    [name_phase, formattedStartDate, formattedEndDate, phaseId],
+    (err, result) => {
+      if (err) {
+        console.error("Error updating phase:", err);
+        res.status(500).json({ error: "Error updating phase" });
+        return;
+      }
+
+      if (result.affectedRows === 0) {
+        res.status(404).json({ error: "Phase not found" });
+        return;
+      }
+
+      res.json({
+        message: "Phase updated successfully",
+        phase: {
+          id_phase: phaseId,
+          name_phase,
+          time_limit_start: formattedStartDate,
+          time_limit_end: formattedEndDate,
+        },
+      });
     }
-
-    if (result.affectedRows === 0) {
-      res.status(404).json({ error: "Phase not found" });
-      return;
-    }
-
-    res.json({ message: "Phase updated successfully" });
-  });
+  );
 });
 
 // Delete a phase
@@ -389,26 +410,39 @@ app.delete("/phases/:id", (req, res) => {
 
 // Create a new phase in CreatePhasePage.js
 app.post("/phases", (req, res) => {
-  const { name_phase } = req.body;
+  const { name_phase, time_limit_start, time_limit_end } = req.body;
   const date_recorded = moment().format("YYYY-MM-DD HH:mm:ss");
 
-  const query =
-    "INSERT INTO tb_phase (name_phase, date_recorded) VALUES (?, ?)";
-  db.query(query, [name_phase, date_recorded], (err, result) => {
-    if (err) {
-      console.error("Error creating phase:", err);
-      res.status(500).json({ error: "Error creating phase" });
-      return;
-    }
+  // Format dates using moment.js
+  const formattedStartDate = time_limit_start
+    ? moment(time_limit_start).format("YYYY-MM-DD HH:mm:ss")
+    : null;
+  const formattedEndDate = time_limit_end
+    ? moment(time_limit_end).format("YYYY-MM-DD HH:mm:ss")
+    : null;
 
-    // Return the created phase with the auto-generated ID
-    const createdPhase = {
-      id_phase: result.insertId,
-      name_phase,
-      date_recorded,
-    };
-    res.status(201).json(createdPhase);
-  });
+  const query =
+    "INSERT INTO tb_phase (name_phase, date_recorded, time_limit_start, time_limit_end) VALUES (?, ?, ?, ?)";
+  db.query(
+    query,
+    [name_phase, date_recorded, formattedStartDate, formattedEndDate],
+    (err, result) => {
+      if (err) {
+        console.error("Error creating phase:", err);
+        res.status(500).json({ error: "Error creating phase" });
+        return;
+      }
+
+      const createdPhase = {
+        id_phase: result.insertId,
+        name_phase,
+        date_recorded,
+        time_limit_start: formattedStartDate,
+        time_limit_end: formattedEndDate,
+      };
+      res.status(201).json(createdPhase);
+    }
+  );
 });
 
 // Get all categories with their criteria

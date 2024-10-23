@@ -23,6 +23,23 @@ CREATE TABLE tb_user
 	PRIMARY KEY (id_user)
 );
 
+CREATE TABLE tb_permission
+(
+	id_permission BIGINT NOT NULL AUTO_INCREMENT,
+	name_permission VARCHAR(50) NOT NULL,
+	PRIMARY KEY (id_permission)
+);
+
+CREATE TABLE tb_role
+(
+	id_user BIGINT,
+	id_permission BIGINT,
+	PRIMARY KEY (id_user, id_permission),
+	UNIQUE (id_user, id_permission),
+	FOREIGN KEY (id_user) REFERENCES tb_user(id_user),
+	FOREIGN KEY (id_permission) REFERENCES tb_permission(id_permission)
+);
+
 CREATE TABLE tb_workshop
 (
 	id_workshop BIGINT NOT NULL AUTO_INCREMENT,
@@ -109,15 +126,3 @@ CREATE TABLE tb_user_supervisor
 	FOREIGN KEY (id_category) REFERENCES tb_category(id_category),
 	FOREIGN KEY (id_user) REFERENCES tb_user(id_user)
 );
-
--- DROP TABLE tb_user_supervised;
--- DROP TABLE tb_user_supervisor;
--- DROP TABLE tb_total_point;
--- DROP TABLE tb_phase_details;
--- DROP TABLE tb_department_criteria;
--- DROP TABLE tb_criteria;
--- DROP TABLE tb_department;
--- DROP TABLE tb_workshop;
--- DROP TABLE tb_user;
--- DROP TABLE tb_phase;
--- DROP TABLE tb_category;

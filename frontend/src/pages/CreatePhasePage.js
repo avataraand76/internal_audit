@@ -40,6 +40,8 @@ const CreatePhasePage = () => {
   const [isSupervisor, setIsSupervisor] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [phaseToDelete, setPhaseToDelete] = useState(null);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
     fetchPhases();
@@ -82,6 +84,14 @@ const CreatePhasePage = () => {
     setDialogMode(mode);
     setSelectedPhase(phase);
     setPhaseName(phase ? phase.name_phase : "");
+    setStartDate(
+      phase && phase.time_limit_start
+        ? phase.time_limit_start.split("T")[0]
+        : ""
+    );
+    setEndDate(
+      phase && phase.time_limit_end ? phase.time_limit_end.split("T")[0] : ""
+    );
     setOpenDialog(true);
   };
 
@@ -89,21 +99,29 @@ const CreatePhasePage = () => {
     setOpenDialog(false);
     setPhaseName("");
     setSelectedPhase(null);
+    setStartDate("");
+    setEndDate("");
   };
 
   const handleSavePhase = async () => {
     if (!isSupervisor) return;
     if (phaseName.trim()) {
       try {
+        const phaseData = {
+          name_phase: phaseName,
+          time_limit_start: startDate
+            ? new Date(startDate).toISOString()
+            : null,
+          time_limit_end: endDate ? new Date(endDate).toISOString() : null,
+        };
+
         if (dialogMode === "create") {
           const response = await fetch(`${API_URL}/phases`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              name_phase: phaseName,
-            }),
+            body: JSON.stringify(phaseData),
           });
 
           if (response.ok) {
@@ -118,9 +136,7 @@ const CreatePhasePage = () => {
               headers: {
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({
-                name_phase: phaseName,
-              }),
+              body: JSON.stringify(phaseData),
             }
           );
 
@@ -128,7 +144,12 @@ const CreatePhasePage = () => {
             setPhases(
               phases.map((phase) =>
                 phase.id_phase === selectedPhase.id_phase
-                  ? { ...phase, name_phase: phaseName }
+                  ? {
+                      ...phase,
+                      name_phase: phaseName,
+                      time_limit_start: phaseData.time_limit_start,
+                      time_limit_end: phaseData.time_limit_end,
+                    }
                   : phase
               )
             );
@@ -175,6 +196,12 @@ const CreatePhasePage = () => {
     navigate(`/scoring-phases/${phaseId}`, { state: { user } });
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("vi-VN");
+  };
+
   return (
     <>
       <Header />
@@ -215,20 +242,29 @@ const CreatePhasePage = () => {
                     alignItems={{ xs: "flex-start", sm: "center" }}
                     spacing={{ xs: 1, sm: 0 }}
                   >
-                    <Typography
-                      variant={{ xs: "h6", sm: "h5" }}
-                      gutterBottom={{ xs: true, sm: false }}
-                    >
-                      {phase.name_phase}
-                    </Typography>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      {/* <Typography variant="body2" color="text.secondary">
-                        ID: {phase.id_phase}
-                      </Typography> */}
-                      <Typography variant="body2" color="text.secondary">
-                        Ngày tạo:{" "}
-                        {new Date(phase.date_recorded).toLocaleDateString()}
+                    <Stack spacing={1}>
+                      <Typography
+                        variant={{ xs: "h6", sm: "h5" }}
+                        sx={{
+                          fontSize: { xs: "1.5rem", sm: "2rem" },
+                          fontWeight: "bold",
+                          mb: 1,
+                        }}
+                      >
+                        {phase.name_phase}
                       </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Ngày tạo: {formatDate(phase.date_recorded)}
+                      </Typography>
+                      {phase.time_limit_start && phase.time_limit_end && (
+                        <Typography variant="body2" color="text.secondary">
+                          Thời hạn khắc phục:{" "}
+                          {formatDate(phase.time_limit_start)} -{" "}
+                          {formatDate(phase.time_limit_end)}
+                        </Typography>
+                      )}
+                    </Stack>
+                    <Stack direction="row" spacing={1} alignItems="center">
                       {isSupervisor && (
                         <>
                           <IconButton
@@ -297,15 +333,36 @@ const CreatePhasePage = () => {
               : "Chỉnh sửa đợt chấm điểm"}
           </DialogTitle>
           <DialogContent>
-            <TextField
-              autoFocus
-              margin="dense"
-              label="Tên đợt chấm điểm"
-              fullWidth
-              variant="outlined"
-              value={phaseName}
-              onChange={(e) => setPhaseName(e.target.value)}
-            />
+            <Stack spacing={3} sx={{ mt: 2 }}>
+              <TextField
+                autoFocus
+                margin="dense"
+                label="Tên đợt chấm điểm"
+                fullWidth
+                variant="outlined"
+                value={phaseName}
+                onChange={(e) => setPhaseName(e.target.value)}
+              />
+              <TextField
+                type="date"
+                label="Ngày bắt đầu khắc phục"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                fullWidth
+                variant="outlined"
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                type="date"
+                label="Ngày kết thúc khắc phục"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                fullWidth
+                variant="outlined"
+                InputLabelProps={{ shrink: true }}
+                inputProps={{ min: startDate }}
+              />
+            </Stack>
           </DialogContent>
           <DialogActions sx={{ p: { xs: 2, sm: 2.5 } }}>
             <Button onClick={handleCloseDialog}>Hủy</Button>

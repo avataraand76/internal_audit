@@ -116,7 +116,7 @@ const Header = () => {
     const baseItems = [
       { text: "Trang chủ", path: "/", icon: <HomeIcon /> },
       {
-        text: isSupervisor ? "Chấm điểm" : "Các đợt chấm điểm",
+        text: "Đợt chấm điểm",
         path: "/create-phase",
         icon: <GradeIcon />,
       },

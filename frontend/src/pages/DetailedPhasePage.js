@@ -103,6 +103,10 @@ const DetailedPhasePage = () => {
     before: [],
     after: [],
   });
+  const [phaseTimeLimit, setPhaseTimeLimit] = useState({
+    start: null,
+    end: null,
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -125,6 +129,14 @@ const DetailedPhasePage = () => {
         // Fetch phase details
         const phaseResponse = await axios.get(`${API_URL}/phases/${phaseId}`);
         setPhase(phaseResponse.data);
+        setPhaseTimeLimit({
+          start: phaseResponse.data.time_limit_start
+            ? new Date(phaseResponse.data.time_limit_start)
+            : null,
+          end: phaseResponse.data.time_limit_end
+            ? new Date(phaseResponse.data.time_limit_end)
+            : null,
+        });
 
         // Fetch workshops theo user ID
         const workshopsResponse = await axios.get(
@@ -278,6 +290,13 @@ const DetailedPhasePage = () => {
       fetchCriteriaStatuses(selectedDepartment.id);
     }
   }, [selectedDepartment, phaseId]);
+
+  // check time limit
+  const isWithinTimeLimit = () => {
+    if (!phaseTimeLimit.start || !phaseTimeLimit.end) return true;
+    const now = new Date();
+    return now >= phaseTimeLimit.start && now <= phaseTimeLimit.end;
+  };
 
   // fetch criterion status
   const fetchCriterionStatus = async (departmentId, criterionId) => {
@@ -612,22 +631,57 @@ const DetailedPhasePage = () => {
         >
           Thông tin chung
         </Typography>
-        <Box sx={{ display: "flex", alignItems: "center" }}>
-          <Typography variant={isMobile ? "body2" : "body1"} sx={{ mr: 1 }}>
-            Điểm: {hasAbsoluteKnockout ? 0 : totalPoint}% -{" "}
-            {selectedDepartment ? selectedDepartment.name : "Chưa chọn bộ phận"}
-          </Typography>
-          <StarIcon
+
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Box>
+            <Typography
+              variant={isMobile ? "body2" : "body1"}
+              fontWeight="bold"
+            >
+              {selectedDepartment
+                ? selectedDepartment.name
+                : "Chưa chọn bộ phận"}
+            </Typography>
+          </Box>
+
+          <Box
             sx={{
-              color:
-                hasRedStar || hasAbsoluteKnockout
-                  ? "#FF0000"
-                  : totalPoint >= 80
-                  ? "#4CAF50"
-                  : "#FF0000",
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
             }}
-          />
+          >
+            <Typography
+              variant={isMobile ? "h4" : "h3"}
+              sx={{
+                fontWeight: "bold",
+                color: hasAbsoluteKnockout ? "#FF0000" : "inherit",
+                lineHeight: 1,
+              }}
+            >
+              {hasAbsoluteKnockout ? 0 : totalPoint}%
+            </Typography>
+            <StarIcon
+              sx={{
+                fontSize: isMobile ? 40 : 48,
+                color:
+                  hasRedStar || hasAbsoluteKnockout
+                    ? "#FF0000"
+                    : totalPoint >= 80
+                    ? "#4CAF50"
+                    : "#FF0000",
+                ml: 1,
+              }}
+            />
+          </Box>
         </Box>
+
         <Typography variant="body2" color="text.secondary">
           {isSupervisor ? (
             <>
@@ -646,10 +700,12 @@ const DetailedPhasePage = () => {
             </>
           )}
         </Typography>
+
         <Typography variant="body2" color="text.secondary">
           Tiêu chí điểm liệt:{" "}
           {redStarCriteria.map((c) => c.codename).join(", ") || "Không có"}
         </Typography>
+
         <Typography variant="body2" color="text.secondary">
           Tiêu chí điểm liệt PNKL:{" "}
           {absoluteKnockoutCriteria.map((c) => c.codename).join(", ") ||
@@ -1143,6 +1199,32 @@ const DetailedPhasePage = () => {
               <Typography variant={isMobile ? "body2" : "body1"} paragraph>
                 {selectedCriterion.description}
               </Typography>
+
+              {/* Hiển thị thông tin về thời hạn khắc phục */}
+              {phaseTimeLimit.start && phaseTimeLimit.end && (
+                <Typography
+                  variant="body2"
+                  color={isWithinTimeLimit() ? "text.secondary" : "error"}
+                  sx={{ mt: 2 }}
+                >
+                  Thời hạn khắc phục:{" "}
+                  {new Date(phaseTimeLimit.start).toLocaleDateString()} -{" "}
+                  {new Date(phaseTimeLimit.end).toLocaleDateString()}
+                  {!isWithinTimeLimit() && (
+                    <Box
+                      component="span"
+                      sx={{
+                        color: "error.main",
+                        fontWeight: "bold",
+                        display: "block",
+                      }}
+                    >
+                      Đã hết thời hạn khắc phục
+                    </Box>
+                  )}
+                </Typography>
+              )}
+
               {/* Phần hiển thị hình ảnh vi phạm */}
               {criterionImages.before.length > 0 && (
                 <Box sx={{ mt: 2 }}>
@@ -1210,18 +1292,32 @@ const DetailedPhasePage = () => {
                   </Box>
                 </Box>
               )}
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-                  Chụp/tải lên hình ảnh mới:
-                </Typography>
-              </Box>
-              <ImageHandler
-                onImagesChange={(updatedImages) => {
-                  setSelectedImages(updatedImages);
-                }}
-                images={selectedImages}
-                disabled={isUploading} // Disable image handler while uploading
-              />
+
+              {/* Hiển thị ImageHandler cho supervisor hoặc user trong thời hạn */}
+              {(isSupervisor ||
+                (failedCriteria[selectedDepartment?.id]?.has(
+                  selectedCriterion.id
+                ) &&
+                  isWithinTimeLimit())) && (
+                <>
+                  <Box sx={{ mt: 3 }}>
+                    <Typography
+                      variant="subtitle1"
+                      gutterBottom
+                      fontWeight="bold"
+                    >
+                      Chụp/tải lên hình ảnh mới:
+                    </Typography>
+                  </Box>
+                  <ImageHandler
+                    onImagesChange={(updatedImages) => {
+                      setSelectedImages(updatedImages);
+                    }}
+                    images={selectedImages}
+                    disabled={isUploading}
+                  />
+                </>
+              )}
             </DialogContent>
             <DialogActions>
               <Button
@@ -1232,31 +1328,40 @@ const DetailedPhasePage = () => {
                 Hủy
               </Button>
               {isSupervisor ? (
-                failedCriteria[selectedDepartment?.id]?.has(
-                  selectedCriterion.id
-                ) ? (
-                  <Button
-                    onClick={() => handleScore("đạt")}
-                    variant="contained"
-                    color="success"
-                    disabled={isUploading || criterionStatus === "ĐÃ KHẮC PHỤC"}
-                  >
-                    Đạt
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={() => handleScore("không đạt")}
-                    variant="contained"
-                    color="error"
-                    disabled={isUploading}
-                  >
-                    Không đạt
-                  </Button>
-                )
+                // Nút cho supervisor
+                <>
+                  {failedCriteria[selectedDepartment?.id]?.has(
+                    selectedCriterion.id
+                  ) ? (
+                    <Button
+                      onClick={() => handleScore("đạt")}
+                      variant="contained"
+                      color="success"
+                      disabled={
+                        isUploading ||
+                        criterionStatus === "ĐÃ KHẮC PHỤC" ||
+                        !isWithinTimeLimit() // Thêm điều kiện kiểm tra thời hạn
+                      }
+                    >
+                      Đạt
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => handleScore("không đạt")}
+                      variant="contained"
+                      color="error"
+                      disabled={isUploading}
+                    >
+                      Không đạt
+                    </Button>
+                  )}
+                </>
               ) : (
+                // Nút cho user thường - chỉ hiển thị nếu trong thời hạn
                 failedCriteria[selectedDepartment?.id]?.has(
                   selectedCriterion.id
-                ) && (
+                ) &&
+                isWithinTimeLimit() && (
                   <Button
                     onClick={handleRemediate}
                     variant="contained"
