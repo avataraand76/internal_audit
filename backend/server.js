@@ -276,8 +276,19 @@ app.get("/supervised-categories/:userId/:departmentId", (req, res) => {
 
 // Get all phases in CreatePhasePage.js
 app.get("/phases", (req, res) => {
-  const query = "SELECT * FROM tb_phase ORDER BY date_recorded DESC";
-  db.query(query, (err, results) => {
+  // Tính thời điểm 3 tháng trước từ hiện tại
+  const threeMonthsAgo = moment()
+    .subtract(3, "months")
+    .format("YYYY-MM-DD HH:mm:ss");
+
+  const query = `
+    SELECT * 
+    FROM tb_phase 
+    WHERE date_recorded >= ? 
+    ORDER BY date_recorded DESC
+  `;
+
+  db.query(query, [threeMonthsAgo], (err, results) => {
     if (err) {
       console.error("Error fetching phases:", err);
       res.status(500).json({ error: "Error fetching phases" });

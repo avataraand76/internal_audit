@@ -26,6 +26,7 @@ import {
 } from "@mui/icons-material";
 import Header from "../components/Header";
 import API_URL from "../data/api";
+import moment from "moment";
 
 const CreatePhasePage = () => {
   const theme = useTheme();
@@ -70,7 +71,14 @@ const CreatePhasePage = () => {
       const response = await fetch(`${API_URL}/phases`);
       if (response.ok) {
         const data = await response.json();
-        setPhases(data);
+
+        // Thêm logic để hiển thị thông tin về thời gian hiển thị
+        const threeMonthsAgo = moment().subtract(3, "months");
+        const filteredPhases = data.filter((phase) =>
+          moment(phase.date_recorded).isAfter(threeMonthsAgo)
+        );
+
+        setPhases(filteredPhases);
       } else {
         console.error("Failed to fetch phases");
       }
@@ -213,12 +221,21 @@ const CreatePhasePage = () => {
             alignItems={{ xs: "flex-start", sm: "center" }}
             spacing={2}
           >
-            <Typography
-              variant={{ xs: "h5", sm: "h4", md: "h3" }}
-              component="h1"
-            >
-              {isSupervisor ? "Quản lý đợt chấm điểm" : "Các đợt chấm điểm"}
-            </Typography>
+            <div>
+              <Typography
+                variant={{ xs: "h5", sm: "h4", md: "h3" }}
+                component="h1"
+              >
+                {isSupervisor ? "Quản lý đợt chấm điểm" : "Đợt chấm điểm"}
+              </Typography>
+              {/* <Typography
+                variant="subtitle1"
+                color="text.secondary"
+                sx={{ mt: 1 }}
+              >
+                Hiển thị các đợt chấm điểm trong 3 tháng gần nhất
+              </Typography> */}
+            </div>
             {!isMobile && isSupervisor && (
               <Button
                 variant="contained"

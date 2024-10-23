@@ -47,6 +47,7 @@ import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import Zoom from "@mui/material/Zoom";
 import useScrollTrigger from "@mui/material/useScrollTrigger";
 import { Link } from "@mui/material";
+import { FormControlLabel, Switch } from "@mui/material";
 
 const WorkshopText = styled(Typography)(({ theme }) => ({
   fontWeight: "bold",
@@ -99,6 +100,8 @@ const DetailedPhasePage = () => {
   const [allCategories, setAllCategories] = useState([]);
   const [criterionStatus, setCriterionStatus] = useState("");
   const [criteriaStatuses, setCriteriaStatuses] = useState({});
+  const [showNotFixed, setShowNotFixed] = useState(true);
+  const [showFixed, setShowFixed] = useState(true);
   const [criterionImages, setCriterionImages] = useState({
     before: [],
     after: [],
@@ -330,6 +333,16 @@ const DetailedPhasePage = () => {
       console.error("Error fetching criterion images:", error);
       setCriterionImages({ before: [], after: [] });
     }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
   };
 
   const handleCriterionClick = (criterion) => {
@@ -792,14 +805,25 @@ const DetailedPhasePage = () => {
     // Bắt đầu với danh sách categories ban đầu
     let processedCategories = allCategories;
 
-    // Nếu là user supervised, chỉ hiển thị các tiêu chí không đạt
+    // Nếu là user supervised, lọc theo trạng thái khắc phục
     if (!isSupervisor) {
       processedCategories = allCategories
         .map((category) => ({
           ...category,
-          criteria: category.criteria.filter((criterion) =>
-            failedCriteria[selectedDepartment?.id]?.has(criterion.id)
-          ),
+          criteria: category.criteria.filter((criterion) => {
+            const isFailed = failedCriteria[selectedDepartment?.id]?.has(
+              criterion.id
+            );
+            if (!isFailed) return false;
+
+            const isFixed = criteriaStatuses[criterion.id] === "ĐÃ KHẮC PHỤC";
+
+            // Lọc theo trạng thái switch
+            if (isFixed && !showFixed) return false;
+            if (!isFixed && !showNotFixed) return false;
+
+            return true;
+          }),
         }))
         .filter((category) => category.criteria.length > 0);
     }
@@ -823,6 +847,9 @@ const DetailedPhasePage = () => {
     isSupervisor,
     failedCriteria,
     selectedDepartment,
+    criteriaStatuses,
+    showFixed,
+    showNotFixed,
   ]);
 
   const handleScore = async (score) => {
@@ -1008,6 +1035,31 @@ const DetailedPhasePage = () => {
               ),
             }}
           />
+          {/* Thêm switch cho user supervised */}
+          {!isSupervisor && (
+            <Box sx={{ mt: 2, display: "flex", gap: 3, alignItems: "center" }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={showNotFixed}
+                    onChange={(e) => setShowNotFixed(e.target.checked)}
+                    color="warning"
+                  />
+                }
+                label="Chưa khắc phục"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={showFixed}
+                    onChange={(e) => setShowFixed(e.target.checked)}
+                    color="success"
+                  />
+                }
+                label="Đã khắc phục"
+              />
+            </Box>
+          )}
         </Container>
       </Paper>
 
@@ -1207,9 +1259,8 @@ const DetailedPhasePage = () => {
                   color={isWithinTimeLimit() ? "text.secondary" : "error"}
                   sx={{ mt: 2 }}
                 >
-                  Thời hạn khắc phục:{" "}
-                  {new Date(phaseTimeLimit.start).toLocaleDateString()} -{" "}
-                  {new Date(phaseTimeLimit.end).toLocaleDateString()}
+                  Thời hạn khắc phục: {formatDate(phaseTimeLimit.start)} -{" "}
+                  {formatDate(phaseTimeLimit.end)}
                   {!isWithinTimeLimit() && (
                     <Box
                       component="span"

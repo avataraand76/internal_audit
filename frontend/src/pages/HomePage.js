@@ -117,7 +117,7 @@ function HomePage() {
                   py: { xs: 1.5, sm: 2 },
                 }}
               >
-                Các đợt chấm điểm
+                Đợt chấm điểm
               </Button>
             )}
           </Stack>
