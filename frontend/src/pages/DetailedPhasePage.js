@@ -46,6 +46,7 @@ import LoadingOverlay from "../components/LoadingOverlay";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import Zoom from "@mui/material/Zoom";
 import useScrollTrigger from "@mui/material/useScrollTrigger";
+import { Link } from "@mui/material";
 
 const WorkshopText = styled(Typography)(({ theme }) => ({
   fontWeight: "bold",
@@ -96,6 +97,12 @@ const DetailedPhasePage = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isSupervisor, setIsSupervisor] = useState(false);
   const [allCategories, setAllCategories] = useState([]);
+  const [criterionStatus, setCriterionStatus] = useState("");
+  const [criteriaStatuses, setCriteriaStatuses] = useState({});
+  const [criterionImages, setCriterionImages] = useState({
+    before: [],
+    after: [],
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -250,8 +257,68 @@ const DetailedPhasePage = () => {
     fetchKnockoutCriteria();
   }, [selectedDepartment, phaseId]);
 
+  // fetch status of criteria of department
+  useEffect(() => {
+    const fetchCriteriaStatuses = async (departmentId) => {
+      try {
+        const response = await axios.get(
+          `${API_URL}/criteria-statuses/${phaseId}/${departmentId}`
+        );
+        const statuses = {};
+        response.data.forEach((item) => {
+          statuses[item.id_criteria] = item.status_phase_details;
+        });
+        setCriteriaStatuses(statuses);
+      } catch (error) {
+        console.error("Error fetching criteria statuses:", error);
+      }
+    };
+
+    if (selectedDepartment) {
+      fetchCriteriaStatuses(selectedDepartment.id);
+    }
+  }, [selectedDepartment, phaseId]);
+
+  // fetch criterion status
+  const fetchCriterionStatus = async (departmentId, criterionId) => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/phase-details-status/${phaseId}/${departmentId}/${criterionId}`
+      );
+      setCriterionStatus(response.data.status_phase_details || "");
+    } catch (error) {
+      console.error("Error fetching criterion status:", error);
+      setCriterionStatus("");
+    }
+  };
+
+  // fetch images
+  const fetchCriterionImages = async (departmentId, criterionId) => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/phase-details-images/${phaseId}/${departmentId}/${criterionId}`
+      );
+      const { imgURL_before, imgURL_after } = response.data;
+      setCriterionImages({
+        before: imgURL_before
+          ? imgURL_before.split("; ").filter((url) => url)
+          : [],
+        after: imgURL_after
+          ? imgURL_after.split("; ").filter((url) => url)
+          : [],
+      });
+    } catch (error) {
+      console.error("Error fetching criterion images:", error);
+      setCriterionImages({ before: [], after: [] });
+    }
+  };
+
   const handleCriterionClick = (criterion) => {
     setSelectedCriterion(criterion);
+    if (selectedDepartment) {
+      fetchCriterionStatus(selectedDepartment.id, criterion.id);
+      fetchCriterionImages(selectedDepartment.id, criterion.id);
+    }
     setOpenDialog(true);
   };
 
@@ -299,6 +366,75 @@ const DetailedPhasePage = () => {
 
   const handleClearImages = () => {
     setSelectedImages([]);
+  };
+
+  const handleRemediate = async () => {
+    if (!selectedImages.length) {
+      alert("Vui lòng chụp hoặc tải ảnh lên trước khi khắc phục.");
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      const formData = new FormData();
+
+      // Process each image for upload
+      for (const image of selectedImages) {
+        let file;
+        if (image.file) {
+          file = image.file;
+        } else if (image.url && image.url.startsWith("data:image")) {
+          const response = await fetch(image.url);
+          const blob = await response.blob();
+          file = new File([blob], image.name, { type: "image/jpeg" });
+        }
+
+        if (file) {
+          formData.append("photos", file);
+        }
+      }
+
+      // Upload images to Google Drive
+      const uploadResponse = await axios.post(`${API_URL}/upload`, formData, {
+        params: {
+          folderId: "1rX0TqD4skCAVOp3lxOuwXL0DdbJ9Adc4",
+        },
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      if (uploadResponse.data.success) {
+        const imageUrls = uploadResponse.data.uploadedFiles.map(
+          (file) => file.webViewLink
+        );
+
+        // Cập nhật trạng thái trong database
+        await axios.post(`${API_URL}/phase-details`, {
+          id_department: selectedDepartment.id,
+          id_criteria: selectedCriterion.id,
+          id_phase: phaseId,
+          id_user: user.id_user,
+          date_updated: new Date().toISOString(),
+          status_phase_details: "ĐÃ KHẮC PHỤC",
+          imgURL_after: imageUrls.join("; "),
+        });
+
+        // Cập nhật state criteriaStatuses
+        setCriteriaStatuses((prev) => ({
+          ...prev,
+          [selectedCriterion.id]: "ĐÃ KHẮC PHỤC",
+        }));
+
+        setIsUploading(false);
+        handleCloseDialog();
+      }
+    } catch (error) {
+      console.error("Error in handleRemediate:", error);
+      setIsUploading(false);
+      alert("Có lỗi xảy ra khi xử lý ảnh khắc phục. Vui lòng thử lại.");
+    }
   };
 
   const searchPlaceholder = isSupervisor
@@ -884,13 +1020,43 @@ const DetailedPhasePage = () => {
                         onClick={() => handleCriterionClick(criterion)}
                       >
                         <CardContent sx={{ flexGrow: 1 }}>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ mt: 1, display: "block" }}
+                          <Box
+                            sx={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "flex-start",
+                            }}
                           >
-                            Mã: {criterion.codename}
-                          </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ mt: 1, display: "block" }}
+                            >
+                              Mã: {criterion.codename}
+                            </Typography>
+                            {failedCriteria[selectedDepartment?.id]?.has(
+                              criterion.id
+                            ) && (
+                              <Box
+                                sx={{
+                                  bgcolor:
+                                    criteriaStatuses[criterion.id] ===
+                                    "ĐÃ KHẮC PHỤC"
+                                      ? "success.main"
+                                      : "warning.main",
+                                  color: "white",
+                                  px: 1,
+                                  py: 0.5,
+                                  borderRadius: 1,
+                                  fontSize: "0.75rem",
+                                  fontWeight: "medium",
+                                }}
+                              >
+                                {criteriaStatuses[criterion.id] ||
+                                  "CHƯA KHẮC PHỤC"}
+                              </Box>
+                            )}
+                          </Box>
                           <Typography
                             gutterBottom
                             variant={isMobile ? "subtitle1" : "h6"}
@@ -929,17 +1095,126 @@ const DetailedPhasePage = () => {
         {selectedCriterion && (
           <>
             <DialogTitle>
-              <Typography variant="caption" color="text.secondary" gutterBottom>
-                Mã: {selectedCriterion.codename}
-              </Typography>
-              <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
-                {selectedCriterion.name}
-              </Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                }}
+              >
+                <Box>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    gutterBottom
+                  >
+                    Mã: {selectedCriterion.codename}
+                  </Typography>
+                  <Typography
+                    variant={isMobile ? "h6" : "h5"}
+                    fontWeight="bold"
+                  >
+                    {selectedCriterion.name}
+                  </Typography>
+                </Box>
+                {failedCriteria[selectedDepartment?.id]?.has(
+                  selectedCriterion.id
+                ) && (
+                  <Box
+                    sx={{
+                      bgcolor:
+                        criterionStatus === "ĐÃ KHẮC PHỤC"
+                          ? "success.main"
+                          : "warning.main",
+                      color: "white",
+                      px: 2,
+                      py: 0.5,
+                      borderRadius: 1,
+                      fontSize: "0.875rem",
+                      fontWeight: "medium",
+                    }}
+                  >
+                    {criterionStatus || "CHƯA KHẮC PHỤC"}
+                  </Box>
+                )}
+              </Box>
             </DialogTitle>
             <DialogContent>
               <Typography variant={isMobile ? "body2" : "body1"} paragraph>
                 {selectedCriterion.description}
               </Typography>
+              {/* Phần hiển thị hình ảnh vi phạm */}
+              {criterionImages.before.length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography
+                    variant="subtitle1"
+                    gutterBottom
+                    fontWeight="bold"
+                  >
+                    Hình ảnh vi phạm:
+                  </Typography>
+                  <Box
+                    sx={{ display: "flex", flexDirection: "column", gap: 1 }}
+                  >
+                    {criterionImages.before.map((url, index) => (
+                      <Link
+                        key={index}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{
+                          color: "primary.main",
+                          textDecoration: "none",
+                          "&:hover": {
+                            textDecoration: "underline",
+                          },
+                        }}
+                      >
+                        Hình ảnh vi phạm {index + 1}
+                      </Link>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Phần hiển thị hình ảnh đã khắc phục */}
+              {criterionImages.after.length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography
+                    variant="subtitle1"
+                    gutterBottom
+                    fontWeight="bold"
+                  >
+                    Hình ảnh đã khắc phục:
+                  </Typography>
+                  <Box
+                    sx={{ display: "flex", flexDirection: "column", gap: 1 }}
+                  >
+                    {criterionImages.after.map((url, index) => (
+                      <Link
+                        key={index}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{
+                          color: "primary.main",
+                          textDecoration: "none",
+                          "&:hover": {
+                            textDecoration: "underline",
+                          },
+                        }}
+                      >
+                        Hình ảnh khắc phục {index + 1}
+                      </Link>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+                  Chụp/tải lên hình ảnh mới:
+                </Typography>
+              </Box>
               <ImageHandler
                 onImagesChange={(updatedImages) => {
                   setSelectedImages(updatedImages);
@@ -956,26 +1231,41 @@ const DetailedPhasePage = () => {
               >
                 Hủy
               </Button>
-              {failedCriteria[selectedDepartment?.id]?.has(
-                selectedCriterion.id
-              ) ? (
-                <Button
-                  onClick={() => handleScore("đạt")}
-                  variant="contained"
-                  color="success"
-                  disabled={isUploading}
-                >
-                  Đạt
-                </Button>
+              {isSupervisor ? (
+                failedCriteria[selectedDepartment?.id]?.has(
+                  selectedCriterion.id
+                ) ? (
+                  <Button
+                    onClick={() => handleScore("đạt")}
+                    variant="contained"
+                    color="success"
+                    disabled={isUploading || criterionStatus === "ĐÃ KHẮC PHỤC"}
+                  >
+                    Đạt
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => handleScore("không đạt")}
+                    variant="contained"
+                    color="error"
+                    disabled={isUploading}
+                  >
+                    Không đạt
+                  </Button>
+                )
               ) : (
-                <Button
-                  onClick={() => handleScore("không đạt")}
-                  variant="contained"
-                  color="error"
-                  disabled={isUploading}
-                >
-                  Không đạt
-                </Button>
+                failedCriteria[selectedDepartment?.id]?.has(
+                  selectedCriterion.id
+                ) && (
+                  <Button
+                    onClick={handleRemediate}
+                    variant="contained"
+                    color="primary"
+                    disabled={isUploading || selectedImages.length === 0}
+                  >
+                    Khắc phục
+                  </Button>
+                )
               )}
             </DialogActions>
           </>

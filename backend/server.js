@@ -16,18 +16,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const db = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "",
-  database: "internal_audit_database",
-});
 // const db = mysql.createConnection({
-//   host: "171.244.39.87",
-//   user: "vietthanh",
-//   password: "Vt@vlh123",
-//   database: "kiemsoatnoibo",
+//   host: "localhost",
+//   user: "root",
+//   password: "",
+//   database: "internal_audit_database",
 // });
+const db = mysql.createConnection({
+  host: "171.244.39.87",
+  user: "vietthanh",
+  password: "Vt@vlh123",
+  database: "kiemsoatnoibo",
+});
 
 // Get all users in LoginPage.js
 app.get("/login", (req, res) => {
@@ -711,46 +711,87 @@ app.post("/phase-details", (req, res) => {
     is_fail,
     date_updated,
     status_phase_details,
+    imgURL_after,
   } = req.body;
 
-  const updatePhaseDetails = () => {
-    const query = `
-      INSERT INTO tb_phase_details (
-        id_department, 
-        id_criteria, 
-        id_phase, 
-        id_user, 
-        is_fail, 
-        date_updated,
-        status_phase_details
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE
-      is_fail = VALUES(is_fail),
-      date_updated = VALUES(date_updated),
-      status_phase_details = VALUES(status_phase_details)
-    `;
+  const formattedDate = moment(date_updated).format("YYYY-MM-DD HH:mm:ss");
 
-    db.query(
-      query,
-      [
+  const updatePhaseDetails = () => {
+    let query;
+    let params;
+
+    if (imgURL_after) {
+      // Nếu có imgURL_after, update cả imgURL_after
+      query = `
+        INSERT INTO tb_phase_details (
+          id_department, 
+          id_criteria, 
+          id_phase, 
+          id_user, 
+          is_fail, 
+          date_updated,
+          status_phase_details,
+          imgURL_after
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+        date_updated = VALUES(date_updated),
+        status_phase_details = VALUES(status_phase_details),
+        imgURL_after = VALUES(imgURL_after)
+      `;
+      params = [
         id_department,
         id_criteria,
         id_phase,
         id_user,
         is_fail,
-        date_updated,
+        formattedDate,
         status_phase_details,
-      ],
-      (err, result) => {
-        if (err) {
-          console.error("Error saving phase details:", err);
-          res.status(500).json({ error: "Error saving phase details" });
-          return;
-        }
+        imgURL_after,
+      ];
+    } else {
+      // Nếu không có imgURL_after, giữ nguyên query cũ
+      query = `
+        INSERT INTO tb_phase_details (
+          id_department, 
+          id_criteria, 
+          id_phase, 
+          id_user, 
+          is_fail, 
+          date_updated,
+          status_phase_details
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+        is_fail = VALUES(is_fail),
+        date_updated = VALUES(date_updated),
+        status_phase_details = VALUES(status_phase_details)
+      `;
+      params = [
+        id_department,
+        id_criteria,
+        id_phase,
+        id_user,
+        is_fail,
+        formattedDate,
+        status_phase_details,
+      ];
+    }
+
+    db.query(query, params, (err, result) => {
+      if (err) {
+        console.error("Error saving phase details:", err);
+        res.status(500).json({ error: "Error saving phase details" });
+        return;
+      }
+      if (is_fail === undefined) {
+        // Nếu chỉ cập nhật trạng thái khắc phục
+        res.status(200).json({ message: "Status updated successfully" });
+      } else {
+        // Nếu cập nhật điểm, tiếp tục với updateTotalPoint
         updateTotalPoint();
       }
-    );
+    });
   };
 
   const updateTotalPoint = () => {
@@ -822,6 +863,78 @@ app.post("/phase-details", (req, res) => {
 
   updatePhaseDetails();
 });
+
+// get details status
+app.get(
+  "/phase-details-status/:phaseId/:departmentId/:criterionId",
+  (req, res) => {
+    const { phaseId, departmentId, criterionId } = req.params;
+
+    const query = `
+    SELECT status_phase_details
+    FROM tb_phase_details
+    WHERE id_phase = ? AND id_department = ? AND id_criteria = ?
+  `;
+
+    db.query(query, [phaseId, departmentId, criterionId], (err, results) => {
+      if (err) {
+        console.error("Error fetching phase details status:", err);
+        res.status(500).json({ error: "Error fetching phase details status" });
+        return;
+      }
+
+      res.json({
+        status_phase_details:
+          results[0]?.status_phase_details || "CHƯA KHẮC PHỤC",
+      });
+    });
+  }
+);
+
+// get status of criteria of department
+app.get("/criteria-statuses/:phaseId/:departmentId", (req, res) => {
+  const { phaseId, departmentId } = req.params;
+
+  const query = `
+    SELECT id_criteria, status_phase_details
+    FROM tb_phase_details
+    WHERE id_phase = ? AND id_department = ?
+  `;
+
+  db.query(query, [phaseId, departmentId], (err, results) => {
+    if (err) {
+      console.error("Error fetching criteria statuses:", err);
+      res.status(500).json({ error: "Error fetching criteria statuses" });
+      return;
+    }
+
+    res.json(results);
+  });
+});
+
+// get criterion images
+app.get(
+  "/phase-details-images/:phaseId/:departmentId/:criterionId",
+  (req, res) => {
+    const { phaseId, departmentId, criterionId } = req.params;
+
+    const query = `
+    SELECT imgURL_before, imgURL_after
+    FROM tb_phase_details
+    WHERE id_phase = ? AND id_department = ? AND id_criteria = ?
+  `;
+
+    db.query(query, [phaseId, departmentId, criterionId], (err, results) => {
+      if (err) {
+        console.error("Error fetching images:", err);
+        res.status(500).json({ error: "Error fetching images" });
+        return;
+      }
+
+      res.json(results[0] || { imgURL_before: null, imgURL_after: null });
+    });
+  }
+);
 
 // Get failed criteria for a specific phase
 app.get("/failed/:phaseId", (req, res) => {
