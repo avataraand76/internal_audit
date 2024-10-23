@@ -16,17 +16,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// const db = mysql.createConnection({
-//   host: "localhost",
-//   user: "root",
-//   password: "",
-//   database: "internal_audit_database",
-// });
 const db = mysql.createConnection({
-  host: "171.244.39.87",
-  user: "vietthanh",
-  password: "Vt@vlh123",
-  database: "kiemsoatnoibo",
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
 
 // Get all users in LoginPage.js
