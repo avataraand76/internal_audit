@@ -110,6 +110,11 @@ const DetailedPhasePage = () => {
     start: null,
     end: null,
   });
+  const [showTimeLimitDialog, setShowTimeLimitDialog] = useState(false);
+  const [pendingScore, setPendingScore] = useState(null);
+  const [newStartDate, setNewStartDate] = useState("");
+  const [newEndDate, setNewEndDate] = useState("");
+  const [timeLimitError, setTimeLimitError] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -301,6 +306,124 @@ const DetailedPhasePage = () => {
     return now >= phaseTimeLimit.start && now <= phaseTimeLimit.end;
   };
 
+  const handleTimeLimitUpdate = async () => {
+    if (!newStartDate || !newEndDate) {
+      setTimeLimitError("Vui lòng chọn cả ngày bắt đầu và kết thúc");
+      return;
+    }
+
+    if (new Date(newEndDate) <= new Date(newStartDate)) {
+      setTimeLimitError("Ngày kết thúc phải sau ngày bắt đầu");
+      return;
+    }
+
+    try {
+      // Cập nhật thời hạn trong database
+      await axios.put(`${API_URL}/phases/${phaseId}`, {
+        name_phase: phase.name_phase,
+        time_limit_start: newStartDate,
+        time_limit_end: newEndDate,
+      });
+
+      // Cập nhật state local
+      setPhaseTimeLimit({
+        start: new Date(newStartDate),
+        end: new Date(newEndDate),
+      });
+
+      // Tiếp tục chấm điểm
+      if (pendingScore) {
+        const scoreData = {
+          id_department: selectedDepartment.id,
+          id_criteria: selectedCriterion.id,
+          id_phase: phaseId,
+          id_user: user.id_user,
+          is_fail: pendingScore === "không đạt" ? 1 : 0,
+          date_updated: new Date().toISOString(),
+          status_phase_details:
+            pendingScore === "không đạt" ? "CHƯA KHẮC PHỤC" : null,
+        };
+
+        setIsUploading(
+          pendingScore === "không đạt" && selectedImages.length > 0
+        );
+
+        // Lưu điểm
+        await axios.post(`${API_URL}/phase-details`, scoreData);
+
+        // Xử lý upload ảnh nếu cần
+        if (pendingScore === "không đạt" && selectedImages.length > 0) {
+          const formData = new FormData();
+          for (const image of selectedImages) {
+            let file;
+            if (image.file) {
+              file = image.file;
+            } else if (image.url && image.url.startsWith("data:image")) {
+              const response = await fetch(image.url);
+              const blob = await response.blob();
+              file = new File([blob], image.name, { type: "image/jpeg" });
+            }
+
+            if (file) {
+              formData.append("photos", file);
+            }
+          }
+
+          const uploadResponse = await axios.post(
+            `${API_URL}/upload`,
+            formData,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+              },
+            }
+          );
+
+          if (uploadResponse.data.success) {
+            const imageUrls = uploadResponse.data.uploadedFiles.map(
+              (file) => file.webViewLink
+            );
+
+            await axios.post(`${API_URL}/save-image-urls`, {
+              id_department: selectedDepartment.id,
+              id_criteria: selectedCriterion.id,
+              id_phase: phaseId,
+              imageUrls: imageUrls,
+            });
+          }
+        }
+
+        // Cập nhật failed criteria state
+        setFailedCriteria((prev) => {
+          const newFailedCriteria = { ...prev };
+          if (!newFailedCriteria[selectedDepartment.id]) {
+            newFailedCriteria[selectedDepartment.id] = new Set();
+          }
+          if (pendingScore === "không đạt") {
+            newFailedCriteria[selectedDepartment.id].add(selectedCriterion.id);
+          } else {
+            newFailedCriteria[selectedDepartment.id].delete(
+              selectedCriterion.id
+            );
+          }
+          return newFailedCriteria;
+        });
+
+        await updateInfoCard();
+      }
+
+      setShowTimeLimitDialog(false);
+      setPendingScore(null);
+      setNewStartDate("");
+      setNewEndDate("");
+      setTimeLimitError("");
+      handleCloseDialog();
+    } catch (error) {
+      console.error("Error updating time limits:", error);
+      alert("Có lỗi xảy ra khi cập nhật thời hạn. Vui lòng thử lại.");
+    }
+  };
+
   // fetch criterion status
   const fetchCriterionStatus = async (departmentId, criterionId) => {
     try {
@@ -429,9 +552,6 @@ const DetailedPhasePage = () => {
 
       // Upload images to Google Drive
       const uploadResponse = await axios.post(`${API_URL}/upload`, formData, {
-        params: {
-          folderId: "1rX0TqD4skCAVOp3lxOuwXL0DdbJ9Adc4",
-        },
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -852,9 +972,24 @@ const DetailedPhasePage = () => {
     showNotFixed,
   ]);
 
+  const formatDateForInput = (date) => {
+    return date.toISOString().split("T")[0];
+  };
+
   const handleScore = async (score) => {
     if (!selectedCriterion || !selectedDepartment || !user) {
       console.error("Missing required data for scoring");
+      return;
+    }
+
+    // Nếu supervisor đang chấm không đạt và đã hết thời hạn, hiện dialog cập nhật thời hạn
+    if (isSupervisor && score === "không đạt" && !isWithinTimeLimit()) {
+      setPendingScore(score);
+      setShowTimeLimitDialog(true);
+      setNewStartDate(formatDateForInput(new Date()));
+      setNewEndDate(
+        formatDateForInput(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
+      ); // Mặc định 7 ngày
       return;
     }
 
@@ -896,9 +1031,6 @@ const DetailedPhasePage = () => {
 
         // Upload images to Google Drive
         const uploadResponse = await axios.post(`${API_URL}/upload`, formData, {
-          params: {
-            folderId: "1rX0TqD4skCAVOp3lxOuwXL0DdbJ9Adc4",
-          },
           headers: {
             "Content-Type": "multipart/form-data",
           },
@@ -1370,6 +1502,75 @@ const DetailedPhasePage = () => {
                 </>
               )}
             </DialogContent>
+
+            {/* Time Limit Update Dialog */}
+            <Dialog
+              open={showTimeLimitDialog}
+              onClose={() => {
+                setShowTimeLimitDialog(false);
+                setPendingScore(null);
+                setNewStartDate("");
+                setNewEndDate("");
+                setTimeLimitError("");
+              }}
+              maxWidth="sm"
+              fullWidth
+            >
+              <DialogTitle>Cập nhật thời hạn khắc phục</DialogTitle>
+              <DialogContent>
+                <Typography variant="body1" sx={{ mb: 2 }}>
+                  Đã hết thời hạn khắc phục. Vui lòng cập nhật thời hạn mới:
+                </Typography>
+                {timeLimitError && (
+                  <Typography color="error" sx={{ mb: 2 }}>
+                    {timeLimitError}
+                  </Typography>
+                )}
+                <Stack spacing={3} sx={{ mt: 2 }}>
+                  <TextField
+                    type="date"
+                    label="Ngày bắt đầu khắc phục"
+                    value={newStartDate}
+                    onChange={(e) => setNewStartDate(e.target.value)}
+                    fullWidth
+                    variant="outlined"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                  <TextField
+                    type="date"
+                    label="Ngày kết thúc khắc phục"
+                    value={newEndDate}
+                    onChange={(e) => setNewEndDate(e.target.value)}
+                    fullWidth
+                    variant="outlined"
+                    InputLabelProps={{ shrink: true }}
+                    inputProps={{ min: newStartDate }}
+                  />
+                </Stack>
+              </DialogContent>
+              <DialogActions>
+                <Button
+                  onClick={() => {
+                    setShowTimeLimitDialog(false);
+                    setPendingScore(null);
+                    setNewStartDate("");
+                    setNewEndDate("");
+                    setTimeLimitError("");
+                  }}
+                  color="inherit"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  onClick={handleTimeLimitUpdate}
+                  variant="contained"
+                  color="primary"
+                >
+                  Xác nhận
+                </Button>
+              </DialogActions>
+            </Dialog>
+
             <DialogActions>
               <Button
                 onClick={handleCloseDialog}

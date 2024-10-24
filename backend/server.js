@@ -25,6 +25,7 @@ const db = mysql.createConnection({
     rejectUnauthorized: false,
   },
 });
+const FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
 // Get all users in LoginPage.js
 app.get("/login", (req, res) => {
@@ -1604,6 +1605,7 @@ async function uploadToDrive(fileBuffer, fileName, folderId) {
 app.post("/upload", upload.array("photos", 10), async (req, res) => {
   const startTime = Date.now();
   console.log(`\nStarting upload of ${req.files?.length || 0} files`);
+  const folderId = FOLDER_ID;
 
   try {
     // Validate request
@@ -1614,11 +1616,11 @@ app.post("/upload", upload.array("photos", 10), async (req, res) => {
       });
     }
 
-    const folderId = req.query.folderId;
-    if (!folderId) {
-      return res.status(400).json({
+    // Sử dụng FOLDER_ID từ biến môi trường thay vì từ query params
+    if (!FOLDER_ID) {
+      return res.status(500).json({
         success: false,
-        error: "Folder ID is required",
+        error: "Folder ID không được cấu hình",
       });
     }
 
@@ -1644,7 +1646,7 @@ app.post("/upload", upload.array("photos", 10), async (req, res) => {
         const uploadedFile = await uploadToDrive(
           file.buffer,
           file.originalname,
-          folderId
+          FOLDER_ID
         );
         const fileEndTime = Date.now();
         const fileUploadTime = (fileEndTime - fileStartTime) / 1000; // Convert to seconds
