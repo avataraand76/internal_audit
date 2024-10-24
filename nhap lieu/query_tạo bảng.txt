@@ -19,7 +19,7 @@ CREATE TABLE tb_user
 (
 	id_user BIGINT NOT NULL AUTO_INCREMENT,
 	name_user VARCHAR(50) NOT NULL,
-	password_user CHAR(100) NOT NULL,
+	password_user TEXT NOT NULL,
 	PRIMARY KEY (id_user)
 );
 
@@ -43,17 +43,25 @@ CREATE TABLE tb_role
 CREATE TABLE tb_workshop
 (
 	id_workshop BIGINT NOT NULL AUTO_INCREMENT,
+	id_sync_phong_ban BIGINT,
 	name_workshop VARCHAR(50),
-	PRIMARY KEY (id_workshop)
+	PRIMARY KEY (id_workshop),
+	FOREIGN KEY (id_sync_phong_ban) REFERENCES sync_data_hi_time_sheet.sync_phong_ban(id)
+        ON DELETE NO ACTION
+        ON UPDATE NO ACTION
 );
 
 CREATE TABLE tb_department
 (
 	id_department BIGINT NOT NULL AUTO_INCREMENT,
 	id_workshop BIGINT,
+	id_sync_bo_phan BIGINT,
 	name_department VARCHAR(50),
 	PRIMARY KEY (id_department),
-	FOREIGN KEY (id_workshop) REFERENCES tb_workshop(id_workshop)
+	FOREIGN KEY (id_workshop) REFERENCES tb_workshop(id_workshop),
+	FOREIGN KEY (id_sync_bo_phan) REFERENCES sync_data_hi_time_sheet.id_sync_bo_phan(id)
+        ON DELETE NO ACTION
+        ON UPDATE NO ACTION
 );
 
 CREATE TABLE tb_criteria
@@ -63,7 +71,7 @@ CREATE TABLE tb_criteria
 	codename CHAR(10),
 	name_criteria TEXT,
 	description TEXT,
-	failing_point_type INT CHECK (failing_point_type IN (-1, 0, 1)), -- (-1:liệt liệt, 0:liệt, 1:safe)
+	failing_point_type INT CHECK (failing_point_type IN (-1, 0, 1)), -- (-1:liệt liệt, 1:liệt, 0:safe)
 	PRIMARY KEY (id_criteria),
 	FOREIGN KEY (id_category) REFERENCES tb_category(id_category)
 	
