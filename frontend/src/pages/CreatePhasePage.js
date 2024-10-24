@@ -115,12 +115,18 @@ const CreatePhasePage = () => {
     if (!isSupervisor) return;
     if (phaseName.trim()) {
       try {
+        // Standardize time to 07:00:00
+        const standardizeDate = (dateString) => {
+          if (!dateString) return null;
+          const date = new Date(dateString);
+          date.setHours(7, 0, 0, 0);
+          return date.toISOString();
+        };
+
         const phaseData = {
           name_phase: phaseName,
-          time_limit_start: startDate
-            ? new Date(startDate).toISOString()
-            : null,
-          time_limit_end: endDate ? new Date(endDate).toISOString() : null,
+          time_limit_start: standardizeDate(startDate),
+          time_limit_end: standardizeDate(endDate),
         };
 
         if (dialogMode === "create") {

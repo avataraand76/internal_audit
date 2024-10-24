@@ -318,17 +318,25 @@ const DetailedPhasePage = () => {
     }
 
     try {
+      // Standardize time to 07:00:00
+      const standardizeDate = (dateString) => {
+        if (!dateString) return null;
+        const date = new Date(dateString);
+        date.setHours(7, 0, 0, 0);
+        return date.toISOString();
+      };
+
       // Cập nhật thời hạn trong database
       await axios.put(`${API_URL}/phases/${phaseId}`, {
         name_phase: phase.name_phase,
-        time_limit_start: newStartDate,
-        time_limit_end: newEndDate,
+        time_limit_start: standardizeDate(newStartDate),
+        time_limit_end: standardizeDate(newEndDate),
       });
 
       // Cập nhật state local
       setPhaseTimeLimit({
-        start: new Date(newStartDate),
-        end: new Date(newEndDate),
+        start: new Date(standardizeDate(newStartDate)),
+        end: new Date(standardizeDate(newEndDate)),
       });
 
       // Tiếp tục chấm điểm
@@ -1566,7 +1574,7 @@ const DetailedPhasePage = () => {
                   variant="contained"
                   color="primary"
                 >
-                  Xác nhận
+                  Gia hạn
                 </Button>
               </DialogActions>
             </Dialog>
