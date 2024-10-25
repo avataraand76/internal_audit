@@ -1,5 +1,5 @@
 // frontend/src/pages/CreatePhasePage.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Typography,
@@ -18,11 +18,16 @@ import {
   Container,
   useTheme,
   useMediaQuery,
+  MenuItem,
+  FormControl,
+  Select,
+  InputLabel,
 } from "@mui/material";
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  FilterList as FilterIcon,
 } from "@mui/icons-material";
 import Header from "../components/Header";
 import API_URL from "../data/api";
@@ -37,6 +42,8 @@ const CreatePhasePage = () => {
   const [selectedPhase, setSelectedPhase] = useState(null);
   const [phaseName, setPhaseName] = useState("");
   const [phases, setPhases] = useState([]);
+  const [filteredPhases, setFilteredPhases] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState("all");
   const [user, setUser] = useState(null);
   const [isSupervisor, setIsSupervisor] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
@@ -71,14 +78,7 @@ const CreatePhasePage = () => {
       const response = await fetch(`${API_URL}/phases`);
       if (response.ok) {
         const data = await response.json();
-
-        // Thêm logic để hiển thị thông tin về thời gian hiển thị
-        const threeMonthsAgo = moment().subtract(3, "months");
-        const filteredPhases = data.filter((phase) =>
-          moment(phase.date_recorded).isAfter(threeMonthsAgo)
-        );
-
-        setPhases(filteredPhases);
+        setPhases(data); // Lưu trữ tất cả dữ liệu
       } else {
         console.error("Failed to fetch phases");
       }
@@ -109,6 +109,59 @@ const CreatePhasePage = () => {
     setSelectedPhase(null);
     setStartDate("");
     setEndDate("");
+  };
+
+  const filterPhases = useCallback(
+    (month) => {
+      if (month === "all") {
+        // Khi xem tất cả, chỉ hiển thị 3 tháng gần nhất
+        const threeMonthsAgo = moment().subtract(3, "months");
+        const filtered = phases.filter((phase) =>
+          moment(phase.date_recorded).isAfter(threeMonthsAgo)
+        );
+        setFilteredPhases(filtered);
+      } else {
+        const filtered = phases.filter((phase) => {
+          // Ensure we have a valid date
+          if (!phase.date_recorded) return false;
+
+          // Parse the date with moment to handle different date formats
+          const phaseDate = moment(phase.date_recorded);
+          if (!phaseDate.isValid()) return false;
+
+          // Get month and convert both to strings for comparison
+          const phaseMonth = phaseDate.format("M");
+
+          // Debug logging
+          console.log("Comparing:", {
+            date: phase.date_recorded,
+            phaseMonth: phaseMonth,
+            selectedMonth: month,
+            isMatch: phaseMonth === month,
+          });
+
+          return phaseMonth === month;
+        });
+
+        // Sort filtered phases by date in descending order
+        const sortedFiltered = [...filtered].sort(
+          (a, b) =>
+            moment(b.date_recorded).valueOf() -
+            moment(a.date_recorded).valueOf()
+        );
+
+        setFilteredPhases(sortedFiltered);
+      }
+    },
+    [phases]
+  );
+
+  useEffect(() => {
+    filterPhases(selectedMonth);
+  }, [filterPhases, selectedMonth]);
+
+  const handleMonthChange = (event) => {
+    setSelectedMonth(event.target.value);
   };
 
   const handleSavePhase = async () => {
@@ -242,84 +295,117 @@ const CreatePhasePage = () => {
                 Hiển thị các đợt chấm điểm trong 3 tháng gần nhất
               </Typography> */}
             </div>
-            {!isMobile && isSupervisor && (
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<AddIcon />}
-                onClick={() => handleOpenDialog("create")}
-                sx={{ minWidth: { sm: "200px" }, py: { sm: 1, md: 1.5 } }}
-              >
-                Tạo đợt chấm điểm mới
-              </Button>
-            )}
+            <Stack direction="row" spacing={2} alignItems="center">
+              <FormControl variant="outlined" sx={{ minWidth: 120 }}>
+                <InputLabel>Tháng</InputLabel>
+                <Select
+                  value={selectedMonth}
+                  onChange={handleMonthChange}
+                  label="Tháng"
+                  size={isMobile ? "small" : "medium"}
+                  startAdornment={
+                    <FilterIcon
+                      sx={{ mr: 1, ml: -0.5, color: "action.active" }}
+                    />
+                  }
+                >
+                  <MenuItem value="all">Tất cả</MenuItem>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => (
+                    <MenuItem key={month} value={month.toString()}>
+                      Tháng {month}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              {!isMobile && isSupervisor && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<AddIcon />}
+                  onClick={() => handleOpenDialog("create")}
+                  sx={{ minWidth: { sm: "200px" }, py: { sm: 1, md: 1.5 } }}
+                >
+                  Tạo đợt chấm điểm mới
+                </Button>
+              )}
+            </Stack>
           </Stack>
 
           <Stack spacing={{ xs: 2, sm: 3 }}>
-            {phases.map((phase) => (
-              <Card key={phase.id_phase}>
+            {filteredPhases.length === 0 ? (
+              <Card>
                 <CardContent>
-                  <Stack
-                    direction={{ xs: "column", sm: "row" }}
-                    justifyContent="space-between"
-                    alignItems={{ xs: "flex-start", sm: "center" }}
-                    spacing={{ xs: 1, sm: 0 }}
-                  >
-                    <Stack spacing={1}>
-                      <Typography
-                        variant={{ xs: "h6", sm: "h5" }}
-                        sx={{
-                          fontSize: { xs: "1.5rem", sm: "2rem" },
-                          fontWeight: "bold",
-                          mb: 1,
-                        }}
-                      >
-                        {phase.name_phase}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Ngày tạo: {formatDate(phase.date_recorded)}
-                      </Typography>
-                      {phase.time_limit_start && phase.time_limit_end && (
-                        <Typography variant="body2" color="text.secondary">
-                          Thời hạn khắc phục:{" "}
-                          {formatDate(phase.time_limit_start)} -{" "}
-                          {formatDate(phase.time_limit_end)}
-                        </Typography>
-                      )}
-                    </Stack>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      {isSupervisor && (
-                        <>
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => handleOpenDialog("edit", phase)}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleOpenDeleteDialog(phase)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </>
-                      )}
-                    </Stack>
-                  </Stack>
+                  <Typography align="center" color="text.secondary">
+                    Không có đợt chấm điểm nào trong tháng này
+                  </Typography>
                 </CardContent>
-                <CardActions sx={{ flexWrap: "wrap", gap: 1 }}>
-                  <Button
-                    size={isMobile ? "small" : "medium"}
-                    variant={isMobile ? "text" : "outlined"}
-                    onClick={() => handleViewDetails(phase.id_phase)}
-                  >
-                    Xem chi tiết
-                  </Button>
-                </CardActions>
               </Card>
-            ))}
+            ) : (
+              filteredPhases.map((phase) => (
+                <Card key={phase.id_phase}>
+                  <CardContent>
+                    <Stack
+                      direction={{ xs: "column", sm: "row" }}
+                      justifyContent="space-between"
+                      alignItems={{ xs: "flex-start", sm: "center" }}
+                      spacing={{ xs: 1, sm: 0 }}
+                    >
+                      <Stack spacing={1}>
+                        <Typography
+                          variant={{ xs: "h6", sm: "h5" }}
+                          sx={{
+                            fontSize: { xs: "1.5rem", sm: "2rem" },
+                            fontWeight: "bold",
+                            mb: 1,
+                          }}
+                        >
+                          {phase.name_phase}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Ngày tạo: {formatDate(phase.date_recorded)}
+                        </Typography>
+                        {phase.time_limit_start && phase.time_limit_end && (
+                          <Typography variant="body2" color="text.secondary">
+                            Thời hạn khắc phục:{" "}
+                            {formatDate(phase.time_limit_start)} -{" "}
+                            {formatDate(phase.time_limit_end)}
+                          </Typography>
+                        )}
+                      </Stack>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        {isSupervisor && (
+                          <>
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => handleOpenDialog("edit", phase)}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleOpenDeleteDialog(phase)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </>
+                        )}
+                      </Stack>
+                    </Stack>
+                  </CardContent>
+                  <CardActions sx={{ flexWrap: "wrap", gap: 1 }}>
+                    <Button
+                      size={isMobile ? "small" : "medium"}
+                      variant={isMobile ? "text" : "outlined"}
+                      onClick={() => handleViewDetails(phase.id_phase)}
+                    >
+                      Xem chi tiết
+                    </Button>
+                  </CardActions>
+                </Card>
+              ))
+            )}
           </Stack>
         </Stack>
 
@@ -342,6 +428,7 @@ const CreatePhasePage = () => {
         <Dialog
           open={openDialog}
           onClose={handleCloseDialog}
+          // fullScreen={isMobile}
           PaperProps={{
             sx: {
               width: "100%",

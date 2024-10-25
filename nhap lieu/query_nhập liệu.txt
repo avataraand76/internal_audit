@@ -206,7 +206,7 @@ INSERT INTO tb_department (id_workshop, id_sync_bo_phan, name_department) VALUES
 ('8','106','PHÒNG KẾ TOÁN'), -- id 55
 
 -- PHÒNG KẾ HOẠCH SẢN XUẤT ID 9 SYNC 8
-('9','115','PHÒNG KẾ HOẠCH SẢN XUẤT'), -- id 56
+('9','115','PHÒNG KẾ HOẠCH'), -- id 56
 ('9','68','KHO THÀNH PHẨM'), -- id 57
 
 -- PHÒNG KỸ THUẬT ID 10 SYNC 28
@@ -223,7 +223,7 @@ INSERT INTO tb_department (id_workshop, id_sync_bo_phan, name_department) VALUES
 ('13','117','BỘ PHẬN CƠ ĐIỆN'), -- id 62
 
 -- KHO NGUYÊN PHỤ LIỆU ID 15 SYNC 3202
-('15','44','KHO NGUYÊN PHỤ LIỆU'); -- id 63
+('14','44','KHO NGUYÊN PHỤ LIỆU'); -- id 63
 
 -- nhập liệu tiêu chí criteria
 INSERT INTO tb_criteria (id_category, codename, name_criteria, description, failing_point_type) VALUES
