@@ -1803,120 +1803,138 @@ app.post("/save-image-urls", async (req, res) => {
 
 //////////report page//////////
 // Get report data for a specific phase
-app.get("/report/:phaseId", async (req, res) => {
-  const { phaseId } = req.params;
+app.get("/monthly-report/:month/:year", async (req, res) => {
+  const { month, year } = req.params;
 
   try {
-    // Get phase information
-    const phaseQuery = `
-      SELECT 
-        p.name_phase,
-        p.date_recorded,
-        DATE_FORMAT(p.date_recorded, '%m/%Y') as report_month
-      FROM tb_phase p
-      WHERE p.id_phase = ?
+    // Get phases in the specified month
+    const phasesQuery = `
+      SELECT id_phase, name_phase 
+      FROM tb_phase 
+      WHERE MONTH(date_recorded) = ? AND YEAR(date_recorded) = ?
+      ORDER BY date_recorded ASC
     `;
 
-    const [phaseInfo] = await new Promise((resolve, reject) => {
-      db.query(phaseQuery, [phaseId], (err, results) => {
-        if (err) reject(err);
-        else resolve([results[0], null]);
-      });
-    });
-
-    // Get workshop and department scores
-    const scoresQuery = `
-      SELECT 
-        w.id_workshop,
-        w.name_workshop,
-        d.id_department,
-        d.name_department,
-        (
-          SELECT COUNT(*) 
-          FROM tb_department_criteria dc 
-          WHERE dc.id_department = d.id_department
-        ) as max_points,
-        tp.total_point as score_percentage,
-        (
-          SELECT GROUP_CONCAT(DISTINCT 
-            CASE 
-              WHEN c.failing_point_type = -1 THEN 'PNKL'
-              WHEN c.failing_point_type = 1 THEN 'QMS'
-            END
-          )
-          FROM tb_phase_details pd
-          JOIN tb_criteria c ON pd.id_criteria = c.id_criteria
-          WHERE pd.id_phase = p.id_phase 
-          AND pd.id_department = d.id_department
-          AND pd.is_fail = 1
-          AND c.failing_point_type IN (-1, 1)
-        ) as knockout_types,
-        (
-          SELECT COUNT(*) 
-          FROM tb_phase_details pd2
-          WHERE pd2.id_phase = p.id_phase
-          AND pd2.id_department = d.id_department
-          AND pd2.is_fail = 1
-        ) as total_deductions
-      FROM tb_workshop w
-      JOIN tb_department d ON w.id_workshop = d.id_workshop
-      LEFT JOIN tb_phase p ON p.id_phase = ?
-      LEFT JOIN tb_total_point tp ON tp.id_phase = p.id_phase 
-        AND tp.id_department = d.id_department
-      ORDER BY w.id_workshop, d.id_department
-    `;
-
-    const [scores] = await new Promise((resolve, reject) => {
-      db.query(scoresQuery, [phaseId], (err, results) => {
+    const [phases] = await new Promise((resolve, reject) => {
+      db.query(phasesQuery, [month, year], (err, results) => {
         if (err) reject(err);
         else resolve([results, null]);
       });
     });
 
-    // Process data to group by workshop
-    const workshopScores = scores.reduce((acc, row) => {
-      if (!acc[row.id_workshop]) {
-        acc[row.id_workshop] = {
-          id: row.id_workshop,
-          name: row.name_workshop,
+    // Get all departments with their workshop names
+    const departmentsQuery = `
+      SELECT 
+        d.id_department,
+        d.name_department,
+        w.name_workshop,
+        w.id_workshop,
+        (
+          SELECT COUNT(*) 
+          FROM tb_department_criteria 
+          WHERE id_department = d.id_department
+        ) as max_points
+      FROM 
+        tb_department d
+        JOIN tb_workshop w ON d.id_workshop = w.id_workshop
+      ORDER BY 
+        w.id_workshop, d.id_department
+    `;
+
+    const [departments] = await new Promise((resolve, reject) => {
+      db.query(departmentsQuery, (err, results) => {
+        if (err) reject(err);
+        else resolve([results, null]);
+      });
+    });
+
+    // For each phase and department, get detailed information
+    const departmentDetails = await Promise.all(
+      departments.map(async (dept) => {
+        const phaseResults = await Promise.all(
+          phases.map(async (phase) => {
+            // Get failed criteria count and total point
+            const detailsQuery = `
+              SELECT 
+                COUNT(pd.id_criteria) as failed_count,
+                COALESCE(tp.total_point, 100) as score_percentage,
+                (
+                  SELECT GROUP_CONCAT(c.failing_point_type SEPARATOR ', ')
+                  FROM tb_phase_details pd2
+                  JOIN tb_criteria c ON pd2.id_criteria = c.id_criteria
+                  WHERE pd2.id_phase = ? 
+                    AND pd2.id_department = ?
+                    AND pd2.is_fail = 1
+                    AND c.failing_point_type IN (-1, 1)
+                ) as knockout_types
+              FROM 
+                tb_phase_details pd
+                LEFT JOIN tb_total_point tp ON tp.id_phase = pd.id_phase 
+                  AND tp.id_department = pd.id_department
+              WHERE 
+                pd.id_phase = ? 
+                AND pd.id_department = ?
+                AND pd.is_fail = 1
+              GROUP BY 
+                pd.id_phase, pd.id_department
+            `;
+
+            const [details] = await new Promise((resolve, reject) => {
+              db.query(
+                detailsQuery,
+                [
+                  phase.id_phase,
+                  dept.id_department,
+                  phase.id_phase,
+                  dept.id_department,
+                ],
+                (err, results) => {
+                  if (err) reject(err);
+                  else resolve([results[0] || {}, null]);
+                }
+              );
+            });
+
+            return {
+              phaseId: phase.id_phase,
+              phaseName: phase.name_phase,
+              failedCount: details.failed_count || 0,
+              scorePercentage: details.score_percentage || 100,
+              knockoutTypes: details.knockout_types || "",
+            };
+          })
+        );
+
+        return {
+          ...dept,
+          phases: phaseResults,
+        };
+      })
+    );
+
+    // Group departments by workshop
+    const workshopGroups = departmentDetails.reduce((acc, dept) => {
+      if (!acc[dept.id_workshop]) {
+        acc[dept.id_workshop] = {
+          workshopName: dept.name_workshop,
           departments: [],
-          totalScore: 0,
-          departmentCount: 0,
         };
       }
-
-      acc[row.id_workshop].departments.push({
-        id: row.id_department,
-        name: row.name_department,
-        maxPoints: row.max_points,
-        scorePercentage: row.score_percentage,
-        knockoutTypes: row.knockout_types,
-        totalDeductions: row.total_deductions,
-      });
-
-      acc[row.id_workshop].departmentCount++;
-      acc[row.id_workshop].totalScore += row.score_percentage || 0;
-
+      acc[dept.id_workshop].departments.push(dept);
       return acc;
     }, {});
 
-    // Calculate workshop averages
-    Object.values(workshopScores).forEach((workshop) => {
-      workshop.averageScore = Math.round(
-        workshop.totalScore / workshop.departmentCount
-      );
-    });
-
     res.json({
-      phase: phaseInfo,
-      workshops: Object.values(workshopScores),
+      month: parseInt(month),
+      year: parseInt(year),
+      phases: phases,
+      workshops: Object.values(workshopGroups),
     });
   } catch (error) {
-    console.error("Error fetching report data:", error);
-    res.status(500).json({ error: "Error fetching report data" });
+    console.error("Error generating monthly report:", error);
+    res.status(500).json({ error: "Error generating monthly report" });
   }
 });
-
 //////////report page//////////
 
 const PORT = 8081;
