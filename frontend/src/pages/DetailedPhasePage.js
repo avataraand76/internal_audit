@@ -803,10 +803,14 @@ const DetailedPhasePage = () => {
               sx={{
                 fontWeight: "bold",
                 color: hasAbsoluteKnockout ? "#FF0000" : "inherit",
+                // color:
+                //   totalPoint < 80 || hasRedStar || hasAbsoluteKnockout
+                //     ? "#FF0000"
+                //     : "#inherit",
                 lineHeight: 1,
               }}
             >
-              {hasAbsoluteKnockout ? 0 : totalPoint}%
+              {totalPoint}%
             </Typography>
             <StarIcon
               sx={{
@@ -852,6 +856,22 @@ const DetailedPhasePage = () => {
           {absoluteKnockoutCriteria.map((c) => c.codename).join(", ") ||
             "Không có"}
         </Typography>
+
+        {hasAbsoluteKnockout && (
+          <Typography
+            variant="body2"
+            sx={{
+              mt: 1,
+              p: 1,
+              bgcolor: "error.main",
+              color: "white",
+              borderRadius: 1,
+              fontWeight: "medium",
+            }}
+          >
+            Phát hiện vi phạm PNKL - Trừ tất cả điểm hạng mục PNKL
+          </Typography>
+        )}
       </CardContent>
     </Card>
   );
@@ -1003,18 +1023,19 @@ const DetailedPhasePage = () => {
 
     setIsUploading(score === "không đạt" && selectedImages.length > 0);
 
-    const scoreData = {
-      id_department: selectedDepartment.id,
-      id_criteria: selectedCriterion.id,
-      id_phase: phaseId,
-      id_user: user.id_user,
-      is_fail: score === "không đạt" ? 1 : 0,
-      date_updated: new Date().toISOString(),
-      status_phase_details: score === "không đạt" ? "CHƯA KHẮC PHỤC" : null,
-    };
-
     try {
-      // Save the score first
+      // Prepare score data
+      const scoreData = {
+        id_department: selectedDepartment.id,
+        id_criteria: selectedCriterion.id,
+        id_phase: phaseId,
+        id_user: user.id_user,
+        is_fail: score === "không đạt" ? 1 : 0,
+        date_updated: new Date().toISOString(),
+        status_phase_details: score === "không đạt" ? "CHƯA KHẮC PHỤC" : null,
+      };
+
+      // Save the score
       await axios.post(`${API_URL}/phase-details`, scoreData);
 
       // If score is "không đạt" and there are images, handle the upload
@@ -1031,7 +1052,6 @@ const DetailedPhasePage = () => {
             const blob = await response.blob();
             file = new File([blob], image.name, { type: "image/jpeg" });
           }
-
           if (file) {
             formData.append("photos", file);
           }
@@ -1039,16 +1059,13 @@ const DetailedPhasePage = () => {
 
         // Upload images to Google Drive
         const uploadResponse = await axios.post(`${API_URL}/upload`, formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
+          headers: { "Content-Type": "multipart/form-data" },
         });
 
         if (uploadResponse.data.success) {
           const imageUrls = uploadResponse.data.uploadedFiles.map(
             (file) => file.webViewLink
           );
-
           await axios.post(`${API_URL}/save-image-urls`, {
             id_department: selectedDepartment.id,
             id_criteria: selectedCriterion.id,
@@ -1064,6 +1081,7 @@ const DetailedPhasePage = () => {
         if (!newFailedCriteria[selectedDepartment.id]) {
           newFailedCriteria[selectedDepartment.id] = new Set();
         }
+
         if (score === "không đạt") {
           newFailedCriteria[selectedDepartment.id].add(selectedCriterion.id);
         } else {
@@ -1072,7 +1090,50 @@ const DetailedPhasePage = () => {
         return newFailedCriteria;
       });
 
-      await updateInfoCard();
+      // Update total criteria count
+      setTotalCriteria((prev) => ({
+        ...prev,
+        [selectedDepartment.id]:
+          score === "không đạt"
+            ? (prev[selectedDepartment.id] || 0) + 1
+            : Math.max(0, (prev[selectedDepartment.id] || 0) - 1),
+      }));
+
+      // Fetch updated data
+      await Promise.all([
+        // Fetch total point and knockout status
+        axios
+          .get(`${API_URL}/total-point/${phaseId}/${selectedDepartment.id}`)
+          .then((response) => {
+            setTotalPoint(response.data.total_point);
+            setHasRedStar(response.data.has_red_star);
+            setHasAbsoluteKnockout(response.data.has_absolute_knockout);
+          }),
+
+        // Fetch knockout criteria
+        axios
+          .get(
+            `${API_URL}/knockout-criteria/${phaseId}/${selectedDepartment.id}`
+          )
+          .then((response) => {
+            setRedStarCriteria(response.data.redStar);
+            setAbsoluteKnockoutCriteria(response.data.absoluteKnockout);
+          }),
+
+        // Update criteria statuses
+        axios
+          .get(
+            `${API_URL}/criteria-statuses/${phaseId}/${selectedDepartment.id}`
+          )
+          .then((response) => {
+            const statuses = {};
+            response.data.forEach((item) => {
+              statuses[item.id_criteria] = item.status_phase_details;
+            });
+            setCriteriaStatuses(statuses);
+          }),
+      ]);
+
       setIsUploading(false);
       handleCloseDialog();
     } catch (error) {

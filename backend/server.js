@@ -1032,57 +1032,126 @@ app.get("/failed-check/:phaseId", (req, res) => {
 });
 
 // Add a new endpoint to get the total point for a department in a phase
-app.get("/total-point/:phaseId/:departmentId", (req, res) => {
+app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
   const { phaseId, departmentId } = req.params;
 
-  const query = `
-    SELECT 
-      tp.total_point,
-      CASE WHEN EXISTS (
-        SELECT 1
-        FROM tb_phase_details pd
-        JOIN tb_criteria c ON pd.id_criteria = c.id_criteria
-        WHERE pd.id_phase = ? AND pd.id_department = ? AND pd.is_fail = 1 AND c.failing_point_type = 1
-      ) THEN TRUE ELSE FALSE END as has_red_star,
-      CASE WHEN EXISTS (
-        SELECT 1
-        FROM tb_phase_details pd
-        JOIN tb_criteria c ON pd.id_criteria = c.id_criteria
-        WHERE pd.id_phase = ? AND pd.id_department = ? AND pd.is_fail = 1 AND c.failing_point_type = -1
-      ) THEN TRUE ELSE FALSE END as has_absolute_knockout
-    FROM tb_total_point tp
-    WHERE tp.id_phase = ? AND tp.id_department = ?
-  `;
+  try {
+    // Get all failed criteria for this department and phase
+    const failedCriteriaQuery = `
+      SELECT 
+        c.id_criteria,
+        c.failing_point_type,
+        c.id_category
+      FROM tb_phase_details pd
+      JOIN tb_criteria c ON pd.id_criteria = c.id_criteria
+      WHERE pd.id_phase = ? 
+        AND pd.id_department = ? 
+        AND pd.is_fail = 1`;
 
-  db.query(
-    query,
-    [phaseId, departmentId, phaseId, departmentId, phaseId, departmentId],
-    (err, results) => {
-      if (err) {
-        console.error("Error fetching total point and knockout criteria:", err);
-        res
-          .status(500)
-          .json({ error: "Error fetching total point and knockout criteria" });
-        return;
-      }
+    const [failedCriteria] = await new Promise((resolve, reject) => {
+      db.query(failedCriteriaQuery, [phaseId, departmentId], (err, results) => {
+        if (err) reject(err);
+        else resolve([results, null]);
+      });
+    });
 
-      if (results.length === 0) {
-        // Nếu không có kết quả, trả về giá trị mặc định
-        res.json({
-          total_point: 100,
-          has_red_star: false,
-          has_absolute_knockout: false,
-        });
-      } else {
-        const result = results[0];
-        // Nếu có tiêu chí loại trừ tuyệt đối, đặt tổng điểm về 0
-        if (result.has_absolute_knockout) {
-          result.total_point = 0;
-        }
-        res.json(result);
+    // Get total criteria count for the department
+    const totalCriteriaQuery = `
+      SELECT COUNT(*) as total
+      FROM tb_department_criteria
+      WHERE id_department = ?`;
+
+    const [totalResult] = await new Promise((resolve, reject) => {
+      db.query(totalCriteriaQuery, [departmentId], (err, results) => {
+        if (err) reject(err);
+        else resolve([results, null]);
+      });
+    });
+
+    // Get count of category 4 criteria for this department
+    const category4CountQuery = `
+      SELECT COUNT(*) as count
+      FROM tb_department_criteria dc
+      JOIN tb_criteria c ON dc.id_criteria = c.id_criteria
+      WHERE dc.id_department = ? AND c.id_category = 4`;
+
+    const [category4Result] = await new Promise((resolve, reject) => {
+      db.query(category4CountQuery, [departmentId], (err, results) => {
+        if (err) reject(err);
+        else resolve([results, null]);
+      });
+    });
+
+    const totalCriteria = totalResult[0].total;
+    const category4Count = category4Result[0].count;
+    let deductPoints = 0;
+    let hasRedStar = false;
+    let hasAbsoluteKnockout = false;
+
+    // Check if any PNKL with failing_point_type = -1 exists
+    const hasPNKLKnockout = failedCriteria.some(
+      (c) => c.failing_point_type === -1
+    );
+
+    // Calculate point deductions
+    failedCriteria.forEach((criteria) => {
+      switch (criteria.failing_point_type) {
+        case 0: // Normal criteria
+          if (criteria.id_category === 4 && hasPNKLKnockout) {
+            // Skip deduction for PNKL criteria if there's already a PNKL knockout
+            return;
+          }
+          deductPoints += 1;
+          break;
+
+        case 1: // Red star criteria
+          deductPoints += 1;
+          hasRedStar = true;
+          break;
+
+        case -1: // PNKL knockout - only count once
+          if (!hasAbsoluteKnockout) {
+            deductPoints += category4Count; // Deduct all category 4 points at once
+            hasRedStar = true;
+            hasAbsoluteKnockout = true;
+          }
+          break;
       }
-    }
-  );
+    });
+
+    // Calculate final score
+    let totalPoint = Math.max(
+      0,
+      Math.round(((totalCriteria - deductPoints) / totalCriteria) * 100)
+    );
+
+    // Store the result in tb_total_point
+    const updateQuery = `
+      INSERT INTO tb_total_point (id_department, id_phase, total_point)
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+      total_point = VALUES(total_point)`;
+
+    await new Promise((resolve, reject) => {
+      db.query(updateQuery, [departmentId, phaseId, totalPoint], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    res.json({
+      total_point: totalPoint,
+      has_red_star: hasRedStar,
+      has_absolute_knockout: hasAbsoluteKnockout,
+      deducted_points: deductPoints,
+      total_criteria: totalCriteria,
+      category4_count: category4Count,
+      has_pnkl_knockout: hasPNKLKnockout,
+    });
+  } catch (error) {
+    console.error("Error calculating total point:", error);
+    res.status(500).json({ error: "Error calculating total point" });
+  }
 });
 
 // Get knockout criteria
