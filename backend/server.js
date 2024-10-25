@@ -1822,6 +1822,12 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
       });
     });
 
+    if (!phases || phases.length === 0) {
+      return res.status(404).json({
+        error: "No phases found for the specified month and year",
+      });
+    }
+
     // Get all departments with their workshop names
     const departmentsQuery = `
       SELECT 
@@ -1853,20 +1859,30 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
       departments.map(async (dept) => {
         const phaseResults = await Promise.all(
           phases.map(async (phase) => {
-            // Get failed criteria count and total point
+            // Get failed criteria count, total point, and knockout information
             const detailsQuery = `
               SELECT 
-                COUNT(pd.id_criteria) as failed_count,
+                COUNT(DISTINCT pd.id_criteria) as failed_count,
                 COALESCE(tp.total_point, 100) as score_percentage,
                 (
-                  SELECT GROUP_CONCAT(c.failing_point_type SEPARATOR ', ')
+                  SELECT GROUP_CONCAT(DISTINCT cat.name_category SEPARATOR ', ')
                   FROM tb_phase_details pd2
                   JOIN tb_criteria c ON pd2.id_criteria = c.id_criteria
+                  JOIN tb_category cat ON c.id_category = cat.id_category
                   WHERE pd2.id_phase = ? 
                     AND pd2.id_department = ?
                     AND pd2.is_fail = 1
                     AND c.failing_point_type IN (-1, 1)
-                ) as knockout_types
+                ) as knockout_types,
+                EXISTS (
+                  SELECT 1 
+                  FROM tb_phase_details pd2
+                  JOIN tb_criteria c ON pd2.id_criteria = c.id_criteria
+                  WHERE pd2.id_phase = ?
+                    AND pd2.id_department = ?
+                    AND pd2.is_fail = 1
+                    AND c.failing_point_type IN (-1, 1)
+                ) as has_knockout
               FROM 
                 tb_phase_details pd
                 LEFT JOIN tb_total_point tp ON tp.id_phase = pd.id_phase 
@@ -1874,7 +1890,6 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
               WHERE 
                 pd.id_phase = ? 
                 AND pd.id_department = ?
-                AND pd.is_fail = 1
               GROUP BY 
                 pd.id_phase, pd.id_department
             `;
@@ -1887,6 +1902,12 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
                   dept.id_department,
                   phase.id_phase,
                   dept.id_department,
+                  phase.id_phase,
+                  dept.id_department,
+                  phase.id_phase,
+                  dept.id_department,
+                  phase.id_phase,
+                  dept.id_department,
                 ],
                 (err, results) => {
                   if (err) reject(err);
@@ -1895,18 +1916,29 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
               );
             });
 
+            // Prepare phase result with all necessary information
             return {
               phaseId: phase.id_phase,
               phaseName: phase.name_phase,
               failedCount: details.failed_count || 0,
               scorePercentage: details.score_percentage || 100,
               knockoutTypes: details.knockout_types || "",
+              hasKnockout: details.has_knockout || false,
+              pnklCount: details.pnkl_count || 0,
+              redStarCount: details.red_star_count || 0,
+              needsHighlight:
+                details.has_knockout ||
+                (details.score_percentage && details.score_percentage < 80),
             };
           })
         );
 
         return {
-          ...dept,
+          id_department: dept.id_department,
+          name_department: dept.name_department,
+          id_workshop: dept.id_workshop,
+          name_workshop: dept.name_workshop,
+          max_points: dept.max_points,
           phases: phaseResults,
         };
       })
@@ -1920,19 +1952,35 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
           departments: [],
         };
       }
-      acc[dept.id_workshop].departments.push(dept);
+      acc[dept.id_workshop].departments.push({
+        id_department: dept.id_department,
+        name_department: dept.name_department,
+        max_points: dept.max_points,
+        phases: dept.phases,
+      });
       return acc;
     }, {});
 
+    // Prepare and send response
     res.json({
       month: parseInt(month),
       year: parseInt(year),
-      phases: phases,
+      phases: phases.map((phase) => ({
+        id_phase: phase.id_phase,
+        name_phase: phase.name_phase,
+      })),
       workshops: Object.values(workshopGroups),
+      summary: {
+        totalDepartments: departments.length,
+        totalPhases: phases.length,
+      },
     });
   } catch (error) {
     console.error("Error generating monthly report:", error);
-    res.status(500).json({ error: "Error generating monthly report" });
+    res.status(500).json({
+      error: "Error generating monthly report",
+      details: error.message,
+    });
   }
 });
 //////////report page//////////

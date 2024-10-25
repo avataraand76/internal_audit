@@ -284,14 +284,34 @@ export default function MonthlyReportPage() {
                         <StyledTableCell
                           align="center"
                           sx={{
-                            backgroundColor:
-                              phase.scorePercentage < 80
-                                ? "#ffebee"
-                                : "inherit",
-                            color:
-                              phase.scorePercentage < 80
-                                ? "error.main"
-                                : "inherit",
+                            backgroundColor: (theme) => {
+                              // Add logging to debug
+                              console.log("Phase data:", {
+                                department: dept.name_department,
+                                score: phase.scorePercentage,
+                                hasKnockout: phase.has_knockout,
+                                knockoutTypes: phase.knockoutTypes,
+                              });
+
+                              if (
+                                phase.knockoutTypes || // Có điểm liệt nếu có knockout_types
+                                phase.has_knockout || // Hoặc has_knockout = true
+                                phase.scorePercentage < 80 // Hoặc điểm < 80
+                              ) {
+                                return "#ffebee"; // Màu đỏ nhạt
+                              }
+                              return "inherit";
+                            },
+                            color: (theme) => {
+                              if (
+                                phase.knockoutTypes ||
+                                phase.has_knockout ||
+                                phase.scorePercentage < 80
+                              ) {
+                                return theme.palette.error.main; // Màu chữ đỏ
+                              }
+                              return "inherit";
+                            },
                           }}
                         >
                           {phase.scorePercentage}%
