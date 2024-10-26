@@ -1859,10 +1859,10 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
       departments.map(async (dept) => {
         const phaseResults = await Promise.all(
           phases.map(async (phase) => {
-            // Get failed criteria count, total point, and knockout information
+            // Get sum of is_fail values, total point, and knockout information
             const detailsQuery = `
               SELECT 
-                COUNT(DISTINCT pd.id_criteria) as failed_count,
+                COALESCE(SUM(pd.is_fail), 0) as failed_count,
                 COALESCE(tp.total_point, 100) as score_percentage,
                 (
                   SELECT GROUP_CONCAT(DISTINCT cat.name_category SEPARATOR ', ')
@@ -1904,10 +1904,6 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
                   dept.id_department,
                   phase.id_phase,
                   dept.id_department,
-                  phase.id_phase,
-                  dept.id_department,
-                  phase.id_phase,
-                  dept.id_department,
                 ],
                 (err, results) => {
                   if (err) reject(err);
@@ -1924,8 +1920,6 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
               scorePercentage: details.score_percentage || 100,
               knockoutTypes: details.knockout_types || "",
               hasKnockout: details.has_knockout || false,
-              pnklCount: details.pnkl_count || 0,
-              redStarCount: details.red_star_count || 0,
               needsHighlight:
                 details.has_knockout ||
                 (details.score_percentage && details.score_percentage < 80),

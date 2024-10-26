@@ -87,11 +87,15 @@ const CreatePhasePage = () => {
     }
   };
 
+  const handlePhaseNameChange = (e) => {
+    setPhaseName(e.target.value.toUpperCase());
+  };
+
   const handleOpenDialog = (mode, phase = null) => {
     if (!isSupervisor) return;
     setDialogMode(mode);
     setSelectedPhase(phase);
-    setPhaseName(phase ? phase.name_phase : "");
+    setPhaseName(phase ? phase.name_phase.toUpperCase() : "");
     setStartDate(
       phase && phase.time_limit_start
         ? phase.time_limit_start.split("T")[0]
@@ -177,7 +181,7 @@ const CreatePhasePage = () => {
         };
 
         const phaseData = {
-          name_phase: phaseName,
+          name_phase: phaseName.toUpperCase(),
           time_limit_start: standardizeDate(startDate),
           time_limit_end: standardizeDate(endDate),
         };
@@ -451,7 +455,10 @@ const CreatePhasePage = () => {
                 fullWidth
                 variant="outlined"
                 value={phaseName}
-                onChange={(e) => setPhaseName(e.target.value)}
+                onChange={handlePhaseNameChange}
+                inputProps={{
+                  style: { textTransform: "uppercase" },
+                }}
               />
               <TextField
                 type="date"

@@ -950,33 +950,47 @@ const DetailedPhasePage = () => {
 
   // Update the filteredCategories memo to include search filtering
   const filteredCategories = useMemo(() => {
-    // Bắt đầu với danh sách categories ban đầu
+    // Start with initial categories list
     let processedCategories = allCategories;
 
-    // Nếu là user supervised, lọc theo trạng thái khắc phục
-    if (!isSupervisor) {
-      processedCategories = allCategories
-        .map((category) => ({
-          ...category,
-          criteria: category.criteria.filter((criterion) => {
-            const isFailed = failedCriteria[selectedDepartment?.id]?.has(
-              criterion.id
-            );
-            if (!isFailed) return false;
-
-            const isFixed = criteriaStatuses[criterion.id] === "ĐÃ KHẮC PHỤC";
-
-            // Lọc theo trạng thái switch
-            if (isFixed && !showFixed) return false;
-            if (!isFixed && !showNotFixed) return false;
-
+    // Apply status filtering for all users
+    processedCategories = allCategories
+      .map((category) => ({
+        ...category,
+        criteria: category.criteria.filter((criterion) => {
+          // For supervisors, show all criteria if no filter is active
+          if (isSupervisor && showFixed && showNotFixed) {
             return true;
-          }),
-        }))
-        .filter((category) => category.criteria.length > 0);
-    }
+          }
 
-    // Áp dụng tìm kiếm nếu có
+          const isFailed = failedCriteria[selectedDepartment?.id]?.has(
+            criterion.id
+          );
+
+          // For supervisors, if only one filter is active, show accordingly
+          if (isSupervisor) {
+            const isFixed = criteriaStatuses[criterion.id] === "ĐÃ KHẮC PHỤC";
+            if (showFixed && !showNotFixed) return isFailed && isFixed;
+            if (!showFixed && showNotFixed) return isFailed && !isFixed;
+            if (!showFixed && !showFixed) return false;
+            return true;
+          }
+
+          // For supervised users, only show failed criteria
+          if (!isFailed) return false;
+
+          const isFixed = criteriaStatuses[criterion.id] === "ĐÃ KHẮC PHỤC";
+
+          // Filter by status
+          if (isFixed && !showFixed) return false;
+          if (!isFixed && !showNotFixed) return false;
+
+          return true;
+        }),
+      }))
+      .filter((category) => category.criteria.length > 0);
+
+    // Apply search filter if there's a search term
     if (searchTerm.trim()) {
       return processedCategories
         .map((category) => ({
@@ -1236,31 +1250,62 @@ const DetailedPhasePage = () => {
               ),
             }}
           />
-          {/* Thêm switch cho user supervised */}
-          {!isSupervisor && (
-            <Box sx={{ mt: 2, display: "flex", gap: 3, alignItems: "center" }}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={showNotFixed}
-                    onChange={(e) => setShowNotFixed(e.target.checked)}
-                    color="warning"
-                  />
-                }
-                label="Chưa khắc phục"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={showFixed}
-                    onChange={(e) => setShowFixed(e.target.checked)}
-                    color="success"
-                  />
-                }
-                label="Đã khắc phục"
-              />
-            </Box>
-          )}
+
+          {/* Status filters for all users */}
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 3,
+              alignItems: "center",
+              justifyContent: "flex-start",
+              mt: 2,
+            }}
+          >
+            <Typography variant="body2" color="text.secondary" sx={{ mr: 2 }}>
+              Lọc theo trạng thái:
+            </Typography>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showNotFixed}
+                  onChange={(e) => setShowNotFixed(e.target.checked)}
+                  color="warning"
+                />
+              }
+              label={
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: showNotFixed ? "warning.main" : "text.secondary",
+                    fontWeight: showNotFixed ? "medium" : "normal",
+                  }}
+                >
+                  Chưa khắc phục
+                </Typography>
+              }
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showFixed}
+                  onChange={(e) => setShowFixed(e.target.checked)}
+                  color="success"
+                />
+              }
+              label={
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: showFixed ? "success.main" : "text.secondary",
+                    fontWeight: showFixed ? "medium" : "normal",
+                  }}
+                >
+                  Đã khắc phục
+                </Typography>
+              }
+            />
+          </Box>
         </Container>
       </Paper>
 

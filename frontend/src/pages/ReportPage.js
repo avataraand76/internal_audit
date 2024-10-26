@@ -1,6 +1,6 @@
 // frontend/src/pages/ReportPage.js
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import API_URL from "../data/api";
 import { jsPDF } from "jspdf";
@@ -18,13 +18,16 @@ import {
   Paper,
   Box,
   CircularProgress,
+  Select,
+  MenuItem,
+  FormControl,
 } from "@mui/material";
 import DownloadIcon from "@mui/icons-material/Download";
 import { styled } from "@mui/material/styles";
-import Header from "../components/Header";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   border: "1px solid rgba(224, 224, 224, 1)",
+  // border: "1px solid black",
   padding: "8px",
   whiteSpace: "nowrap",
   "&.phase-header": {
@@ -35,10 +38,10 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
 
 const StyledTableRow = styled(TableRow)(({ theme }) => ({
   "&.workshop-row": {
-    backgroundColor: theme.palette.action.hover,
+    backgroundColor: "#fff3e0",
   },
   "&:hover": {
-    backgroundColor: theme.palette.action.hover,
+    backgroundColor: "yellow",
   },
 }));
 
@@ -46,38 +49,71 @@ export default function MonthlyReportPage() {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   // Get month and year from URL params or current date
   const { month: urlMonth, year: urlYear } = useParams();
-  const currentDate = new Date("2024-09-25"); // Using the date from database
-  const month = urlMonth || (currentDate.getMonth() + 1).toString();
+  const currentDate = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(
+    urlMonth || (currentDate.getMonth() + 1).toString()
+  );
   const year = urlYear || currentDate.getFullYear().toString();
+
+  // Array of months for the dropdown
+  const months = [
+    { value: "1", label: "Tháng 1" },
+    { value: "2", label: "Tháng 2" },
+    { value: "3", label: "Tháng 3" },
+    { value: "4", label: "Tháng 4" },
+    { value: "5", label: "Tháng 5" },
+    { value: "6", label: "Tháng 6" },
+    { value: "7", label: "Tháng 7" },
+    { value: "8", label: "Tháng 8" },
+    { value: "9", label: "Tháng 9" },
+    { value: "10", label: "Tháng 10" },
+    { value: "11", label: "Tháng 11" },
+    { value: "12", label: "Tháng 12" },
+  ];
 
   useEffect(() => {
     const fetchReportData = async () => {
+      setLoading(true);
       try {
         const response = await axios.get(
-          `${API_URL}/monthly-report/${month}/${year}`
+          `${API_URL}/monthly-report/${selectedMonth}/${year}`
         );
         if (response.data && response.data.workshops) {
           setReportData(response.data);
           setError(null);
         } else {
-          setError("No data available for this period");
+          setError("Không có dữ liệu cho kỳ này");
         }
       } catch (error) {
         console.error("Error fetching report data:", error);
-        setError("Failed to load report data");
+        if (error.response?.status === 404) {
+          setError("Không có dữ liệu cho kỳ này");
+        } else {
+          setError("Lỗi tải dữ liệu báo cáo");
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchReportData();
-  }, [month, year]);
+  }, [selectedMonth, year]);
+
+  const handleMonthChange = (event) => {
+    const newMonth = event.target.value;
+    setSelectedMonth(newMonth);
+    navigate(`/report/${newMonth}/${year}`);
+  };
 
   const handleDownloadPDF = () => {
     const doc = new jsPDF();
+    const selectedMonthLabel =
+      months.find((m) => m.value === selectedMonth)?.label ||
+      `Tháng ${selectedMonth}`;
 
     // Add title
     doc.setFontSize(16);
@@ -85,7 +121,7 @@ export default function MonthlyReportPage() {
     doc.setFontSize(14);
     doc.text("Ban Kiểm soát Hệ thống Tuần Thủ", 105, 30, { align: "center" });
     doc.text(
-      `BẢNG TỔNG HỢP ĐIỂM KSNB CỦA CÁC BỘ PHẬN THÁNG ${month}/${year}`,
+      `BẢNG TỔNG HỢP ĐIỂM KSNB CỦA CÁC BỘ PHẬN THÁNG ${selectedMonthLabel}/${year}`,
       105,
       40,
       { align: "center" }
@@ -156,7 +192,7 @@ export default function MonthlyReportPage() {
       },
     });
 
-    doc.save(`baocao-ksnb-${month}-${year}.pdf`);
+    doc.save(`baocao-ksnb-${selectedMonth}-${year}.pdf`);
   };
 
   if (loading) {
@@ -190,16 +226,33 @@ export default function MonthlyReportPage() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Header />
-
       {/* Header */}
       <Box textAlign="center" mb={4}>
         <Typography variant="h5" fontWeight="bold" gutterBottom>
           BAN KIỂM SOÁT NỘI BỘ
         </Typography>
-        <Typography variant="h5" fontWeight="bold">
-          BẢNG TỔNG HỢP ĐIỂM KSNB CỦA CÁC BỘ PHẬN THÁNG {month}/{year}
-        </Typography>
+        <Box display="flex" justifyContent="center" alignItems="center" gap={2}>
+          <Typography variant="h5" fontWeight="bold">
+            BẢNG TỔNG HỢP ĐIỂM KSNB CỦA CÁC BỘ PHẬN
+          </Typography>
+          <FormControl sx={{ minWidth: 120 }}>
+            <Select
+              value={selectedMonth}
+              onChange={handleMonthChange}
+              size="small"
+              sx={{ fontWeight: "bold" }}
+            >
+              {months.map((month) => (
+                <MenuItem key={month.value} value={month.value}>
+                  {month.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Typography variant="h5" fontWeight="bold">
+            /{year}
+          </Typography>
+        </Box>
       </Box>
 
       {/* Download Button */}
@@ -298,9 +351,9 @@ export default function MonthlyReportPage() {
                                 phase.has_knockout || // Hoặc has_knockout = true
                                 phase.scorePercentage < 80 // Hoặc điểm < 80
                               ) {
-                                return "#ffebee"; // Màu đỏ nhạt
+                                return "#ffebee";
                               }
-                              return "inherit";
+                              return "#e8f5e9";
                             },
                             color: (theme) => {
                               if (
@@ -308,9 +361,9 @@ export default function MonthlyReportPage() {
                                 phase.has_knockout ||
                                 phase.scorePercentage < 80
                               ) {
-                                return theme.palette.error.main; // Màu chữ đỏ
+                                return "#FF0000";
                               }
-                              return "inherit";
+                              return "#009900";
                             },
                           }}
                         >
