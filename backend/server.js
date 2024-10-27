@@ -21,11 +21,39 @@ const db = mysql.createConnection({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  ssl:
+    process.env.DB_HOST === "localhost"
+      ? false
+      : {
+          rejectUnauthorized: false,
+        },
 });
 const FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
+
+// Add error handling for the connection
+db.connect((err) => {
+  if (err) {
+    console.error("Error connecting to database:", err);
+    if (err.code === "HANDSHAKE_NO_SSL_SUPPORT") {
+      console.error("Please check your MySQL server SSL configuration");
+    }
+    return;
+  }
+  console.log("Connected to MySQL database");
+});
+
+// Add connection error handler
+db.on("error", (err) => {
+  console.error("Database error:", err);
+  if (err.code === "PROTOCOL_CONNECTION_LOST") {
+    console.log("Database connection was closed. Reconnecting...");
+    // Implement reconnection logic here if needed
+  } else if (err.code === "HANDSHAKE_NO_SSL_SUPPORT") {
+    console.error(
+      "SSL connection required by server but not properly configured"
+    );
+  }
+});
 
 // Get all users in LoginPage.js
 app.get("/login", (req, res) => {
@@ -1068,40 +1096,53 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
       });
     });
 
-    // Get count of category 4 criteria for this department
-    const category4CountQuery = `
-      SELECT COUNT(*) as count
+    // Get count of QMS, ATLĐ and PNKL criteria for this department
+    const categoryCountQuery = `
+      SELECT 
+        c.id_category,
+        COUNT(*) as count
       FROM tb_department_criteria dc
       JOIN tb_criteria c ON dc.id_criteria = c.id_criteria
-      WHERE dc.id_department = ? AND c.id_category = 4`;
+      WHERE dc.id_department = ? AND c.id_category IN (1, 4, 5)
+      GROUP BY c.id_category`;
 
-    const [category4Result] = await new Promise((resolve, reject) => {
-      db.query(category4CountQuery, [departmentId], (err, results) => {
+    const [categoryResults] = await new Promise((resolve, reject) => {
+      db.query(categoryCountQuery, [departmentId], (err, results) => {
         if (err) reject(err);
         else resolve([results, null]);
       });
     });
 
+    // Create a map of category counts
+    const categoryCounts = categoryResults.reduce((acc, row) => {
+      acc[row.id_category] = row.count;
+      return acc;
+    }, {});
+
     const totalCriteria = totalResult[0].total;
-    const category4Count = category4Result[0].count;
     let deductPoints = 0;
     let hasRedStar = false;
-    let hasAbsoluteKnockout = false;
+    let hasTypeTwo = false;
+    let hasTypeTwoQMS = false;
+    let hasTypeTwoATLD = false;
+    let hasTypeThree = false;
 
-    // Check if any PNKL with failing_point_type = -1 exists
+    // Track which categories have already been deducted for type 2 failures
+    const deductedCategories = new Set();
+
+    // First check if there's any PNKL knockout criteria
     const hasPNKLKnockout = failedCriteria.some(
-      (c) => c.failing_point_type === -1
+      (criteria) => criteria.failing_point_type === 3
     );
 
     // Calculate point deductions
     failedCriteria.forEach((criteria) => {
       switch (criteria.failing_point_type) {
         case 0: // Normal criteria
-          if (criteria.id_category === 4 && hasPNKLKnockout) {
-            // Skip deduction for PNKL criteria if there's already a PNKL knockout
-            return;
+          // Only deduct point if it's not a PNKL criterion or if there's no PNKL knockout
+          if (criteria.id_category !== 4 || !hasPNKLKnockout) {
+            deductPoints += 1;
           }
-          deductPoints += 1;
           break;
 
         case 1: // Red star criteria
@@ -1109,11 +1150,30 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
           hasRedStar = true;
           break;
 
-        case -1: // PNKL knockout - only count once
-          if (!hasAbsoluteKnockout) {
-            deductPoints += category4Count; // Deduct all category 4 points at once
+        case 2: // QMS or ATLĐ knockout
+          if (!deductedCategories.has(criteria.id_category)) {
+            // Trừ 3 điểm cho mỗi loại (QMS hoặc ATLĐ)
+            deductPoints += 3;
+            deductedCategories.add(criteria.id_category);
+
+            // Set flags based on category
+            if (criteria.id_category === 5) {
+              hasTypeTwoQMS = true;
+            }
+            if (criteria.id_category === 1) {
+              hasTypeTwoATLD = true;
+            }
+            hasTypeTwo = true;
+          }
+          break;
+
+        case 3: // PNKL knockout
+          if (!hasTypeThree) {
+            // Trừ toàn bộ điểm của hạng mục PNKL
+            const pnklPoints = categoryCounts[4] || 0; // Category 4 is PNKL
+            deductPoints += pnklPoints;
+            hasTypeThree = true;
             hasRedStar = true;
-            hasAbsoluteKnockout = true;
           }
           break;
       }
@@ -1142,11 +1202,13 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
     res.json({
       total_point: totalPoint,
       has_red_star: hasRedStar,
-      has_absolute_knockout: hasAbsoluteKnockout,
+      has_type_two: hasTypeTwo,
+      has_type_two_qms: hasTypeTwoQMS,
+      has_type_two_atld: hasTypeTwoATLD,
+      has_type_three: hasTypeThree,
       deducted_points: deductPoints,
       total_criteria: totalCriteria,
-      category4_count: category4Count,
-      has_pnkl_knockout: hasPNKLKnockout,
+      category_counts: categoryCounts,
     });
   } catch (error) {
     console.error("Error calculating total point:", error);
@@ -1163,13 +1225,14 @@ app.get("/knockout-criteria", (req, res) => {
       c.name_criteria,
       c.description,
       cat.name_category,
+      cat.id_category,
       c.failing_point_type
     FROM 
       tb_criteria c
     JOIN
       tb_category cat ON c.id_category = cat.id_category
     WHERE 
-      c.failing_point_type IN (-1, 1, 0)
+      c.failing_point_type IN (1, 2, 3)
     ORDER BY 
       c.failing_point_type, cat.id_category, c.id_criteria
   `;
@@ -1184,8 +1247,8 @@ app.get("/knockout-criteria", (req, res) => {
     // Categorize results
     const categorizedResults = {
       redStar: results.filter((r) => r.failing_point_type === 1),
-      PNKL: results.filter((r) => r.failing_point_type === -1),
-      // safe: results.filter((r) => r.failing_point_type === 0),
+      QMSAtld: results.filter((r) => r.failing_point_type === 2),
+      PNKL: results.filter((r) => r.failing_point_type === 3),
     };
 
     res.json(categorizedResults);
@@ -1200,7 +1263,8 @@ app.get("/knockout-criteria/:phaseId/:departmentId", (req, res) => {
       c.id_criteria,
       c.codename,
       c.name_criteria,
-      c.failing_point_type
+      c.failing_point_type,
+      c.id_category
     FROM 
       tb_criteria c
     JOIN
@@ -1209,7 +1273,7 @@ app.get("/knockout-criteria/:phaseId/:departmentId", (req, res) => {
       pd.id_phase = ? 
       AND pd.id_department = ?
       AND pd.is_fail = 1
-      AND c.failing_point_type IN (-1, 1)
+      AND c.failing_point_type IN (1, 2, 3)
     ORDER BY 
       c.failing_point_type, c.id_criteria
   `;
@@ -1224,7 +1288,8 @@ app.get("/knockout-criteria/:phaseId/:departmentId", (req, res) => {
     // Categorize results
     const categorizedResults = {
       redStar: results.filter((r) => r.failing_point_type === 1),
-      absoluteKnockout: results.filter((r) => r.failing_point_type === -1),
+      QMSAtld: results.filter((r) => r.failing_point_type === 2),
+      PNKL: results.filter((r) => r.failing_point_type === 3),
     };
 
     res.json(categorizedResults);

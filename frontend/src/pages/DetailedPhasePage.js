@@ -47,7 +47,7 @@ import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import Zoom from "@mui/material/Zoom";
 import useScrollTrigger from "@mui/material/useScrollTrigger";
 import { Link } from "@mui/material";
-import { FormControlLabel, Switch } from "@mui/material";
+import { MenuItem } from "@mui/material";
 
 const WorkshopText = styled(Typography)(({ theme }) => ({
   fontWeight: "bold",
@@ -115,6 +115,11 @@ const DetailedPhasePage = () => {
   const [newStartDate, setNewStartDate] = useState("");
   const [newEndDate, setNewEndDate] = useState("");
   const [timeLimitError, setTimeLimitError] = useState("");
+  const [QMSAtldCriteria, setQMSAtldCriteria] = useState([]);
+  const [hasTypeTwo, setHasTypeTwo] = useState(false);
+  const [hasTypeTwoQMS, setHasTypeTwoQMS] = useState(false);
+  const [hasTypeTwoATLD, setHasTypeTwoATLD] = useState(false);
+  const [criteriaFilter, setCriteriaFilter] = useState("all");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -230,7 +235,10 @@ const DetailedPhasePage = () => {
           );
           setTotalPoint(response.data.total_point);
           setHasRedStar(response.data.has_red_star);
-          setHasAbsoluteKnockout(response.data.has_absolute_knockout);
+          setHasTypeTwo(response.data.has_type_two);
+          setHasTypeTwoQMS(response.data.has_type_two_qms);
+          setHasTypeTwoATLD(response.data.has_type_two_atld);
+          setHasAbsoluteKnockout(response.data.has_type_three);
         } catch (error) {
           console.error("Error fetching total point:", error);
         }
@@ -267,7 +275,8 @@ const DetailedPhasePage = () => {
             `${API_URL}/knockout-criteria/${phaseId}/${selectedDepartment.id}`
           );
           setRedStarCriteria(response.data.redStar);
-          setAbsoluteKnockoutCriteria(response.data.absoluteKnockout);
+          setQMSAtldCriteria(response.data.QMSAtld);
+          setAbsoluteKnockoutCriteria(response.data.PNKL);
         } catch (error) {
           console.error("Error fetching knockout criteria:", error);
         }
@@ -791,22 +800,13 @@ const DetailedPhasePage = () => {
             </Typography>
           </Box>
 
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-            }}
-          >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Typography
               variant={isMobile ? "h4" : "h3"}
               sx={{
                 fontWeight: "bold",
-                color: hasAbsoluteKnockout ? "#FF0000" : "inherit",
-                // color:
-                //   totalPoint < 80 || hasRedStar || hasAbsoluteKnockout
-                //     ? "#FF0000"
-                //     : "#inherit",
+                color:
+                  hasAbsoluteKnockout || hasTypeTwo ? "#FF0000" : "inherit",
                 lineHeight: 1,
               }}
             >
@@ -816,7 +816,7 @@ const DetailedPhasePage = () => {
               sx={{
                 fontSize: isMobile ? 40 : 48,
                 color:
-                  hasRedStar || hasAbsoluteKnockout
+                  hasRedStar || hasAbsoluteKnockout || hasTypeTwo
                     ? "#FF0000"
                     : totalPoint >= 80
                     ? "#4CAF50"
@@ -846,32 +846,130 @@ const DetailedPhasePage = () => {
           )}
         </Typography>
 
-        <Typography variant="body2" color="text.secondary">
-          Tiêu chí điểm liệt:{" "}
-          {redStarCriteria.map((c) => c.codename).join(", ") || "Không có"}
-        </Typography>
-
-        <Typography variant="body2" color="text.secondary">
-          Tiêu chí điểm liệt PNKL:{" "}
-          {absoluteKnockoutCriteria.map((c) => c.codename).join(", ") ||
-            "Không có"}
-        </Typography>
-
-        {hasAbsoluteKnockout && (
+        {/* Tách phần hiển thị tiêu chí thành một box riêng */}
+        <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 1 }}>
           <Typography
-            variant="body2"
-            sx={{
-              mt: 1,
-              p: 1,
-              bgcolor: "error.main",
-              color: "white",
-              borderRadius: 1,
-              fontWeight: "medium",
-            }}
+            variant="subtitle2"
+            sx={{ color: "text.primary", fontWeight: "medium" }}
           >
-            Phát hiện vi phạm PNKL - Trừ tất cả điểm hạng mục PNKL
+            Danh sách các tiêu chí bị trừ điểm:
           </Typography>
-        )}
+
+          {/* Tiêu chí điểm liệt */}
+          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{ color: "text.secondary", minWidth: "140px" }}
+            >
+              Tiêu chí điểm liệt:
+            </Typography>
+            <Typography variant="body2" color="error.light">
+              {redStarCriteria?.length > 0
+                ? redStarCriteria.map((c) => c.codename).join(", ")
+                : "Không có"}
+            </Typography>
+          </Box>
+
+          {/* Tiêu chí ATLĐ */}
+          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{ color: "text.secondary", minWidth: "140px" }}
+            >
+              Tiêu chí điểm liệt ATLĐ:
+            </Typography>
+            <Typography variant="body2" color="warning.main">
+              {QMSAtldCriteria?.filter((c) => c.id_category === 1)?.length > 0
+                ? QMSAtldCriteria.filter((c) => c.id_category === 1)
+                    .map((c) => c.codename)
+                    .join(", ")
+                : "Không có"}
+            </Typography>
+          </Box>
+
+          {/* Tiêu chí QMS */}
+          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{ color: "text.secondary", minWidth: "140px" }}
+            >
+              Tiêu chí điểm liệt QMS:
+            </Typography>
+            <Typography variant="body2" color="warning.main">
+              {QMSAtldCriteria?.filter((c) => c.id_category === 5)?.length > 0
+                ? QMSAtldCriteria.filter((c) => c.id_category === 5)
+                    .map((c) => c.codename)
+                    .join(", ")
+                : "Không có"}
+            </Typography>
+          </Box>
+
+          {/* Tiêu chí PNKL */}
+          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{ color: "text.secondary", minWidth: "140px" }}
+            >
+              Tiêu chí điểm liệt PNKL:
+            </Typography>
+            <Typography variant="body2" color="error.dark">
+              {absoluteKnockoutCriteria?.length > 0
+                ? absoluteKnockoutCriteria.map((c) => c.codename).join(", ")
+                : "Không có"}
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Box chứa tất cả các thông báo vi phạm */}
+        <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 1 }}>
+          {/* ATLĐ violation message */}
+          {hasTypeTwoATLD && (
+            <Typography
+              variant="body2"
+              sx={{
+                p: 1,
+                bgcolor: "warning.main",
+                color: "white",
+                borderRadius: 1,
+                fontWeight: "medium",
+              }}
+            >
+              Phát hiện vi phạm ATLĐ - Trừ tất cả điểm liệt hạng mục ATLĐ
+            </Typography>
+          )}
+
+          {/* QMS violation message */}
+          {hasTypeTwoQMS && (
+            <Typography
+              variant="body2"
+              sx={{
+                p: 1,
+                bgcolor: "warning.main",
+                color: "white",
+                borderRadius: 1,
+                fontWeight: "medium",
+              }}
+            >
+              Phát hiện vi phạm QMS - Trừ tất cả điểm liệt hạng mục QMS
+            </Typography>
+          )}
+
+          {/* PNKL violation message */}
+          {hasAbsoluteKnockout && (
+            <Typography
+              variant="body2"
+              sx={{
+                p: 1,
+                bgcolor: "error.dark",
+                color: "white",
+                borderRadius: 1,
+                fontWeight: "medium",
+              }}
+            >
+              Phát hiện vi phạm PNKL - Trừ tất cả điểm hạng mục PNKL
+            </Typography>
+          )}
+        </Box>
       </CardContent>
     </Card>
   );
@@ -950,40 +1048,65 @@ const DetailedPhasePage = () => {
 
   // Update the filteredCategories memo to include search filtering
   const filteredCategories = useMemo(() => {
-    // Start with initial categories list
     let processedCategories = allCategories;
 
-    // Apply status filtering for all users
     processedCategories = allCategories
       .map((category) => ({
         ...category,
         criteria: category.criteria.filter((criterion) => {
-          // For supervisors, show all criteria if no filter is active
-          if (isSupervisor && showFixed && showNotFixed) {
-            return true;
-          }
-
           const isFailed = failedCriteria[selectedDepartment?.id]?.has(
             criterion.id
           );
+          const isFixed = criteriaStatuses[criterion.id] === "ĐÃ KHẮC PHỤC";
 
-          // For supervisors, if only one filter is active, show accordingly
+          // Apply supervisor filters
           if (isSupervisor) {
-            const isFixed = criteriaStatuses[criterion.id] === "ĐÃ KHẮC PHỤC";
+            // Apply criteria type filter
+            switch (criteriaFilter) {
+              case "failed":
+                if (!isFailed) return false;
+                break;
+              case "failing_point":
+                if (!criterion.failingPointType) return false;
+                break;
+              // case "ttnv":
+              //   if (criterion.failingPointType !== 1) return false;
+              //   break;
+              // case "atlđ":
+              //   if (
+              //     !(
+              //       criterion.failingPointType === 2 &&
+              //       criterion.id_category === 1
+              //     )
+              //   )
+              //     return false;
+              //   break;
+              // case "qms":
+              //   if (
+              //     !(
+              //       criterion.failingPointType === 2 &&
+              //       criterion.id_category === 5
+              //     )
+              //   )
+              //     return false;
+              //   break;
+              // case "pnkl":
+              //   if (criterion.failingPointType !== 3) return false;
+              //   break;
+              default:
+                return true;
+            }
+
+            // Apply status filters
             if (showFixed && !showNotFixed) return isFailed && isFixed;
             if (!showFixed && showNotFixed) return isFailed && !isFixed;
             if (!showFixed && !showFixed) return false;
-            return true;
+          } else {
+            // For non-supervisor users
+            if (!isFailed) return false;
+            if (isFixed && !showFixed) return false;
+            if (!isFixed && !showNotFixed) return false;
           }
-
-          // For supervised users, only show failed criteria
-          if (!isFailed) return false;
-
-          const isFixed = criteriaStatuses[criterion.id] === "ĐÃ KHẮC PHỤC";
-
-          // Filter by status
-          if (isFixed && !showFixed) return false;
-          if (!isFixed && !showNotFixed) return false;
 
           return true;
         }),
@@ -1012,7 +1135,14 @@ const DetailedPhasePage = () => {
     criteriaStatuses,
     showFixed,
     showNotFixed,
+    criteriaFilter, // Thêm vào dependencies
   ]);
+
+  const handleCriteriaFilterChange = (event) => {
+    const value = event.target.value;
+    setCriteriaFilter(value);
+    setExpandedCategories(new Set(allCategories.map((cat) => cat.id)));
+  };
 
   const formatDateForInput = (date) => {
     return date.toISOString().split("T")[0];
@@ -1052,7 +1182,7 @@ const DetailedPhasePage = () => {
       // Save the score
       await axios.post(`${API_URL}/phase-details`, scoreData);
 
-      // If score is "không đạt" and there are images, handle the upload
+      // Handle image upload if necessary
       if (score === "không đạt" && selectedImages.length > 0) {
         const formData = new FormData();
 
@@ -1089,64 +1219,72 @@ const DetailedPhasePage = () => {
         }
       }
 
-      // Update failed criteria state
-      setFailedCriteria((prev) => {
-        const newFailedCriteria = { ...prev };
-        if (!newFailedCriteria[selectedDepartment.id]) {
-          newFailedCriteria[selectedDepartment.id] = new Set();
-        }
+      // Update local states for realtime feedback
+      const updateLocalStates = async () => {
+        try {
+          // Fetch total point and other statuses
+          const totalPointResponse = await axios.get(
+            `${API_URL}/total-point/${phaseId}/${selectedDepartment.id}`
+          );
 
-        if (score === "không đạt") {
-          newFailedCriteria[selectedDepartment.id].add(selectedCriterion.id);
-        } else {
-          newFailedCriteria[selectedDepartment.id].delete(selectedCriterion.id);
-        }
-        return newFailedCriteria;
-      });
+          setTotalPoint(totalPointResponse.data.total_point);
+          setHasRedStar(totalPointResponse.data.has_red_star);
+          setHasTypeTwo(totalPointResponse.data.has_type_two);
+          setHasTypeTwoQMS(totalPointResponse.data.has_type_two_qms);
+          setHasAbsoluteKnockout(totalPointResponse.data.has_type_three);
 
-      // Update total criteria count
-      setTotalCriteria((prev) => ({
-        ...prev,
-        [selectedDepartment.id]:
-          score === "không đạt"
-            ? (prev[selectedDepartment.id] || 0) + 1
-            : Math.max(0, (prev[selectedDepartment.id] || 0) - 1),
-      }));
-
-      // Fetch updated data
-      await Promise.all([
-        // Fetch total point and knockout status
-        axios
-          .get(`${API_URL}/total-point/${phaseId}/${selectedDepartment.id}`)
-          .then((response) => {
-            setTotalPoint(response.data.total_point);
-            setHasRedStar(response.data.has_red_star);
-            setHasAbsoluteKnockout(response.data.has_absolute_knockout);
-          }),
-
-        // Fetch knockout criteria
-        axios
-          .get(
+          // Fetch updated knockout criteria
+          const knockoutResponse = await axios.get(
             `${API_URL}/knockout-criteria/${phaseId}/${selectedDepartment.id}`
-          )
-          .then((response) => {
-            setRedStarCriteria(response.data.redStar);
-            setAbsoluteKnockoutCriteria(response.data.absoluteKnockout);
-          }),
+          );
 
-        // Update criteria statuses
-        axios
-          .get(
+          setRedStarCriteria(knockoutResponse.data.redStar);
+          setQMSAtldCriteria(knockoutResponse.data.QMSAtld);
+          setAbsoluteKnockoutCriteria(knockoutResponse.data.PNKL);
+
+          // Update failed criteria state
+          setFailedCriteria((prev) => {
+            const newFailedCriteria = { ...prev };
+            if (!newFailedCriteria[selectedDepartment.id]) {
+              newFailedCriteria[selectedDepartment.id] = new Set();
+            }
+            if (score === "không đạt") {
+              newFailedCriteria[selectedDepartment.id].add(
+                selectedCriterion.id
+              );
+            } else {
+              newFailedCriteria[selectedDepartment.id].delete(
+                selectedCriterion.id
+              );
+            }
+            return newFailedCriteria;
+          });
+
+          // Update total criteria count
+          setTotalCriteria((prev) => ({
+            ...prev,
+            [selectedDepartment.id]:
+              score === "không đạt"
+                ? (prev[selectedDepartment.id] || 0) + 1
+                : Math.max(0, (prev[selectedDepartment.id] || 0) - 1),
+          }));
+
+          // Update criteria statuses
+          const statusResponse = await axios.get(
             `${API_URL}/criteria-statuses/${phaseId}/${selectedDepartment.id}`
-          )
-          .then((response) => {
-            const statuses = {};
-            response.data.forEach((item) => {
-              statuses[item.id_criteria] = item.status_phase_details;
-            });
-            setCriteriaStatuses(statuses);
-          }),
-      ]);
+          );
+          const statuses = {};
+          statusResponse.data.forEach((item) => {
+            statuses[item.id_criteria] = item.status_phase_details;
+          });
+          setCriteriaStatuses(statuses);
+        } catch (error) {
+          console.error("Error updating local states:", error);
+          throw error;
+        }
+      };
+
+      await updateLocalStates();
 
       setIsUploading(false);
       handleCloseDialog();
@@ -1256,55 +1394,165 @@ const DetailedPhasePage = () => {
             sx={{
               display: "flex",
               flexWrap: "wrap",
-              gap: 3,
               alignItems: "center",
               justifyContent: "flex-start",
               mt: 2,
+              gap: 2,
             }}
           >
-            <Typography variant="body2" color="text.secondary" sx={{ mr: 2 }}>
-              Lọc theo trạng thái:
-            </Typography>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={showNotFixed}
-                  onChange={(e) => setShowNotFixed(e.target.checked)}
-                  color="warning"
-                />
-              }
-              label={
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: showNotFixed ? "warning.main" : "text.secondary",
-                    fontWeight: showNotFixed ? "medium" : "normal",
-                  }}
-                >
-                  Chưa khắc phục
+            {/* Criteria Type Filter (chỉ hiển thị cho supervisor) */}
+            {isSupervisor && (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Lọc tiêu chí:
                 </Typography>
-              }
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={showFixed}
-                  onChange={(e) => setShowFixed(e.target.checked)}
-                  color="success"
-                />
-              }
-              label={
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: showFixed ? "success.main" : "text.secondary",
-                    fontWeight: showFixed ? "medium" : "normal",
-                  }}
+                <TextField
+                  select
+                  size="small"
+                  value={criteriaFilter}
+                  onChange={handleCriteriaFilterChange}
+                  sx={{ minWidth: 200 }}
                 >
-                  Đã khắc phục
-                </Typography>
-              }
-            />
+                  <MenuItem value="all">Tất cả tiêu chí</MenuItem>
+                  <MenuItem value="failed">
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        color: "error.light",
+                        gap: 1,
+                      }}
+                    >
+                      <Typography>Tiêu chí không đạt</Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="failing_point">
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        color: "error.dark",
+                        gap: 1,
+                      }}
+                    >
+                      <Typography>Tiêu chí điểm liệt</Typography>
+                    </Box>
+                  </MenuItem>
+                  {/* <MenuItem value="ttnv">
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        color: "error.light",
+                        gap: 1,
+                      }}
+                    >
+                      <Typography>Tiêu chí TTNV</Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="atlđ">
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        color: "warning.main",
+                        gap: 1,
+                      }}
+                    >
+                      <Typography>Tiêu chí ATLĐ</Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="qms">
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        color: "warning.main",
+                        gap: 1,
+                      }}
+                    >
+                      <Typography>Tiêu chí QMS</Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="pnkl">
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        color: "error.dark",
+                        gap: 1,
+                      }}
+                    >
+                      <Typography>Tiêu chí PNKL</Typography>
+                    </Box>
+                  </MenuItem> */}
+                </TextField>
+              </Box>
+            )}
+
+            {/* Status Filter */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Lọc trạng thái:
+              </Typography>
+              <TextField
+                select
+                size="small"
+                value={
+                  showFixed && showNotFixed
+                    ? "all"
+                    : showFixed
+                    ? "fixed"
+                    : "notFixed"
+                }
+                onChange={(e) => {
+                  switch (e.target.value) {
+                    case "all":
+                      setShowFixed(true);
+                      setShowNotFixed(true);
+                      break;
+                    case "fixed":
+                      setShowFixed(true);
+                      setShowNotFixed(false);
+                      break;
+                    case "notFixed":
+                      setShowFixed(false);
+                      setShowNotFixed(true);
+                      break;
+                    default:
+                      setShowFixed(false);
+                      setShowNotFixed(false);
+                  }
+                }}
+                sx={{ minWidth: 200 }}
+              >
+                <MenuItem value="all">Tất cả trạng thái</MenuItem>
+                <MenuItem value="fixed">
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      color: "success.main",
+                      gap: 1,
+                    }}
+                  >
+                    <Typography>Đã khắc phục</Typography>
+                  </Box>
+                </MenuItem>
+                <MenuItem value="notFixed">
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      color: "warning.main",
+                      gap: 1,
+                    }}
+                  >
+                    <Typography>Chưa khắc phục</Typography>
+                  </Box>
+                </MenuItem>
+              </TextField>
+            </Box>
           </Box>
         </Container>
       </Paper>
@@ -1384,32 +1632,57 @@ const DetailedPhasePage = () => {
                             <Typography
                               variant="caption"
                               color="text.secondary"
-                              sx={{ mt: 1, display: "block" }}
+                              sx={{ mt: 1 }}
                             >
                               Mã: {criterion.codename}
                             </Typography>
-                            {failedCriteria[selectedDepartment?.id]?.has(
-                              criterion.id
-                            ) && (
-                              <Box
-                                sx={{
-                                  bgcolor:
-                                    criteriaStatuses[criterion.id] ===
-                                    "ĐÃ KHẮC PHỤC"
-                                      ? "success.main"
-                                      : "warning.main",
-                                  color: "white",
-                                  px: 1,
-                                  py: 0.5,
-                                  borderRadius: 1,
-                                  fontSize: "0.75rem",
-                                  fontWeight: "medium",
-                                }}
-                              >
-                                {criteriaStatuses[criterion.id] ||
-                                  "CHƯA KHẮC PHỤC"}
-                              </Box>
-                            )}
+                            <Box sx={{ display: "flex", gap: 0.5 }}>
+                              {criterion.failing_point_type > 0 && (
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    px: 1,
+                                    py: 0.5,
+                                    borderRadius: 1,
+                                    backgroundColor:
+                                      criterion.failing_point_type === 1
+                                        ? "error.light"
+                                        : criterion.failing_point_type === 2
+                                        ? "warning.light"
+                                        : "error.dark",
+                                    color: "white",
+                                  }}
+                                >
+                                  {criterion.failing_point_type === 1
+                                    ? "Điểm liệt"
+                                    : criterion.failing_point_type === 2
+                                    ? "QMS/ATLĐ"
+                                    : "PNKL"}
+                                </Typography>
+                              )}
+                              {failedCriteria[selectedDepartment?.id]?.has(
+                                criterion.id
+                              ) && (
+                                <Box
+                                  sx={{
+                                    bgcolor:
+                                      criteriaStatuses[criterion.id] ===
+                                      "ĐÃ KHẮC PHỤC"
+                                        ? "success.main"
+                                        : "warning.main",
+                                    color: "white",
+                                    px: 1,
+                                    py: 0.5,
+                                    borderRadius: 1,
+                                    fontSize: "0.75rem",
+                                    fontWeight: "medium",
+                                  }}
+                                >
+                                  {criteriaStatuses[criterion.id] ||
+                                    "CHƯA KHẮC PHỤC"}
+                                </Box>
+                              )}
+                            </Box>
                           </Box>
                           <Typography
                             gutterBottom
