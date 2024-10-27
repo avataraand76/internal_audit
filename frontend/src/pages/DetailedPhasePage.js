@@ -48,6 +48,7 @@ import Zoom from "@mui/material/Zoom";
 import useScrollTrigger from "@mui/material/useScrollTrigger";
 import { Link } from "@mui/material";
 import { MenuItem } from "@mui/material";
+import ScoreBubble from "../components/ScoreBubble";
 
 const WorkshopText = styled(Typography)(({ theme }) => ({
   fontWeight: "bold",
@@ -669,7 +670,7 @@ const DetailedPhasePage = () => {
 
   const ScrollToTop = () => {
     const trigger = useScrollTrigger({
-      threshold: 400,
+      threshold: 500,
       disableHysteresis: true,
     });
 
@@ -695,8 +696,8 @@ const DetailedPhasePage = () => {
           <Button
             variant="contained"
             sx={{
-              width: 40,
-              height: 40,
+              width: 50,
+              height: 50,
               borderRadius: "50%",
               minWidth: "unset",
               backgroundColor: (theme) => theme.palette.primary.main,
@@ -791,8 +792,11 @@ const DetailedPhasePage = () => {
         >
           <Box>
             <Typography
-              variant={isMobile ? "body2" : "body1"}
+              variant={isMobile ? "h5" : "h6"}
+              component="div"
               fontWeight="bold"
+              color="primary"
+              gutterBottom
             >
               {selectedDepartment
                 ? selectedDepartment.name
@@ -852,7 +856,7 @@ const DetailedPhasePage = () => {
             variant="subtitle2"
             sx={{ color: "text.primary", fontWeight: "medium" }}
           >
-            Danh sách các tiêu chí bị trừ điểm:
+            Danh sách các tiêu chí điểm liệt:
           </Typography>
 
           {/* Tiêu chí điểm liệt */}
@@ -1177,6 +1181,7 @@ const DetailedPhasePage = () => {
         is_fail: score === "không đạt" ? 1 : 0,
         date_updated: new Date().toISOString(),
         status_phase_details: score === "không đạt" ? "CHƯA KHẮC PHỤC" : null,
+        clearBefore: score === "đạt",
       };
 
       // Save the score
@@ -1709,6 +1714,23 @@ const DetailedPhasePage = () => {
         </Stack>
       </Container>
 
+      <ScoreBubble
+        score={totalPoint}
+        hasRedStar={hasRedStar}
+        hasTypeTwo={hasTypeTwo}
+        hasAbsoluteKnockout={hasAbsoluteKnockout}
+        departmentName={selectedDepartment?.name || ""}
+        failedCount={totalCriteria[selectedDepartment?.id] || 0}
+        totalCriteria={totalCriteria.total || 0}
+        redStarCriteria={redStarCriteria?.map((c) => c.codename) || []}
+        qmsAtldCriteria={
+          QMSAtldCriteria?.map((c) => ({
+            code: c.codename,
+            category: c.id_category,
+          })) || []
+        }
+        pnklCriteria={absoluteKnockoutCriteria?.map((c) => c.codename) || []}
+      />
       <ScrollToTop />
 
       {/* Dialog chi tiết tiêu chí */}

@@ -777,6 +777,7 @@ app.post("/phase-details", (req, res) => {
     date_updated,
     status_phase_details,
     imgURL_after,
+    clearBefore,
   } = req.body;
 
   const formattedDate = moment(date_updated).format("YYYY-MM-DD HH:mm:ss");
@@ -785,8 +786,36 @@ app.post("/phase-details", (req, res) => {
     let query;
     let params;
 
-    if (imgURL_after) {
-      // Nếu có imgURL_after, update cả imgURL_after
+    if (clearBefore) {
+      // When marking as "đạt", clear imgURL_before
+      query = `
+        INSERT INTO tb_phase_details (
+          id_department, 
+          id_criteria, 
+          id_phase, 
+          id_user, 
+          is_fail, 
+          date_updated,
+          status_phase_details,
+          imgURL_before
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
+        ON DUPLICATE KEY UPDATE
+        is_fail = VALUES(is_fail),
+        date_updated = VALUES(date_updated),
+        status_phase_details = VALUES(status_phase_details),
+        imgURL_before = NULL
+      `;
+      params = [
+        id_department,
+        id_criteria,
+        id_phase,
+        id_user,
+        is_fail,
+        formattedDate,
+        status_phase_details,
+      ];
+    } else if (imgURL_after) {
       query = `
         INSERT INTO tb_phase_details (
           id_department, 
@@ -815,7 +844,6 @@ app.post("/phase-details", (req, res) => {
         imgURL_after,
       ];
     } else {
-      // Nếu không có imgURL_after, giữ nguyên query cũ
       query = `
         INSERT INTO tb_phase_details (
           id_department, 
@@ -850,80 +878,81 @@ app.post("/phase-details", (req, res) => {
         return;
       }
       if (is_fail === undefined) {
-        // Nếu chỉ cập nhật trạng thái khắc phục
         res.status(200).json({ message: "Status updated successfully" });
       } else {
-        // Nếu cập nhật điểm, tiếp tục với updateTotalPoint
-        updateTotalPoint();
+        updateTotalPointForDepartment();
       }
     });
   };
 
-  const updateTotalPoint = () => {
-    const getFailedCriteriaCount = `
-      SELECT COUNT(*) as failed_count
-      FROM tb_phase_details
-      WHERE id_department = ? AND id_phase = ? AND is_fail = 1
-    `;
+  // Define the updateTotalPoint function
+  const updateTotalPointForDepartment = async () => {
+    try {
+      // Get all failed criteria for this department and phase
+      const failedCriteriaQuery = `
+        SELECT 
+          c.id_criteria,
+          c.failing_point_type,
+          c.id_category
+        FROM tb_phase_details pd
+        JOIN tb_criteria c ON pd.id_criteria = c.id_criteria
+        WHERE pd.id_phase = ? 
+          AND pd.id_department = ? 
+          AND pd.is_fail = 1`;
 
-    db.query(
-      getFailedCriteriaCount,
-      [id_department, id_phase],
-      (err, failedResults) => {
-        if (err) {
-          console.error("Error getting failed criteria count:", err);
-          res.status(500).json({ error: "Error updating total point" });
-          return;
-        }
-
-        const failedCount = failedResults[0].failed_count;
-
-        const getTotalCriteriaCount = `
-        SELECT COUNT(*) as total_criteria
-        FROM tb_department_criteria
-        WHERE id_department = ?
-      `;
-
+      const [failedCriteria] = await new Promise((resolve, reject) => {
         db.query(
-          getTotalCriteriaCount,
-          [id_department],
-          (err, totalResults) => {
-            if (err) {
-              console.error("Error getting total criteria count:", err);
-              res.status(500).json({ error: "Error updating total point" });
-              return;
-            }
-
-            const totalCriteria = totalResults[0].total_criteria;
-            const totalPoint = Math.round(
-              ((totalCriteria - failedCount) / totalCriteria) * 100
-            );
-
-            const updateTotalPointQuery = `
-          INSERT INTO tb_total_point (id_department, id_phase, total_point)
-          VALUES (?, ?, ?)
-          ON DUPLICATE KEY UPDATE
-          total_point = VALUES(total_point)
-        `;
-
-            db.query(
-              updateTotalPointQuery,
-              [id_department, id_phase, totalPoint],
-              (err, result) => {
-                if (err) {
-                  console.error("Error updating total point:", err);
-                  res.status(500).json({ error: "Error updating total point" });
-                  return;
-                }
-                res.status(201).json({
-                  message: "Phase details and total point updated successfully",
-                });
-              }
-            );
+          failedCriteriaQuery,
+          [id_phase, id_department],
+          (err, results) => {
+            if (err) reject(err);
+            else resolve([results, null]);
           }
         );
-      }
-    );
+      });
+
+      // Get total criteria count
+      const totalCriteriaQuery = `
+        SELECT COUNT(*) as total
+        FROM tb_department_criteria
+        WHERE id_department = ?`;
+
+      const [totalResult] = await new Promise((resolve, reject) => {
+        db.query(totalCriteriaQuery, [id_department], (err, results) => {
+          if (err) reject(err);
+          else resolve([results, null]);
+        });
+      });
+
+      const totalCriteria = totalResult[0].total;
+      const failedCount = failedCriteria.length;
+      const totalPoint = Math.max(
+        0,
+        Math.round(((totalCriteria - failedCount) / totalCriteria) * 100)
+      );
+
+      // Update total_point in database
+      const updateQuery = `
+        INSERT INTO tb_total_point (id_department, id_phase, total_point)
+        VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+        total_point = VALUES(total_point)`;
+
+      await new Promise((resolve, reject) => {
+        db.query(updateQuery, [id_department, id_phase, totalPoint], (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      res.status(201).json({
+        message: "Phase details and total point updated successfully",
+        totalPoint: totalPoint,
+      });
+    } catch (error) {
+      console.error("Error updating total point:", error);
+      res.status(500).json({ error: "Error updating total point" });
+    }
   };
 
   updatePhaseDetails();
