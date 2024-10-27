@@ -17,6 +17,7 @@ import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CloseIcon from "@mui/icons-material/Close";
+const moment = require("moment-timezone");
 
 const ImageContainer = styled(Box)({
   position: "relative",
@@ -124,11 +125,13 @@ const ImageHandler = ({ onImagesChange, images: propImages }) => {
   const handleTakePhoto = (dataUri) => {
     try {
       // Generate a filename with timestamp
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const timestamp = moment()
+        .tz("Asia/Ho_Chi_Minh")
+        .format("HH-mm-ss_DD-MM-YYYY");
       const newImage = {
         id: generateUniqueId(),
         url: dataUri,
-        name: `camera-capture-${timestamp}.jpg`,
+        name: `camera-capture_${timestamp}.jpg`,
         type: "image/jpeg",
       };
 
