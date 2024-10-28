@@ -1125,6 +1125,30 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
       });
     });
 
+    // Get count of failing type 2 criteria for each category in this department
+    const failingType2CountQuery = `
+      SELECT 
+        c.id_category,
+        COUNT(*) as count
+      FROM tb_department_criteria dc
+      JOIN tb_criteria c ON dc.id_criteria = c.id_criteria
+      WHERE dc.id_department = ? 
+        AND c.failing_point_type = 2
+      GROUP BY c.id_category`;
+
+    const [failingType2Counts] = await new Promise((resolve, reject) => {
+      db.query(failingType2CountQuery, [departmentId], (err, results) => {
+        if (err) reject(err);
+        else resolve([results, null]);
+      });
+    });
+
+    // Create a map of category counts for failing type 2
+    const failingType2Map = failingType2Counts.reduce((acc, row) => {
+      acc[row.id_category] = row.count;
+      return acc;
+    }, {});
+
     // Get count of QMS, ATLĐ and PNKL criteria for this department
     const categoryCountQuery = `
       SELECT 
@@ -1151,7 +1175,6 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
     const totalCriteria = totalResult[0].total;
     let deductPoints = 0;
     let hasRedStar = false;
-    let hasTypeTwo = false;
     let hasTypeTwoQMS = false;
     let hasTypeTwoATLD = false;
     let hasTypeThree = false;
@@ -1164,7 +1187,7 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
       (criteria) => criteria.failing_point_type === 3
     );
 
-    // Calculate point deductions
+    // Calculate point deductions and set flags
     failedCriteria.forEach((criteria) => {
       switch (criteria.failing_point_type) {
         case 0: // Normal criteria
@@ -1180,26 +1203,30 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
           break;
 
         case 2: // QMS or ATLĐ knockout
+          // Individual point deduction for type 2
           if (!deductedCategories.has(criteria.id_category)) {
-            // Trừ 3 điểm cho mỗi loại (QMS hoặc ATLĐ)
-            deductPoints += 3;
+            // Deduct all failing type 2 criteria points for this category
+            const failingType2Count =
+              failingType2Map[criteria.id_category] || 0;
+            deductPoints += failingType2Count;
             deductedCategories.add(criteria.id_category);
+          }
 
-            // Set flags based on category
-            if (criteria.id_category === 5) {
-              hasTypeTwoQMS = true;
-            }
-            if (criteria.id_category === 1) {
-              hasTypeTwoATLD = true;
-            }
-            hasTypeTwo = true;
+          // Set flags for type 2 separately (maintained for red star status)
+          if (criteria.id_category === 5) {
+            hasTypeTwoQMS = true;
+            hasRedStar = true; // Maintain red star for QMS type 2
+          }
+          if (criteria.id_category === 1) {
+            hasTypeTwoATLD = true;
+            hasRedStar = true; // Maintain red star for ATLĐ type 2
           }
           break;
 
         case 3: // PNKL knockout
           if (!hasTypeThree) {
-            // Trừ toàn bộ điểm của hạng mục PNKL
-            const pnklPoints = categoryCounts[4] || 0; // Category 4 is PNKL
+            // Deduct all PNKL points
+            const pnklPoints = categoryCounts[4] || 0;
             deductPoints += pnklPoints;
             hasTypeThree = true;
             hasRedStar = true;
@@ -1231,13 +1258,13 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
     res.json({
       total_point: totalPoint,
       has_red_star: hasRedStar,
-      has_type_two: hasTypeTwo,
       has_type_two_qms: hasTypeTwoQMS,
       has_type_two_atld: hasTypeTwoATLD,
       has_type_three: hasTypeThree,
       deducted_points: deductPoints,
       total_criteria: totalCriteria,
       category_counts: categoryCounts,
+      failing_type2_counts: failingType2Map,
     });
   } catch (error) {
     console.error("Error calculating total point:", error);
@@ -1966,7 +1993,7 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
                   WHERE pd2.id_phase = ? 
                     AND pd2.id_department = ?
                     AND pd2.is_fail = 1
-                    AND c.failing_point_type IN (-1, 1)
+                    AND c.failing_point_type IN (1, 2, 3)
                 ) as knockout_types,
                 EXISTS (
                   SELECT 1 
@@ -1975,7 +2002,7 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
                   WHERE pd2.id_phase = ?
                     AND pd2.id_department = ?
                     AND pd2.is_fail = 1
-                    AND c.failing_point_type IN (-1, 1)
+                    AND c.failing_point_type IN (1, 2, 3)
                 ) as has_knockout
               FROM 
                 tb_phase_details pd

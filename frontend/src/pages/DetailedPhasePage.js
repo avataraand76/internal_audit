@@ -117,10 +117,13 @@ const DetailedPhasePage = () => {
   const [newEndDate, setNewEndDate] = useState("");
   const [timeLimitError, setTimeLimitError] = useState("");
   const [QMSAtldCriteria, setQMSAtldCriteria] = useState([]);
-  const [hasTypeTwo, setHasTypeTwo] = useState(false);
   const [hasTypeTwoQMS, setHasTypeTwoQMS] = useState(false);
   const [hasTypeTwoATLD, setHasTypeTwoATLD] = useState(false);
   const [criteriaFilter, setCriteriaFilter] = useState("all");
+  const [failingTypeTwoCounts, setFailingTypeTwoCounts] = useState({
+    atld: 0,
+    qms: 0,
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -236,10 +239,13 @@ const DetailedPhasePage = () => {
           );
           setTotalPoint(response.data.total_point);
           setHasRedStar(response.data.has_red_star);
-          setHasTypeTwo(response.data.has_type_two);
           setHasTypeTwoQMS(response.data.has_type_two_qms);
           setHasTypeTwoATLD(response.data.has_type_two_atld);
           setHasAbsoluteKnockout(response.data.has_type_three);
+          setFailingTypeTwoCounts({
+            atld: response.data.failing_type2_counts?.[1] || 0,
+            qms: response.data.failing_type2_counts?.[5] || 0,
+          });
         } catch (error) {
           console.error("Error fetching total point:", error);
         }
@@ -810,7 +816,9 @@ const DetailedPhasePage = () => {
               sx={{
                 fontWeight: "bold",
                 color:
-                  hasAbsoluteKnockout || hasTypeTwo ? "#FF0000" : "inherit",
+                  hasAbsoluteKnockout || hasTypeTwoATLD || hasTypeTwoQMS
+                    ? "#FF0000"
+                    : "inherit",
                 lineHeight: 1,
               }}
             >
@@ -820,7 +828,10 @@ const DetailedPhasePage = () => {
               sx={{
                 fontSize: isMobile ? 40 : 48,
                 color:
-                  hasRedStar || hasAbsoluteKnockout || hasTypeTwo
+                  hasRedStar ||
+                  hasAbsoluteKnockout ||
+                  hasTypeTwoATLD ||
+                  hasTypeTwoQMS
                     ? "#FF0000"
                     : totalPoint >= 80
                     ? "#4CAF50"
@@ -938,7 +949,8 @@ const DetailedPhasePage = () => {
                 fontWeight: "medium",
               }}
             >
-              Phát hiện vi phạm ATLĐ - Trừ tất cả điểm liệt hạng mục ATLĐ
+              Phát hiện vi phạm ATLĐ - Trừ {failingTypeTwoCounts.atld} điểm
+              (tổng số tiêu chí điểm liệt ATLĐ)
             </Typography>
           )}
 
@@ -954,7 +966,8 @@ const DetailedPhasePage = () => {
                 fontWeight: "medium",
               }}
             >
-              Phát hiện vi phạm QMS - Trừ tất cả điểm liệt hạng mục QMS
+              Phát hiện vi phạm QMS - Trừ {failingTypeTwoCounts.qms} điểm (tổng
+              số tiêu chí điểm liệt QMS)
             </Typography>
           )}
 
@@ -1234,9 +1247,13 @@ const DetailedPhasePage = () => {
 
           setTotalPoint(totalPointResponse.data.total_point);
           setHasRedStar(totalPointResponse.data.has_red_star);
-          setHasTypeTwo(totalPointResponse.data.has_type_two);
+          setHasTypeTwoATLD(totalPointResponse.data.has_type_two_atld);
           setHasTypeTwoQMS(totalPointResponse.data.has_type_two_qms);
           setHasAbsoluteKnockout(totalPointResponse.data.has_type_three);
+          setFailingTypeTwoCounts({
+            atld: totalPointResponse.data.failing_type2_counts?.[1] || 0,
+            qms: totalPointResponse.data.failing_type2_counts?.[5] || 0,
+          });
 
           // Fetch updated knockout criteria
           const knockoutResponse = await axios.get(
@@ -1717,7 +1734,8 @@ const DetailedPhasePage = () => {
       <ScoreBubble
         score={totalPoint}
         hasRedStar={hasRedStar}
-        hasTypeTwo={hasTypeTwo}
+        hasTypeTwoATLD={hasTypeTwoATLD}
+        hasTypeTwoQMS={hasTypeTwoQMS}
         hasAbsoluteKnockout={hasAbsoluteKnockout}
         departmentName={selectedDepartment?.name || ""}
         failedCount={totalCriteria[selectedDepartment?.id] || 0}
@@ -1727,10 +1745,15 @@ const DetailedPhasePage = () => {
           QMSAtldCriteria?.map((c) => ({
             code: c.codename,
             category: c.id_category,
+            count:
+              c.id_category === 1
+                ? QMSAtldCriteria.filter((x) => x.id_category === 1).length
+                : QMSAtldCriteria.filter((x) => x.id_category === 5).length,
           })) || []
         }
         pnklCriteria={absoluteKnockoutCriteria?.map((c) => c.codename) || []}
       />
+
       <ScrollToTop />
 
       {/* Dialog chi tiết tiêu chí */}

@@ -16,7 +16,8 @@ import useScrollTrigger from "@mui/material/useScrollTrigger";
 const ScoreBubble = ({
   score,
   hasRedStar,
-  hasTypeTwo,
+  hasTypeTwoATLD,
+  hasTypeTwoQMS,
   hasAbsoluteKnockout,
   departmentName = "",
   failedCount = 0,
@@ -81,7 +82,7 @@ const ScoreBubble = ({
               justifyContent: "center",
               boxShadow: 3,
               border:
-                hasAbsoluteKnockout || hasTypeTwo
+                hasAbsoluteKnockout || hasTypeTwoATLD || hasTypeTwoQMS
                   ? "2px solid #FF0000"
                   : "1px solid #1976d2",
               zIndex: 1000,
@@ -97,7 +98,9 @@ const ScoreBubble = ({
               sx={{
                 fontWeight: "bold",
                 color:
-                  hasAbsoluteKnockout || hasTypeTwo ? "#FF0000" : "inherit",
+                  hasAbsoluteKnockout || hasTypeTwoATLD || hasTypeTwoQMS
+                    ? "#FF0000"
+                    : "inherit",
                 lineHeight: 1,
               }}
             >
@@ -107,7 +110,10 @@ const ScoreBubble = ({
               sx={{
                 fontSize: isMobile ? 16 : 20,
                 color:
-                  hasRedStar || hasAbsoluteKnockout || hasTypeTwo
+                  hasRedStar ||
+                  hasAbsoluteKnockout ||
+                  hasTypeTwoATLD ||
+                  hasTypeTwoQMS
                     ? "#FF0000"
                     : score >= 80
                     ? "#4CAF50"

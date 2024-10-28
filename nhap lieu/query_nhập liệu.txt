@@ -287,7 +287,7 @@ INSERT INTO tb_criteria (id_category, codename, name_criteria, description, fail
 
 ('1','ATLĐ30','Tuân thủ sử dụng đúng và đầy đủ các phương tiện an toàn về máy móc thiết bị cho người lao động.','Máy móc, thiết bị điện phải có đầy đủ dây nối đất trung tính, carte, bảo hiểm puly.','0'),
 
-('1','ATLĐ31','Tuân thủ sử dụng đúng và đầy đủ các phương tiện an toàn về máy móc thiết bị cho người lao động.','Máy móc, thiết bị (motor, dây curoa,...) phải được che chắn an toàn. Sử dụng các phương tiện bảo hộ (càng chắn kim, kính bảo hiểm…). Máy cắt tay, xe nâng khi không sử dụng phải được hạ càng chắn xuống và có ống che chắn lưỡi dao.','0'),
+('1','ATLĐ31','Tuân thủ sử dụng đúng và đầy đủ các phương tiện an toàn về máy móc thiết bị cho người lao động.','Máy móc, thiết bị (motor, dây curoa,...) phải được che chắn an toàn. Sử dụng các phương tiện bảo hộ (càng chắn kim, kính bảo hiểm…). Máy cắt tay, xe nâng khi không sử dụng phải được hạ càng chắn xuống và có ống che chắn lưỡi dao.','2'),
 
 ('1','ATLĐ32','Tuân thủ sử dụng đúng và đầy đủ các phương tiện an toàn về máy móc thiết bị cho người lao động.','Lối thoát nạn thông thoáng, cửa thoát nạn đảm bảo an toàn.','2'),
 

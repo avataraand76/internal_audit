@@ -53,7 +53,7 @@ export default function MonthlyReportPage() {
 
   // Get month and year from URL params or current date
   const { month: urlMonth, year: urlYear } = useParams();
-  const currentDate = new Date();
+  const currentDate = new Date("2024-10-28");
   const [selectedMonth, setSelectedMonth] = useState(
     urlMonth || (currentDate.getMonth() + 1).toString()
   );
