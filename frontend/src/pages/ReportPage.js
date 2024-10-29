@@ -45,6 +45,21 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
   },
 }));
 
+const inactiveCellStyle = {
+  backgroundColor: "#f5f5f5", // Màu xám nhạt
+  position: "relative",
+  "&::after": {
+    content: '""',
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background:
+      "linear-gradient(to right top, transparent 47.75%, #999 49.5%, transparent 52.25%)",
+  },
+};
+
 export default function MonthlyReportPage() {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -79,22 +94,44 @@ export default function MonthlyReportPage() {
     const fetchReportData = async () => {
       setLoading(true);
       try {
-        const response = await axios.get(
+        // Fetch report data
+        const reportResponse = await axios.get(
           `${API_URL}/monthly-report/${selectedMonth}/${year}`
         );
-        if (response.data && response.data.workshops) {
-          setReportData(response.data);
-          setError(null);
-        } else {
-          setError("Không có dữ liệu cho kỳ này");
-        }
+
+        // Fetch inactive departments data for each phase
+        const inactiveDepartmentsPromises = reportResponse.data.phases.map(
+          (phase) =>
+            axios.get(`${API_URL}/inactive-departments/${phase.id_phase}`)
+        );
+        const inactiveDepartmentsResponses = await Promise.all(
+          inactiveDepartmentsPromises
+        );
+
+        // Create map of inactive departments for each phase
+        const inactiveDepartmentsMap = {};
+        inactiveDepartmentsResponses.forEach((response, index) => {
+          const phaseId = reportResponse.data.phases[index].id_phase;
+          inactiveDepartmentsMap[phaseId] = response.data.reduce(
+            (acc, dept) => {
+              acc[dept.id_department] = dept.is_inactive;
+              return acc;
+            },
+            {}
+          );
+        });
+
+        // Add inactive info to report data
+        const enrichedData = {
+          ...reportResponse.data,
+          inactiveDepartments: inactiveDepartmentsMap,
+        };
+
+        setReportData(enrichedData);
+        setError(null);
       } catch (error) {
         console.error("Error fetching report data:", error);
-        if (error.response?.status === 404) {
-          setError("Không có dữ liệu cho kỳ này");
-        } else {
-          setError("Lỗi tải dữ liệu báo cáo");
-        }
+        setError("Lỗi tải dữ liệu báo cáo");
       } finally {
         setLoading(false);
       }
@@ -102,6 +139,22 @@ export default function MonthlyReportPage() {
 
     fetchReportData();
   }, [selectedMonth, year]);
+
+  const calculateWorkshopAverage = (departments, phaseIndex) => {
+    const activeDepartments = departments.filter((dept) => {
+      return !reportData.phases[phaseIndex]?.inactiveDepartments?.includes(
+        dept.id_department
+      );
+    });
+
+    if (activeDepartments.length === 0) return null;
+
+    const sum = activeDepartments.reduce((acc, dept) => {
+      return acc + (dept.phases[phaseIndex]?.scorePercentage || 0);
+    }, 0);
+
+    return Math.round(sum / activeDepartments.length);
+  };
 
   const handleMonthChange = (event) => {
     const newMonth = event.target.value;
@@ -311,14 +364,40 @@ export default function MonthlyReportPage() {
           <TableBody>
             {reportData.workshops.map((workshop, wIndex) => (
               <React.Fragment key={wIndex}>
-                {/* Workshop header row */}
+                {/* Workshop header row with average scores */}
                 <StyledTableRow className="workshop-row">
-                  <StyledTableCell colSpan={3 + reportData.phases.length * 3}>
+                  <StyledTableCell colSpan={3}>
                     <Typography variant="subtitle1" fontWeight="bold">
                       {workshop.workshopName}
                     </Typography>
                   </StyledTableCell>
+                  {reportData.phases.map((phase, phaseIndex) => {
+                    const avgScore = calculateWorkshopAverage(
+                      workshop.departments,
+                      phaseIndex
+                    );
+
+                    return (
+                      <React.Fragment key={`avg-${phaseIndex}`}>
+                        <StyledTableCell align="center">
+                          {/* Empty cell for total points deducted */}
+                        </StyledTableCell>
+                        <StyledTableCell
+                          align="center"
+                          sx={{
+                            fontWeight: "bold",
+                          }}
+                        >
+                          {avgScore ? `${avgScore}%` : "-"}
+                        </StyledTableCell>
+                        <StyledTableCell align="center">
+                          {/* Empty cell for knockout types */}
+                        </StyledTableCell>
+                      </React.Fragment>
+                    );
+                  })}
                 </StyledTableRow>
+
                 {/* Department rows */}
                 {workshop.departments.map((dept, dIndex) => (
                   <StyledTableRow key={`${wIndex}-${dIndex}`}>
@@ -329,51 +408,64 @@ export default function MonthlyReportPage() {
                     <StyledTableCell align="center">
                       {dept.max_points}
                     </StyledTableCell>
-                    {dept.phases.map((phase, pIndex) => (
-                      <React.Fragment key={`${dIndex}-${pIndex}`}>
-                        <StyledTableCell align="center">
-                          {phase.failedCount}
-                        </StyledTableCell>
-                        <StyledTableCell
-                          align="center"
-                          sx={{
-                            backgroundColor: (theme) => {
-                              // Add logging to debug
-                              console.log("Phase data:", {
-                                department: dept.name_department,
-                                score: phase.scorePercentage,
-                                hasKnockout: phase.has_knockout,
-                                knockoutTypes: phase.knockoutTypes,
-                              });
+                    {dept.phases.map((phase, pIndex) => {
+                      const isInactive = reportData.phases[
+                        pIndex
+                      ]?.inactiveDepartments?.includes(dept.id_department);
 
-                              if (
-                                phase.knockoutTypes || // Có điểm liệt nếu có knockout_types
-                                phase.has_knockout || // Hoặc has_knockout = true
-                                phase.scorePercentage < 80 // Hoặc điểm < 80
-                              ) {
-                                return "#ffebee";
-                              }
-                              return "#e8f5e9";
-                            },
-                            color: (theme) => {
-                              if (
-                                phase.knockoutTypes ||
-                                phase.has_knockout ||
-                                phase.scorePercentage < 80
-                              ) {
-                                return "#FF0000";
-                              }
-                              return "#009900";
-                            },
-                          }}
-                        >
-                          {phase.scorePercentage}%
-                        </StyledTableCell>
-                        <StyledTableCell align="center">
-                          {phase.knockoutTypes}
-                        </StyledTableCell>
-                      </React.Fragment>
-                    ))}
+                      return (
+                        <React.Fragment key={`${dIndex}-${pIndex}`}>
+                          <StyledTableCell
+                            align="center"
+                            sx={isInactive ? inactiveCellStyle : {}}
+                          >
+                            {isInactive ? "KHÔNG HOẠT ĐỘNG" : phase.failedCount}
+                          </StyledTableCell>
+                          <StyledTableCell
+                            align="center"
+                            sx={{
+                              ...(isInactive
+                                ? inactiveCellStyle
+                                : {
+                                    fontWeight: "bold",
+                                    backgroundColor: (theme) => {
+                                      if (
+                                        phase.knockoutTypes ||
+                                        phase.has_knockout ||
+                                        phase.scorePercentage < 80
+                                      ) {
+                                        return "#ffebee";
+                                      }
+                                      return "#e8f5e9";
+                                    },
+                                    color: (theme) => {
+                                      if (
+                                        phase.knockoutTypes ||
+                                        phase.has_knockout ||
+                                        phase.scorePercentage < 80
+                                      ) {
+                                        return "#FF0000";
+                                      }
+                                      return "#009900";
+                                    },
+                                  }),
+                            }}
+                          >
+                            {isInactive
+                              ? "KHÔNG HOẠT ĐỘNG"
+                              : `${phase.scorePercentage}%`}
+                          </StyledTableCell>
+                          <StyledTableCell
+                            align="center"
+                            sx={isInactive ? inactiveCellStyle : {}}
+                          >
+                            {isInactive
+                              ? "KHÔNG HOẠT ĐỘNG"
+                              : phase.knockoutTypes}
+                          </StyledTableCell>
+                        </React.Fragment>
+                      );
+                    })}
                   </StyledTableRow>
                 ))}
               </React.Fragment>

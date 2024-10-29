@@ -2173,6 +2173,24 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
       return acc;
     }, {});
 
+    // Add inactive department info to each phase
+    for (const phase of phases) {
+      const inactiveQuery = `
+        SELECT id_department 
+        FROM tb_inactive_department 
+        WHERE id_phase = ? AND is_inactive = 1
+      `;
+      const [inactiveDepts] = await new Promise((resolve, reject) => {
+        db.query(inactiveQuery, [phase.id_phase], (err, results) => {
+          if (err) reject(err);
+          else resolve([results, null]);
+        });
+      });
+      phase.inactiveDepartments = inactiveDepts.map(
+        (dept) => dept.id_department
+      );
+    }
+
     // Prepare and send response
     res.json({
       month: parseInt(month),
@@ -2180,6 +2198,7 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
       phases: phases.map((phase) => ({
         id_phase: phase.id_phase,
         name_phase: phase.name_phase,
+        inactiveDepartments: phase.inactiveDepartments,
       })),
       workshops: Object.values(workshopGroups),
       summary: {
