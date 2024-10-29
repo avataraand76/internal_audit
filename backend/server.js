@@ -1352,6 +1352,96 @@ app.get("/knockout-criteria/:phaseId/:departmentId", (req, res) => {
   });
 });
 
+// Get inactive departments for a phase
+app.get("/inactive-departments/:phaseId", (req, res) => {
+  const phaseId = req.params.phaseId;
+  const query = `
+    SELECT 
+      d.id_department,
+      d.name_department,
+      w.name_workshop,
+      COALESCE(id.is_inactive, 0) as is_inactive
+    FROM tb_department d
+    JOIN tb_workshop w ON d.id_workshop = w.id_workshop
+    LEFT JOIN tb_inactive_department id 
+      ON d.id_department = id.id_department 
+      AND id.id_phase = ?
+    ORDER BY w.id_workshop, d.name_department
+  `;
+
+  db.query(query, [phaseId], (err, results) => {
+    if (err) {
+      console.error("Error fetching inactive departments:", err);
+      res.status(500).json({ error: "Error fetching inactive departments" });
+      return;
+    }
+    res.json(results);
+  });
+});
+
+// Update inactive departments for a phase
+app.post("/inactive-departments/:phaseId", (req, res) => {
+  const phaseId = req.params.phaseId;
+  const { inactiveDepartments } = req.body;
+
+  // Start a transaction
+  db.beginTransaction(async (err) => {
+    if (err) {
+      console.error("Error starting transaction:", err);
+      return res
+        .status(500)
+        .json({ error: "Error updating inactive departments" });
+    }
+
+    try {
+      // First, delete existing records for this phase
+      await new Promise((resolve, reject) => {
+        db.query(
+          "DELETE FROM tb_inactive_department WHERE id_phase = ?",
+          [phaseId],
+          (err) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+
+      // Then insert new records
+      if (inactiveDepartments.length > 0) {
+        const values = inactiveDepartments.map((id) => [phaseId, id, 1]);
+        await new Promise((resolve, reject) => {
+          db.query(
+            "INSERT INTO tb_inactive_department (id_phase, id_department, is_inactive) VALUES ?",
+            [values],
+            (err) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+      }
+
+      // Commit the transaction
+      db.commit((err) => {
+        if (err) {
+          console.error("Error committing transaction:", err);
+          return db.rollback(() => {
+            res
+              .status(500)
+              .json({ error: "Error updating inactive departments" });
+          });
+        }
+        res.json({ message: "Inactive departments updated successfully" });
+      });
+    } catch (error) {
+      console.error("Error in transaction:", error);
+      db.rollback(() => {
+        res.status(500).json({ error: "Error updating inactive departments" });
+      });
+    }
+  });
+});
+
 ///////////upload ảnh gg photos////////////
 // const upload = multer({
 //   storage: multer.memoryStorage(),
