@@ -144,7 +144,7 @@ app.get("/workshops/:userId", async (req, res) => {
   const userId = req.params.userId;
 
   try {
-    // Kiểm tra xem user có phải là supervisor không
+    // Check if user is supervisor
     const supervisorQuery =
       "SELECT * FROM tb_user_supervisor WHERE id_user = ?";
     const [supervisorResults] = await new Promise((resolve, reject) => {
@@ -158,7 +158,7 @@ app.get("/workshops/:userId", async (req, res) => {
     let queryParams;
 
     if (supervisorResults.length > 0) {
-      // Nếu là supervisor, lấy tất cả workshops
+      // For supervisor, get all workshops and departments, excluding inactive ones
       workshopQuery = `
         SELECT 
           w.id_workshop,
@@ -167,11 +167,13 @@ app.get("/workshops/:userId", async (req, res) => {
           d.name_department
         FROM tb_workshop w
         LEFT JOIN tb_department d ON w.id_workshop = d.id_workshop
+        LEFT JOIN tb_inactive_department id ON d.id_department = id.id_department AND id.id_phase = ?
+        WHERE id.id_department IS NULL
         ORDER BY w.id_workshop, d.id_department
       `;
-      queryParams = [];
+      queryParams = [req.query.phaseId];
     } else {
-      // Nếu là supervised, chỉ lấy workshop được phân công
+      // For supervised user, get only assigned workshops, excluding inactive departments
       workshopQuery = `
         SELECT 
           w.id_workshop,
@@ -180,14 +182,16 @@ app.get("/workshops/:userId", async (req, res) => {
           d.name_department
         FROM tb_workshop w
         LEFT JOIN tb_department d ON w.id_workshop = d.id_workshop
+        LEFT JOIN tb_inactive_department id ON d.id_department = id.id_department AND id.id_phase = ?
         WHERE w.id_workshop IN (
           SELECT id_workshop 
           FROM tb_user_supervised 
           WHERE id_user = ?
         )
+        AND id.id_department IS NULL
         ORDER BY w.id_workshop, d.id_department
       `;
-      queryParams = [userId];
+      queryParams = [req.query.phaseId, userId];
     }
 
     const results = await new Promise((resolve, reject) => {
@@ -197,24 +201,24 @@ app.get("/workshops/:userId", async (req, res) => {
       });
     });
 
-    // Chuyển đổi kết quả phẳng thành cấu trúc phân cấp
+    // Convert flat results to hierarchical structure, excluding empty workshops
     const workshops = results.reduce((acc, row) => {
+      if (!row.id_department) return acc; // Skip if no department (prevents empty workshops)
+
       const workshop = acc.find((w) => w.id === row.id_workshop);
 
       if (!workshop) {
         acc.push({
           id: row.id_workshop,
           name: row.name_workshop,
-          departments: row.id_department
-            ? [
-                {
-                  id: row.id_department,
-                  name: row.name_department,
-                },
-              ]
-            : [],
+          departments: [
+            {
+              id: row.id_department,
+              name: row.name_department,
+            },
+          ],
         });
-      } else if (row.id_department) {
+      } else {
         workshop.departments.push({
           id: row.id_department,
           name: row.name_department,
@@ -224,7 +228,10 @@ app.get("/workshops/:userId", async (req, res) => {
       return acc;
     }, []);
 
-    res.json(workshops);
+    // Only return workshops that have active departments
+    const activeWorkshops = workshops.filter((w) => w.departments.length > 0);
+
+    res.json(activeWorkshops);
   } catch (error) {
     console.error("Error in /workshops/:userId:", error);
     res.status(500).json({ error: "Internal server error" });

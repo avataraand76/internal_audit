@@ -155,9 +155,9 @@ const DetailedPhasePage = () => {
             : null,
         });
 
-        // Fetch workshops theo user ID
+        // Fetch workshops theo user ID, including phaseId in query
         const workshopsResponse = await axios.get(
-          `${API_URL}/workshops/${storedUser.id_user}`
+          `${API_URL}/workshops/${storedUser.id_user}?phaseId=${phaseId}`
         );
         setWorkshops(workshopsResponse.data);
 
