@@ -1,5 +1,5 @@
 // frontend/src/pages/CreatePhasePage.js
-import React, { useState, useEffect, useCallback, memo } from "react";
+import React, { useState, useEffect, useCallback, memo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactSelect from "react-select";
 import {
@@ -24,6 +24,7 @@ import {
   Select as MuiSelect,
   InputLabel,
   Alert,
+  Box,
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -36,6 +37,38 @@ import Header from "../components/Header";
 import API_URL from "../data/api";
 import moment from "moment";
 
+// ResizeObserverWrapper
+const ResizeObserverWrapper = memo(({ children }) => {
+  const [ready, setReady] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    setReady(true);
+    return () => setReady(false);
+  }, []);
+
+  // Disable ResizeObserver on unmount
+  useEffect(() => {
+    if (!ref.current) return;
+
+    const element = ref.current;
+    const resizeObserver = new ResizeObserver((entries) => {
+      window.requestAnimationFrame(() => {
+        if (!Array.isArray(entries) || !entries.length) return;
+      });
+    });
+
+    resizeObserver.observe(element);
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} style={{ width: "100%" }}>
+      {ready ? children : null}
+    </div>
+  );
+});
+
 // DepartmentSelectionDialog component
 const DepartmentSelectionDialog = memo(
   ({
@@ -46,7 +79,25 @@ const DepartmentSelectionDialog = memo(
     onDepartmentSelection,
     onSave,
     isMobile,
+    selectedPhase,
   }) => {
+    const [menuPortalTarget, setMenuPortalTarget] = useState(null);
+    const contentRef = useRef(null);
+
+    useEffect(() => {
+      if (open) {
+        setMenuPortalTarget(document.body);
+        return () => setMenuPortalTarget(null);
+      }
+    }, [open]);
+
+    // Utility functions remain the same
+    const formatDate = (dateString) => {
+      if (!dateString) return "";
+      const date = new Date(dateString);
+      return date.toLocaleDateString("vi-VN");
+    };
+
     // Hàm chuyển đổi tiếng Việt có dấu thành không dấu
     const removeVietnameseAccents = (str) => {
       return str
@@ -85,6 +136,67 @@ const DepartmentSelectionDialog = memo(
         workshop: dept.workshopName,
       }));
 
+    // GroupHeading component
+    const GroupHeading = ({ children, ...props }) => {
+      const workshop = props.data.label;
+      const workshopDepartments = departments.filter(
+        (dept) => dept.workshopName === workshop
+      );
+      const isAllSelected = workshopDepartments.every((dept) =>
+        selectedInactiveDepartments.includes(dept.id)
+      );
+
+      const handleWorkshopClick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const workshopDeptIds = workshopDepartments.map((dept) => dept.id);
+        let newSelectedIds;
+
+        if (isAllSelected) {
+          newSelectedIds = selectedInactiveDepartments.filter(
+            (id) => !workshopDeptIds.includes(id)
+          );
+        } else {
+          newSelectedIds = [
+            ...new Set([...selectedInactiveDepartments, ...workshopDeptIds]),
+          ];
+        }
+        onDepartmentSelection(newSelectedIds);
+      };
+
+      return (
+        <div
+          style={{
+            padding: "8px",
+            cursor: "pointer",
+            backgroundColor: isAllSelected ? "#e3f2fd" : "transparent",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            transition: "background-color 0.2s ease",
+            userSelect: "none",
+          }}
+          onClick={handleWorkshopClick}
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          <div
+            style={{
+              fontWeight: "bold",
+              fontSize: "1.25rem",
+              color: "#2684ff",
+            }}
+          >
+            {children}
+          </div>
+          <div style={{ fontSize: "1rem", color: "#000" }}>
+            Bấm để {isAllSelected ? "bỏ" : ""} chọn tất cả
+          </div>
+        </div>
+      );
+    };
+
+    // Updated styles
     const customStyles = {
       control: (base) => ({
         ...base,
@@ -93,19 +205,17 @@ const DepartmentSelectionDialog = memo(
       }),
       menu: (base) => ({
         ...base,
+        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+        backgroundColor: "white",
+      }),
+      menuList: (base) => ({
+        ...base,
+        maxHeight: "300px",
+        padding: "5px",
+      }),
+      menuPortal: (base) => ({
+        ...base,
         zIndex: 9999,
-      }),
-      group: (base) => ({
-        ...base,
-        paddingTop: 8,
-        paddingBottom: 8,
-      }),
-      groupHeading: (base) => ({
-        ...base,
-        fontWeight: "bold",
-        fontSize: "1.25rem",
-        color: "#2684ff",
-        marginBottom: 8,
       }),
       option: (base, state) => ({
         ...base,
@@ -114,9 +224,17 @@ const DepartmentSelectionDialog = memo(
           : state.isFocused
           ? "#deebff"
           : "white",
-        ":active": {
-          backgroundColor: "#b7d4ff",
-        },
+        cursor: "pointer",
+      }),
+      group: (base) => ({
+        ...base,
+        paddingTop: 8,
+        paddingBottom: 8,
+      }),
+      groupHeading: (base) => ({
+        ...base,
+        margin: 0,
+        padding: 0,
       }),
       multiValue: (base) => ({
         ...base,
@@ -163,35 +281,49 @@ const DepartmentSelectionDialog = memo(
         }}
       >
         <DialogTitle>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <BusinessIcon />
-            <Typography>Chọn bộ phận không hoạt động</Typography>
+          <Stack direction="column" spacing={1}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <BusinessIcon />
+              <Typography>Chọn bộ phận không hoạt động</Typography>
+            </Stack>
+            {selectedPhase && (
+              <Typography variant="subtitle1" color="text.secondary">
+                {selectedPhase.name_phase} -{" "}
+                {formatDate(selectedPhase.date_recorded)}
+              </Typography>
+            )}
           </Stack>
         </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
-          <ReactSelect
-            isMulti
-            options={options}
-            value={selectedOptions}
-            onChange={(selected) => {
-              const selectedIds = selected
-                ? selected.map((option) => option.value)
-                : [];
-              onDepartmentSelection(selectedIds);
-            }}
-            styles={customStyles}
-            placeholder="Chọn bộ phận..."
-            noOptionsMessage={() => "Không có bộ phận nào"}
-            className="basic-multi-select"
-            classNamePrefix="select"
-            menuPlacement="auto"
-            menuPosition="fixed"
-            maxMenuHeight={300}
-            isClearable={true}
-            filterOption={(option, inputValue) =>
-              customFilter(option.data, inputValue)
-            }
-          />
+        <DialogContent ref={contentRef}>
+          <Box sx={{ mt: 2 }}>
+            <ResizeObserverWrapper>
+              <ReactSelect
+                isMulti
+                options={options}
+                value={selectedOptions}
+                onChange={(selected) => {
+                  const selectedIds = selected
+                    ? selected.map((option) => option.value)
+                    : [];
+                  onDepartmentSelection(selectedIds);
+                }}
+                styles={customStyles}
+                components={{
+                  GroupHeading,
+                }}
+                menuPortalTarget={menuPortalTarget}
+                menuPosition="fixed"
+                menuPlacement="auto"
+                placeholder="Chọn bộ phận..."
+                noOptionsMessage={() => "Không có bộ phận nào"}
+                className="basic-multi-select"
+                classNamePrefix="select"
+                filterOption={(option, inputValue) =>
+                  customFilter(option.data, inputValue)
+                }
+              />
+            </ResizeObserverWrapper>
+          </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={onClose}>Hủy</Button>
@@ -798,7 +930,8 @@ const CreatePhasePage = () => {
             </Alert>
             <Typography>
               Bạn có chắc chắn muốn xóa đợt chấm điểm "
-              {phaseToDelete?.name_phase}" không?
+              {phaseToDelete?.name_phase} -{" "}
+              {formatDate(phaseToDelete?.date_recorded)}" không?
             </Typography>
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
@@ -826,6 +959,7 @@ const CreatePhasePage = () => {
           onDepartmentSelection={handleDepartmentSelection}
           onSave={handleSaveInactiveDepartments}
           isMobile={isMobile}
+          selectedPhase={selectedPhase}
         />
       </Container>
     </>
