@@ -38,66 +38,32 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
     backgroundColor: theme.palette.secondary.light,
     color: theme.palette.secondary.contrastText,
   },
-  // Sticky styles cho header dọc
+  // Sticky styles với background color tường minh
   "&.sticky-top-row": {
     position: "sticky",
     top: 0,
     zIndex: 5,
+    "&.phase-header": {
+      backgroundColor: theme.palette.primary.light,
+      color: theme.palette.primary.contrastText,
+    },
+    "&.summary-header": {
+      backgroundColor: theme.palette.secondary.light,
+      color: theme.palette.secondary.contrastText,
+    },
+    "&:not(.phase-header):not(.summary-header)": {
+      backgroundColor: "#fff",
+    },
   },
   "&.sticky-bottom-row": {
     position: "sticky",
     top: "41px",
     zIndex: 5,
-  },
-  // Sticky styles cho các cột bên trái
-  "&.sticky-left-0": {
-    position: "sticky",
-    left: 0,
-    zIndex: 3,
-  },
-  "&.sticky-left-1": {
-    position: "sticky",
-    left: "41px",
-    zIndex: 3,
-  },
-  "&.sticky-left-2": {
-    position: "sticky",
-    left: "260px",
-    zIndex: 3,
-  },
-  // Màu nền mặc định cho sticky cells
-  "&.sticky-left-0, &.sticky-left-1, &.sticky-left-2": {
-    backgroundColor: "#fff",
-  },
-  // Màu nền cho các workshop row sticky
-  ".workshop-row &.sticky-left-0, .workshop-row &.sticky-left-1, .workshop-row &.sticky-left-2":
-    {
-      backgroundColor: "#fff3e0",
+    "&.phase-header": {
+      backgroundColor: theme.palette.primary.light,
+      color: theme.palette.primary.contrastText,
     },
-  // Màu nền cho các header sticky
-  "&.sticky-top-row.phase-header, &.sticky-bottom-row.phase-header": {
-    backgroundColor: theme.palette.primary.light,
   },
-  "&.sticky-top-row.summary-header": {
-    backgroundColor: theme.palette.secondary.light,
-  },
-  // Màu nền cho ô tổng kết cuối bảng
-  ".summary-row &.sticky-left-0, .summary-row &.sticky-left-1, .summary-row &.sticky-left-2":
-    {
-      backgroundColor: "#1976d3",
-      color: "black",
-    },
-  // Tăng z-index cho các cell vừa sticky ngang vừa dọc
-  "&.sticky-top-row.sticky-left-0, &.sticky-top-row.sticky-left-1, &.sticky-top-row.sticky-left-2":
-    {
-      zIndex: 6,
-      backgroundColor: "#fff",
-    },
-  "&.sticky-bottom-row.sticky-left-0, &.sticky-bottom-row.sticky-left-1, &.sticky-bottom-row.sticky-left-2":
-    {
-      zIndex: 6,
-      backgroundColor: "#fff",
-    },
 }));
 
 const StyledTableContainer = styled(TableContainer)({
@@ -483,21 +449,21 @@ export default function MonthlyReportPage() {
               <StyledTableCell
                 align="center"
                 rowSpan={2}
-                className="sticky-top-row sticky-left-0"
+                className="sticky-top-row"
               >
                 STT
               </StyledTableCell>
               <StyledTableCell
                 align="center"
                 rowSpan={2}
-                className="sticky-top-row sticky-left-1"
+                className="sticky-top-row"
               >
                 Tên bộ phận
               </StyledTableCell>
               <StyledTableCell
                 align="center"
                 rowSpan={2}
-                className="sticky-top-row sticky-left-2"
+                className="sticky-top-row"
               >
                 Điểm tối đa
               </StyledTableCell>
@@ -549,11 +515,7 @@ export default function MonthlyReportPage() {
               <React.Fragment key={wIndex}>
                 {/* Workshop header row with average scores */}
                 <StyledTableRow className="workshop-row">
-                  <StyledTableCell
-                    colSpan={3}
-                    className="sticky-left-0"
-                    sx={{ backgroundColor: "#fff3e0" }}
-                  >
+                  <StyledTableCell colSpan={3}>
                     <Typography variant="subtitle1" fontWeight="bold">
                       {workshop.workshopName}
                     </Typography>
@@ -595,13 +557,11 @@ export default function MonthlyReportPage() {
                 {/* Department rows */}
                 {workshop.departments.map((dept, dIndex) => (
                   <StyledTableRow key={`${wIndex}-${dIndex}`}>
-                    <StyledTableCell align="center" className="sticky-left-0">
+                    <StyledTableCell align="center">
                       {dIndex + 1}
                     </StyledTableCell>
-                    <StyledTableCell className="sticky-left-1">
-                      {dept.name_department}
-                    </StyledTableCell>
-                    <StyledTableCell align="center" className="sticky-left-2">
+                    <StyledTableCell>{dept.name_department}</StyledTableCell>
+                    <StyledTableCell align="center">
                       {dept.max_points}
                     </StyledTableCell>
                     {dept.phases.map((phase, pIndex) => {
@@ -696,19 +656,8 @@ export default function MonthlyReportPage() {
               </React.Fragment>
             ))}
             {/* Summary Rows */}
-            <TableRow
-              className="summary-row"
-              sx={{ backgroundColor: "#1976d3" }}
-            >
-              <StyledTableCell
-                colSpan={3}
-                align="center"
-                className="sticky-left-0"
-                sx={{
-                  backgroundColor: "#1976d3",
-                  color: "white",
-                }}
-              >
+            <TableRow sx={{ backgroundColor: "#1976d3" }}>
+              <StyledTableCell colSpan={3} align="center">
                 <Typography fontWeight="bold">TỔNG KẾT</Typography>
               </StyledTableCell>
               {reportData.phases.map((phase, index) => (
