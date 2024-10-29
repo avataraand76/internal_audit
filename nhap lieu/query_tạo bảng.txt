@@ -67,12 +67,13 @@ CREATE TABLE tb_department
 
 CREATE TABLE tb_inactive_department
 (
-	id_inactive_department BIGINT NOT NULL AUTO_INCREMENT,
 	id_department BIGINT,
-	time_start DATETIME,
-	time_end DATETIME,
-	PRIMARY KEY (id_inactive_department),
-	FOREIGN KEY (id_department) REFERENCES tb_department(id_department)
+	id_phase BIGINT,
+	is_inactive BIT,
+	PRIMARY KEY (id_department, id_phase),
+	UNIQUE (id_department, id_phase),
+	FOREIGN KEY (id_department) REFERENCES tb_department(id_department),
+	FOREIGN KEY (id_phase) REFERENCES tb_phase(id_phase)
 );
 
 CREATE TABLE tb_criteria

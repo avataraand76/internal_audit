@@ -24,7 +24,6 @@ import {
 } from "@mui/material";
 import DownloadIcon from "@mui/icons-material/Download";
 import { styled } from "@mui/material/styles";
-import { useTheme } from "@mui/material/styles";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   border: "1px solid rgba(224, 224, 224, 1)",
@@ -66,7 +65,6 @@ export default function MonthlyReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-  const theme = useTheme();
 
   // Get month and year from URL params or current date
   const { month: urlMonth, year: urlYear } = useParams();
@@ -323,68 +321,17 @@ export default function MonthlyReportPage() {
       </Box>
 
       {/* Report Table */}
-      <TableContainer
-        component={Paper}
-        sx={{
-          position: "relative",
-          maxHeight: "calc(100vh - 250px)", // Điều chỉnh chiều cao tùy ý
-          overflow: "auto",
-          "& .MuiTableCell-stickyHeader": {
-            backgroundColor: "#fff",
-            fontWeight: "bold",
-          },
-        }}
-      >
-        <Table
-          size="small"
-          stickyHeader
-          sx={{
-            borderCollapse: "separate",
-            "& th": { backgroundColor: "#fff" },
-          }}
-        >
+      <TableContainer component={Paper}>
+        <Table size="small">
           <TableHead>
             <TableRow>
-              <StyledTableCell
-                align="center"
-                rowSpan={2}
-                sx={{
-                  position: "sticky",
-                  left: 0,
-                  top: 0,
-                  zIndex: 3,
-                  backgroundColor: "#fff !important",
-                  minWidth: "40px", // Thêm minWidth cho cột STT
-                }}
-              >
+              <StyledTableCell align="center" rowSpan={2}>
                 STT
               </StyledTableCell>
-              <StyledTableCell
-                align="center"
-                rowSpan={2}
-                sx={{
-                  position: "sticky",
-                  left: "40px", // Điều chỉnh left bằng đúng minWidth của cột STT
-                  top: 0,
-                  zIndex: 3,
-                  backgroundColor: "#fff !important",
-                  minWidth: "200px", // Thêm minWidth cho cột Tên bộ phận
-                }}
-              >
+              <StyledTableCell align="center" rowSpan={2}>
                 Tên bộ phận
               </StyledTableCell>
-              <StyledTableCell
-                align="center"
-                rowSpan={2}
-                sx={{
-                  position: "sticky",
-                  left: "240px", // Điều chỉnh left = 40px + 200px
-                  top: 0,
-                  zIndex: 3,
-                  backgroundColor: "#fff !important",
-                  minWidth: "100px", // Thêm minWidth cho cột Điểm tối đa
-                }}
-              >
+              <StyledTableCell align="center" rowSpan={2}>
                 Điểm tối đa
               </StyledTableCell>
               {reportData.phases.map((phase) => (
@@ -401,40 +348,13 @@ export default function MonthlyReportPage() {
             <TableRow>
               {reportData.phases.map((phase) => (
                 <React.Fragment key={`headers-${phase.id_phase}`}>
-                  <StyledTableCell
-                    align="center"
-                    className="phase-header"
-                    sx={{
-                      position: "sticky",
-                      top: 42,
-                      zIndex: 2,
-                      backgroundColor: `${theme.palette.primary.light} !important`,
-                    }}
-                  >
+                  <StyledTableCell align="center" className="phase-header">
                     Tổng điểm trừ
                   </StyledTableCell>
-                  <StyledTableCell
-                    align="center"
-                    className="phase-header"
-                    sx={{
-                      position: "sticky",
-                      top: 42,
-                      zIndex: 2,
-                      backgroundColor: `${theme.palette.primary.light} !important`,
-                    }}
-                  >
+                  <StyledTableCell align="center" className="phase-header">
                     % Điểm đạt
                   </StyledTableCell>
-                  <StyledTableCell
-                    align="center"
-                    className="phase-header"
-                    sx={{
-                      position: "sticky",
-                      top: 42,
-                      zIndex: 2,
-                      backgroundColor: `${theme.palette.primary.light} !important`,
-                    }}
-                  >
+                  <StyledTableCell align="center" className="phase-header">
                     Hạng mục Điểm liệt
                   </StyledTableCell>
                 </React.Fragment>
@@ -446,15 +366,7 @@ export default function MonthlyReportPage() {
               <React.Fragment key={wIndex}>
                 {/* Workshop header row with average scores */}
                 <StyledTableRow className="workshop-row">
-                  <StyledTableCell
-                    colSpan={3}
-                    sx={{
-                      position: "sticky",
-                      left: 0,
-                      zIndex: 2,
-                      backgroundColor: "#fff3e0 !important",
-                    }}
-                  >
+                  <StyledTableCell colSpan={3}>
                     <Typography variant="subtitle1" fontWeight="bold">
                       {workshop.workshopName}
                     </Typography>
@@ -489,39 +401,11 @@ export default function MonthlyReportPage() {
                 {/* Department rows */}
                 {workshop.departments.map((dept, dIndex) => (
                   <StyledTableRow key={`${wIndex}-${dIndex}`}>
-                    <StyledTableCell
-                      align="center"
-                      sx={{
-                        position: "sticky",
-                        left: 0,
-                        zIndex: 2,
-                        backgroundColor: "#fff !important",
-                        minWidth: "40px", // Thêm minWidth
-                      }}
-                    >
+                    <StyledTableCell align="center">
                       {dIndex + 1}
                     </StyledTableCell>
-                    <StyledTableCell
-                      sx={{
-                        position: "sticky",
-                        left: "40px", // Điều chỉnh left
-                        zIndex: 2,
-                        backgroundColor: "#fff !important",
-                        minWidth: "200px", // Thêm minWidth
-                      }}
-                    >
-                      {dept.name_department}
-                    </StyledTableCell>
-                    <StyledTableCell
-                      align="center"
-                      sx={{
-                        position: "sticky",
-                        left: "240px", // Điều chỉnh left
-                        zIndex: 2,
-                        backgroundColor: "#fff !important",
-                        minWidth: "100px", // Thêm minWidth
-                      }}
-                    >
+                    <StyledTableCell>{dept.name_department}</StyledTableCell>
+                    <StyledTableCell align="center">
                       {dept.max_points}
                     </StyledTableCell>
                     {dept.phases.map((phase, pIndex) => {
