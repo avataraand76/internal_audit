@@ -26,7 +26,7 @@ import DownloadIcon from "@mui/icons-material/Download";
 import { styled } from "@mui/material/styles";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
-  border: "1px solid rgba(224, 224, 224, 1)",
+  border: "1px solid rgba(240, 240, 240, 1)",
   // border: "1px solid black",
   padding: "8px",
   whiteSpace: "nowrap",
@@ -62,7 +62,7 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
   },
   "&.sticky-left-2": {
     position: "sticky",
-    left: "260px",
+    left: "295px",
     zIndex: 3,
   },
   // Màu nền mặc định cho sticky cells
@@ -132,7 +132,8 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 const inactiveCellStyle = {
   backgroundColor: "#f5f5f5", // Màu xám nhạt
   position: "relative",
-  "&::after": {
+  // Dấu chéo thứ nhất (từ trên phải xuống dưới trái)
+  "&::before": {
     content: '""',
     position: "absolute",
     top: 0,
@@ -141,6 +142,19 @@ const inactiveCellStyle = {
     bottom: 0,
     background:
       "linear-gradient(to right top, transparent 47.75%, #999 49.5%, transparent 52.25%)",
+    zIndex: 1,
+  },
+  // Dấu chéo thứ hai (từ trên trái xuống dưới phải)
+  "&::after": {
+    content: '""',
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background:
+      "linear-gradient(to left top, transparent 47.75%, #999 49.5%, transparent 52.25%)",
+    zIndex: 1,
   },
 };
 
@@ -249,7 +263,7 @@ export default function MonthlyReportPage() {
     });
 
     if (allPhasesInactive) {
-      return "KHÔNG HOẠT ĐỘNG";
+      return "";
     }
 
     const activePhases = dept.phases.filter((phase, index) => {
@@ -270,7 +284,7 @@ export default function MonthlyReportPage() {
   const calculateWorkshopTotalAverage = (workshop) => {
     const departmentAverages = workshop.departments
       .map(calculateDepartmentAverage)
-      .filter((avg) => avg !== "KHÔNG HOẠT ĐỘNG" && avg !== null);
+      .filter((avg) => avg !== "" && avg !== null);
 
     if (departmentAverages.length === 0) return "NaN";
 
@@ -550,13 +564,19 @@ export default function MonthlyReportPage() {
                 {/* Workshop header row with average scores */}
                 <StyledTableRow className="workshop-row">
                   <StyledTableCell
-                    colSpan={3}
+                    colSpan={2}
                     className="sticky-left-0"
                     sx={{ backgroundColor: "#fff3e0" }}
                   >
                     <Typography variant="subtitle1" fontWeight="bold">
                       {workshop.workshopName}
                     </Typography>
+                  </StyledTableCell>
+                  <StyledTableCell
+                    className="sticky-left-2"
+                    sx={{ backgroundColor: "#fff3e0" }}
+                  >
+                    {/* Ô trống để giữ alignment*/}
                   </StyledTableCell>
                   {reportData.phases.map((phase, phaseIndex) => {
                     const avgScore = calculateWorkshopAverage(
@@ -615,7 +635,7 @@ export default function MonthlyReportPage() {
                             align="center"
                             sx={isInactive ? inactiveCellStyle : {}}
                           >
-                            {isInactive ? "KHÔNG HOẠT ĐỘNG" : phase.failedCount}
+                            {isInactive ? "" : phase.failedCount}
                           </StyledTableCell>
                           <StyledTableCell
                             align="center"
@@ -647,17 +667,13 @@ export default function MonthlyReportPage() {
                                   }),
                             }}
                           >
-                            {isInactive
-                              ? "KHÔNG HOẠT ĐỘNG"
-                              : `${phase.scorePercentage}%`}
+                            {isInactive ? "" : `${phase.scorePercentage}%`}
                           </StyledTableCell>
                           <StyledTableCell
                             align="center"
                             sx={isInactive ? inactiveCellStyle : {}}
                           >
-                            {isInactive
-                              ? "KHÔNG HOẠT ĐỘNG"
-                              : phase.knockoutTypes}
+                            {isInactive ? "" : phase.knockoutTypes}
                           </StyledTableCell>
                         </React.Fragment>
                       );
@@ -701,7 +717,7 @@ export default function MonthlyReportPage() {
               sx={{ backgroundColor: "#1976d3" }}
             >
               <StyledTableCell
-                colSpan={3}
+                colSpan={2}
                 align="center"
                 className="sticky-left-0"
                 sx={{
@@ -710,6 +726,15 @@ export default function MonthlyReportPage() {
                 }}
               >
                 <Typography fontWeight="bold">TỔNG KẾT</Typography>
+              </StyledTableCell>
+              <StyledTableCell
+                className="sticky-left-2"
+                sx={{
+                  backgroundColor: "#1976d3",
+                  color: "white",
+                }}
+              >
+                {/* Ô trống để giữ alignment*/}
               </StyledTableCell>
               {reportData.phases.map((phase, index) => (
                 <React.Fragment key={`summary-${index}`}>
