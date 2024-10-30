@@ -26,6 +26,7 @@ import DownloadIcon from "@mui/icons-material/Download";
 import { styled } from "@mui/material/styles";
 import ScorePercentageChart from "../components/ScorePercentageChart";
 import KnockoutStatsChart from "../components/KnockoutStatsChart";
+import WorkshopStatistics from "../components/WorkshopStatistics";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   border: "1px solid rgba(240, 240, 240, 1)",
@@ -770,6 +771,7 @@ export default function MonthlyReportPage() {
 
       <ScorePercentageChart reportData={reportData} />
       <KnockoutStatsChart reportData={reportData} />
+      <WorkshopStatistics reportData={reportData} />
     </Container>
   );
 }
