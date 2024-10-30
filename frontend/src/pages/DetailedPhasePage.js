@@ -1,5 +1,5 @@
 // frontend/src/pages/DetailedPhasePage.js
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Typography,
@@ -1047,21 +1047,38 @@ const DetailedPhasePage = () => {
     setExpandedCategories(new Set());
   };
 
-  const criterionMatchesSearch = (criterion, searchTerm) => {
-    const searchLower = searchTerm.toLowerCase().trim();
+  const removeDiacritics = useCallback((str) => {
+    if (!str) return "";
+    return str
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // Remove diacritics
+      .replace(/đ/g, "d")
+      .replace(/Đ/g, "D"); // Handle special case for 'd'
+  }, []);
 
-    // If searching for a number, match exact number in codename
-    if (/^\d+$/.test(searchTerm)) {
-      const codeNumber = criterion.codename.match(/\d+/)?.[0] || "";
-      return codeNumber === searchTerm;
-    }
+  const criterionMatchesSearch = useCallback(
+    (criterion, searchTerm) => {
+      const searchLower = searchTerm.toLowerCase().trim();
+      const searchWithoutDiacritics = removeDiacritics(searchLower);
 
-    // Otherwise, check if the search term is in the name or exact codename
-    return (
-      criterion.name.toLowerCase().includes(searchLower) ||
-      criterion.codename.toLowerCase().includes(searchLower)
-    );
-  };
+      // If searching for a number, match exact number in codename
+      if (/^\d+$/.test(searchTerm)) {
+        const codeNumber = criterion.codename.match(/\d+/)?.[0] || "";
+        return codeNumber === searchTerm;
+      }
+
+      // Check if the search term matches the name or codename, with or without diacritics
+      return (
+        removeDiacritics(criterion.name.toLowerCase()).includes(
+          searchWithoutDiacritics
+        ) ||
+        removeDiacritics(criterion.codename.toLowerCase()).includes(
+          searchWithoutDiacritics
+        )
+      );
+    },
+    [removeDiacritics]
+  );
 
   // Update the filteredCategories memo to include search filtering
   const filteredCategories = useMemo(() => {
@@ -1152,7 +1169,8 @@ const DetailedPhasePage = () => {
     criteriaStatuses,
     showFixed,
     showNotFixed,
-    criteriaFilter, // Thêm vào dependencies
+    criteriaFilter,
+    criterionMatchesSearch,
   ]);
 
   const handleCriteriaFilterChange = (event) => {

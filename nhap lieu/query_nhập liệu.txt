@@ -145,12 +145,12 @@ INSERT INTO tb_department (id_workshop, id_sync_bo_phan, name_department) VALUES
 ('1','24','CHUYỀN 8'), -- id 8
 ('1','12','CHUYỀN 9'), -- id 9
 ('1','62','CHUYỀN 10'), -- id 10
-('1','66','CHUYỀN 1001'), -- id 11 KHÔNG CÓ NÊN ĐỂ TẠM KỸ THUẬT X1
-('1','6','NGOÀI CHUYỀN MAY X1'), -- id 12
+('1','6','NGOÀI CHUYỀN MAY X1'), -- id 11
 
 -- XƯỞNG 2 ID 2 SYNC 30
-('2','47','CHUYỀN 11'), -- id 13
-('2','21','CHUYỀN 12'), -- id 14
+('2','47','CHUYỀN 11'), -- id 12
+('2','21','CHUYỀN 12'), -- id 13
+('2','91','CHUYỀN 20.01'), -- id 14
 ('2','17','CHUYỀN 13'), -- id 15
 ('2','16','CHUYỀN 14'), -- id 16
 ('2','31','CHUYỀN 15'), -- id 17
@@ -159,71 +159,70 @@ INSERT INTO tb_department (id_workshop, id_sync_bo_phan, name_department) VALUES
 ('2','19','CHUYỀN 18'), -- id 20
 ('2','43','CHUYỀN 19'), -- id 21
 ('2','25','CHUYỀN 20'), -- id 22
-('2','91','CHUYỀN 2001'), -- id 23
-('2','13','NGOÀI CHUYỀN MAY X2'), -- id 24
+('2','13','NGOÀI CHUYỀN MAY X2'), -- id 23
 
 -- XƯỞNG 3 ID 3 SYNC 24
-('3','32','CHUYỀN 21'), -- id 25
-('3','35','CHUYỀN 22'), -- id 26
-('3','27','CHUYỀN 23'), -- id 27
-('3','29','CHUYỀN 24'), -- id 28
-('3','36','CHUYỀN 25'), -- id 29
-('3','113','CHUYỀN 26'), -- id 30
-('3','79','CHUYỀN 27'), -- id 31
-('3','120','CHUYỀN 28'), -- id 32
-('3','51','CHUYỀN 29'), -- id 33
-('3','74','CHUYỀN 30'), -- id 34
-('3','99','NGOÀI CHUYỀN MAY X3'), -- id 35
+('3','32','CHUYỀN 21'), -- id 24
+('3','35','CHUYỀN 22'), -- id 25
+('3','27','CHUYỀN 23'), -- id 26
+('3','29','CHUYỀN 24'), -- id 27
+('3','36','CHUYỀN 25'), -- id 28
+('3','113','CHUYỀN 26'), -- id 29
+('3','79','CHUYỀN 27'), -- id 30
+('3','120','CHUYỀN 28'), -- id 31
+('3','51','CHUYỀN 29'), -- id 32
+('3','74','CHUYỀN 30'), -- id 33
+('3','99','NGOÀI CHUYỀN MAY X3'), -- id 34
 
 -- XƯỞNG 4 ID 4 SYNC 31
-('4','67','CHUYỀN 31'), -- id 36
-('4','85','CHUYỀN 32'), -- id 37
-('4','100','CHUYỀN 33'), -- id 38
-('4','53','CHUYỀN 34'), -- id 39
-('4','46','CHUYỀN 35'), -- id 40
-('4','40','CHUYỀN 36'), -- id 41
-('4','81','CHUYỀN 37'), -- id 42
-('4','103','CHUYỀN 38'), -- id 43
-('4','42','CHUYỀN 39'), -- id 44
-('4','48','CHUYỀN 40'), -- id 45
-('4','119','CHUYỀN CHUYÊN DÙNG - XƯỞNG 4'), -- id 46
-('4','83','CHUYỀN HOÀN THÀNH 1 - XƯỞNG 4'), -- id 47
-('4','109','CHUYỀN HOÀN THÀNH 2 - XƯỞNG 4'), -- id 48
-('4','34','NGOÀI CHUYỀN MAY X4'), -- id 49
+('4','67','CHUYỀN 31'), -- id 35
+('4','85','CHUYỀN 32'), -- id 36
+('4','100','CHUYỀN 33'), -- id 37
+('4','53','CHUYỀN 34'), -- id 38
+('4','46','CHUYỀN 35'), -- id 39
+('4','40','CHUYỀN 36'), -- id 40
+('4','81','CHUYỀN 37'), -- id 41
+('4','103','CHUYỀN 38'), -- id 42
+('4','42','CHUYỀN 39'), -- id 43
+('4','48','CHUYỀN 40'), -- id 44
+('4','119','CHUYỀN CHUYÊN DÙNG - XƯỞNG 4'), -- id 45
+('4','83','CHUYỀN HOÀN THÀNH 1 - XƯỞNG 4'), -- id 46
+('4','109','CHUYỀN HOÀN THÀNH 2 - XƯỞNG 4'), -- id 47
+('4','34','NGOÀI CHUYỀN MAY X4'), -- id 48
 
 -- XƯỞNG CẮT ID 5 SYNC 57
-('5','121','XƯỞNG CẮT'), -- id 50
+('5','121','XƯỞNG CẮT'), -- id 49
 
 -- PHÒNG NHÂN SỰ ID 6 SYNC 13
-('6','76','PHÒNG NHÂN SỰ'), -- id 51
+('6','76','PHÒNG NHÂN SỰ'), -- id 50
 
 -- PHÒNG HÀNH CHÍNH QUẢN TRỊ ID 7 SYNC 11
-('7','3','PHÒNG HÀNH CHÍNH QUẢN TRỊ'), -- id 52
-('7','2','BẢO VỆ'), -- id 53
-('7','5','NHÀ ĂN'), -- id 54
+('7','3','PHÒNG HÀNH CHÍNH QUẢN TRỊ'), -- id 51
+('7','2','BẢO VỆ'), -- id 52
+('7','5','NHÀ ĂN'), -- id 53
 
 -- PHÒNG KẾ TOÁN ID 8 SYNC 34
-('8','106','PHÒNG KẾ TOÁN'), -- id 55
+('8','106','PHÒNG KẾ TOÁN'), -- id 54
 
 -- PHÒNG KẾ HOẠCH SẢN XUẤT ID 9 SYNC 8
-('9','115','PHÒNG KẾ HOẠCH'), -- id 56
-('9','68','KHO THÀNH PHẨM'), -- id 57
+('9','115','PHÒNG KẾ HOẠCH'), -- id 55
+('9','68','KHO THÀNH PHẨM'), -- id 56
 
 -- PHÒNG KỸ THUẬT ID 10 SYNC 28
-('10','65','PHÒNG KỸ THUẬT'), -- id 58
-('10','23','MAY MẪU'), -- id 59
+('10','65','PHÒNG KỸ THUẬT'), -- id 57
+('10','23','MAY MẪU'), -- id 58
 
 -- PHÒNG QA ID 11 SYNC 39
-('11','64','PHÒNG QA'), -- id 60
+('11','64','PHÒNG QA'), -- id 59
 
 -- PHÒNG CN-LEAN ID 12 SYNC 15
-('12','26','PHÒNG CN-LEAN'), -- id 61
+('12','26','PHÒNG CN-LEAN'), -- id 60
 
 -- CƠ ĐIỆN ID 13 SYNC 14
-('13','117','BỘ PHẬN CƠ ĐIỆN'), -- id 62
+('13','117','BỘ PHẬN CƠ ĐIỆN'), -- id 61
 
 -- KHO NGUYÊN PHỤ LIỆU ID 15 SYNC 3202
-('14','44','KHO NGUYÊN PHỤ LIỆU'); -- id 63
+('14','44','KHO NGUYÊN PHỤ LIỆU'); -- id 62
 
 -- nhập liệu tiêu chí criteria
 INSERT INTO tb_criteria (id_category, codename, name_criteria, description, failing_point_type) VALUES
