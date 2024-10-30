@@ -1,123 +1,151 @@
 // frontend/src/components/ScorePercentageChart.js
 import React from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { Bar } from "react-chartjs-2";
 import { Card, CardContent, Typography, Box } from "@mui/material";
+import ChartDataLabels from "chartjs-plugin-datalabels";
+
+// Đăng ký các components cần thiết
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ChartDataLabels
+);
 
 // Chart component được định nghĩa trước
-const Chart = ({ title, data }) => (
-  <Card sx={{ width: "100%", mt: 4 }}>
-    <CardContent>
-      <Typography
-        variant="h6"
-        component="div"
-        align="center"
-        sx={{ fontWeight: "bold", mb: 2 }}
-      >
-        {title}
-      </Typography>
-      <Box
-        sx={{
-          width: "100%",
-          height: "400px",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <BarChart
-          width={1000}
-          height={350}
-          data={data}
-          margin={{
-            top: 20,
-            right: 30,
-            left: 40,
-            bottom: 100,
+const Chart = ({ title, data }) => {
+  const chartData = {
+    labels: data.map((item) => item.name),
+    datasets: [
+      {
+        data: data.map((item) => item.percentage),
+        backgroundColor: data.map((item) => item.color),
+        borderColor: data.map((item) =>
+          item.isTotal ? "#000" : "transparent"
+        ),
+        borderWidth: data.map((item) => (item.isTotal ? 2 : 0)),
+        barThickness: 40,
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 100,
+        ticks: {
+          stepSize: 20,
+          color: "#000",
+        },
+        title: {
+          display: true,
+          color: "#000",
+          text: "Điểm đạt (%)",
+          font: {
+            size: 12,
+          },
+        },
+      },
+      x: {
+        ticks: {
+          autoSkip: false,
+          maxRotation: 45,
+          minRotation: 45,
+          color: "#000",
+          font: function (context) {
+            const index = context.index;
+            // Kiểm tra xem label có phải là "TỔNG XƯỞNG" không
+            const isTotal = data[index]?.isTotal;
+            return {
+              size: isTotal ? 16 : 13,
+              weight: isTotal ? "bold" : "normal",
+            };
+          },
+          callback: function (value, index) {
+            return this.getLabelForValue(value);
+          },
+        },
+      },
+    },
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        callbacks: {
+          label: function (context) {
+            return `Điểm đạt: ${context.parsed.y}%`;
+          },
+          title: function (context) {
+            return `Bộ phận: ${context[0].label}`;
+          },
+        },
+      },
+      datalabels: {
+        display: true,
+        color: "#000",
+        // Hiển thị label bên trên cột
+        anchor: "end",
+        align: "top",
+
+        // Hiển thị label ở giữa cột
+        // anchor: "center",
+        // align: "center",
+
+        offset: -25,
+        font: {
+          size: 15,
+          weight: "bold",
+        },
+        formatter: function (value) {
+          return value + "%";
+        },
+      },
+    },
+  };
+
+  return (
+    <Card sx={{ width: "100%", mt: 4 }}>
+      <CardContent>
+        <Typography
+          variant="h6"
+          component="div"
+          align="center"
+          color="#000"
+          sx={{ fontWeight: "bold", mb: 2 }}
+        >
+          {title}
+        </Typography>
+        <Box
+          sx={{
+            width: "100%",
+            height: "400px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
           }}
         >
-          <XAxis
-            dataKey="name"
-            interval={0}
-            tick={(props) => {
-              if (!props || !props.payload) return null;
-              const { x, y, payload } = props;
-              const isTotal = data[payload.index]?.isTotal;
-              return (
-                <text
-                  x={x}
-                  y={y}
-                  dy={16}
-                  textAnchor="end"
-                  transform={`rotate(-45, ${x}, ${y})`}
-                  fontSize={11}
-                  fontWeight={isTotal ? "bold" : "normal"}
-                >
-                  {payload.value}
-                </text>
-              );
-            }}
-            height={100}
-          />
-          <YAxis
-            domain={[0, 100]}
-            ticks={[0, 20, 40, 60, 80, 100]}
-            label={{
-              value: "Điểm đạt (%)",
-              angle: -90,
-              position: "insideLeft",
-              offset: -10,
-            }}
-          />
-          <Tooltip
-            formatter={(value, name, props) =>
-              props?.payload ? [`${value}%`, "Điểm đạt"] : []
-            }
-            labelFormatter={(label) => `Bộ phận: ${label}`}
-          />
-          <Bar
-            dataKey="percentage"
-            isAnimationActive={false}
-            barSize={40}
-            label={{
-              position: "top",
-              content: (props) => {
-                if (!props || !props.payload) return null;
-                const { x, y, value, width, payload } = props;
-                return (
-                  <text
-                    x={x + width / 2}
-                    y={y - 10}
-                    fill={payload.isTotal ? payload.textColor : payload.color}
-                    fontSize="12"
-                    textAnchor="middle"
-                    fontWeight={payload.isTotal ? "bold" : "normal"}
-                  >
-                    {`${value}%`}
-                  </text>
-                );
-              },
-            }}
-            shape={(props) => {
-              if (!props || !props.payload) return null;
-              const { x, y, width, height, payload } = props;
-              return (
-                <rect
-                  x={x}
-                  y={y}
-                  width={width}
-                  height={height}
-                  fill={payload.color || "#000"}
-                  stroke={payload.isTotal ? "#000" : "none"}
-                  strokeWidth={payload.isTotal ? 2 : 0}
-                />
-              );
-            }}
-          />
-        </BarChart>
-      </Box>
-    </CardContent>
-  </Card>
-);
+          <Bar data={chartData} options={options} />
+        </Box>
+      </CardContent>
+    </Card>
+  );
+};
 
 const WorkshopScoreChart = ({ reportData }) => {
   function calculateDepartmentAverage(dept) {
