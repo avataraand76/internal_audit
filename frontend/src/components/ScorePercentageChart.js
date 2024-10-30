@@ -328,6 +328,13 @@ const WorkshopScoreChart = ({ reportData }) => {
 
   return (
     <Box sx={{ width: "100%" }}>
+      <Typography
+        variant="h5"
+        align="center"
+        sx={{ fontWeight: "bold", mb: 2, mt: 4 }}
+      >
+        THỐNG KÊ % ĐIỂM ĐẠT - MÀU SAO
+      </Typography>
       {mainWorkshopCharts}
       {supportWorkshopChart}
       {officeWorkshopChart}
