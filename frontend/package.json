@@ -24,6 +24,8 @@
     "react-router-dom": "^6.26.2",
     "react-scripts": "5.0.1",
     "react-select": "^5.8.2",
+    "recharts": "^2.13.1",
+    "shadcn-ui": "^0.9.2",
     "web-vitals": "^2.1.4"
   },
   "scripts": {

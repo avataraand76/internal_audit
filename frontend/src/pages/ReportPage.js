@@ -24,6 +24,7 @@ import {
 } from "@mui/material";
 import DownloadIcon from "@mui/icons-material/Download";
 import { styled } from "@mui/material/styles";
+import ScorePercentageChart from "../components/ScorePercentageChart";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   border: "1px solid rgba(240, 240, 240, 1)",
@@ -62,7 +63,7 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
   },
   "&.sticky-left-2": {
     position: "sticky",
-    left: "295px",
+    left: "291px",
     zIndex: 3,
   },
   // Màu nền mặc định cho sticky cells
@@ -765,6 +766,8 @@ export default function MonthlyReportPage() {
           </TableBody>
         </Table>
       </StyledTableContainer>
+
+      <ScorePercentageChart reportData={reportData} />
     </Container>
   );
 }
