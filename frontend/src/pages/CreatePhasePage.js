@@ -635,8 +635,15 @@ const CreatePhasePage = () => {
             spacing={2}
           >
             <Typography
-              variant={{ xs: "h5", sm: "h4", md: "h3" }}
+              variant="h4"
               component="h1"
+              sx={{
+                typography: {
+                  xs: "h5",
+                  sm: "h4",
+                  md: "h3",
+                },
+              }}
             >
               {isSupervisor ? "Quản lý đợt chấm điểm" : "Đợt chấm điểm"}
             </Typography>
@@ -698,8 +705,9 @@ const CreatePhasePage = () => {
                     >
                       <Stack spacing={1}>
                         <Typography
-                          variant={{ xs: "h6", sm: "h5" }}
+                          variant="h5"
                           sx={{
+                            typography: { xs: "h6", sm: "h5" },
                             fontSize: { xs: "1.5rem", sm: "2rem" },
                             fontWeight: "bold",
                             mb: 1,
@@ -875,11 +883,11 @@ const CreatePhasePage = () => {
                 variant="outlined"
                 InputLabelProps={{ shrink: true }}
                 inputProps={{ min: startDate }}
-                error={
+                error={Boolean(
                   endDate &&
-                  startDate &&
-                  new Date(endDate) < new Date(startDate)
-                }
+                    startDate &&
+                    new Date(endDate) < new Date(startDate)
+                )}
                 helperText={
                   endDate &&
                   startDate &&
@@ -894,12 +902,12 @@ const CreatePhasePage = () => {
             <Button
               onClick={handleSavePhase}
               variant="contained"
-              disabled={
+              disabled={Boolean(
                 !phaseName.trim() ||
-                (endDate &&
-                  startDate &&
-                  new Date(endDate) < new Date(startDate))
-              }
+                  (endDate &&
+                    startDate &&
+                    new Date(endDate) < new Date(startDate))
+              )}
             >
               {dialogMode === "create" ? "Tạo" : "Lưu"}
             </Button>

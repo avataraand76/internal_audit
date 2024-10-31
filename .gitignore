@@ -26,6 +26,5 @@ frontend/yarn-error.log*
 backend/.env
 # backend dependencies
 backend/node_modules
-backend/node_modules/.package-lock.json
 backend/.pnp
 backend/.pnp.js

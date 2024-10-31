@@ -12,6 +12,7 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
+  ListItemButton,
   useMediaQuery,
   Typography,
   Avatar,
@@ -176,22 +177,24 @@ const Header = () => {
         )}
         {!isLoginPage &&
           filteredNavItems.map((item) => (
-            <ListItem
-              key={item.text}
-              button
-              onClick={() => handleNavigation(item.path)}
-              selected={location.pathname === item.path}
-            >
-              <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
+            <ListItem key={item.text} disablePadding>
+              <ListItemButton
+                onClick={() => handleNavigation(item.path)}
+                selected={location.pathname === item.path}
+              >
+                <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                <ListItemText primary={item.text} />
+              </ListItemButton>
             </ListItem>
           ))}
         {!isLoginPage && (
-          <ListItem button onClick={handleLogout}>
-            <ListItemIcon sx={{ minWidth: 40, color: "#d32f2f" }}>
-              <LogoutIcon />
-            </ListItemIcon>
-            <ListItemText primary="Đăng xuất" sx={{ color: "#d32f2f" }} />
+          <ListItem disablePadding>
+            <ListItemButton onClick={handleLogout}>
+              <ListItemIcon sx={{ minWidth: 40, color: "#d32f2f" }}>
+                <LogoutIcon />
+              </ListItemIcon>
+              <ListItemText primary="Đăng xuất" sx={{ color: "#d32f2f" }} />
+            </ListItemButton>
           </ListItem>
         )}
       </List>
