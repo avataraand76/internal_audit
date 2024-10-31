@@ -20,6 +20,7 @@ const AppRoutes = () => {
           element={<DetailedPhasePage />}
         />
         <Route path="/report" element={<ReportPage />} />
+        <Route path="/report/:month/:year" element={<ReportPage />} />
       </Routes>
     </Router>
   );

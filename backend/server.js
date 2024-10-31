@@ -2040,9 +2040,18 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
       });
     });
 
+    // Nếu không có phases, trả về dữ liệu rỗng với cấu trúc phù hợp
     if (!phases || phases.length === 0) {
-      return res.status(404).json({
-        error: "No phases found for the specified month and year",
+      return res.json({
+        month: parseInt(month),
+        year: parseInt(year),
+        phases: [],
+        workshops: [],
+        summary: {
+          totalDepartments: 0,
+          totalPhases: 0,
+        },
+        message: "Không có dữ liệu cho tháng này",
       });
     }
 

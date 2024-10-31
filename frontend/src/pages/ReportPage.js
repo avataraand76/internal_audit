@@ -3,10 +3,10 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import API_URL from "../data/api";
-import { jsPDF } from "jspdf";
+// import { jsPDF } from "jspdf";
 import "jspdf-autotable";
 import {
-  Button,
+  // Button,
   Container,
   Typography,
   Table,
@@ -22,11 +22,12 @@ import {
   MenuItem,
   FormControl,
 } from "@mui/material";
-import DownloadIcon from "@mui/icons-material/Download";
+// import DownloadIcon from "@mui/icons-material/Download";
 import { styled } from "@mui/material/styles";
 import ScorePercentageChart from "../components/ScorePercentageChart";
 import KnockoutStatsChart from "../components/KnockoutStatsChart";
 import WorkshopStatistics from "../components/WorkshopStatistics";
+import Header from "../components/Header";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   border: "1px solid rgba(240, 240, 240, 1)",
@@ -167,13 +168,17 @@ export default function MonthlyReportPage() {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // Get month and year from URL params or current date
+  // Lấy tham số tháng và năm từ URL
   const { month: urlMonth, year: urlYear } = useParams();
-  const currentDate = new Date("2024-10-28");
-  const [selectedMonth, setSelectedMonth] = useState(
-    urlMonth || (currentDate.getMonth() + 1).toString()
-  );
-  const year = urlYear || currentDate.getFullYear().toString();
+
+  // Lấy ngày hiện tại
+  const currentDate = new Date();
+  const currentMonth = (currentDate.getMonth() + 1).toString();
+  const currentYear = currentDate.getFullYear().toString();
+
+  // Khởi tạo state với tháng từ URL hoặc tháng hiện tại
+  const [selectedMonth, setSelectedMonth] = useState(urlMonth || currentMonth);
+  const year = urlYear || currentYear;
 
   // Array of months for the dropdown
   const months = [
@@ -192,13 +197,29 @@ export default function MonthlyReportPage() {
   ];
 
   useEffect(() => {
+    if (!urlMonth) {
+      navigate(`/report/${currentMonth}/${currentYear}`);
+    }
+  }, [urlMonth, currentMonth, currentYear, navigate]);
+
+  useEffect(() => {
     const fetchReportData = async () => {
       setLoading(true);
       try {
-        // Fetch report data
         const reportResponse = await axios.get(
           `${API_URL}/monthly-report/${selectedMonth}/${year}`
         );
+
+        // Nếu không có phases hoặc workshops, set reportData là null
+        if (
+          !reportResponse.data.phases?.length ||
+          !reportResponse.data.workshops?.length
+        ) {
+          setReportData(null);
+          setError(null);
+          setLoading(false);
+          return;
+        }
 
         // Fetch inactive departments data for each phase
         const inactiveDepartmentsPromises = reportResponse.data.phases.map(
@@ -334,444 +355,504 @@ export default function MonthlyReportPage() {
     navigate(`/report/${newMonth}/${year}`);
   };
 
-  const handleDownloadPDF = () => {
-    const doc = new jsPDF();
-    const selectedMonthLabel =
-      months.find((m) => m.value === selectedMonth)?.label ||
-      `Tháng ${selectedMonth}`;
+  // const handleDownloadPDF = () => {
+  //   const doc = new jsPDF();
+  //   const selectedMonthLabel =
+  //     months.find((m) => m.value === selectedMonth)?.label ||
+  //     `Tháng ${selectedMonth}`;
 
-    // Add title
-    doc.setFontSize(16);
-    doc.text("CÔNG TY TNHH MAY VIỆT LONG HƯNG", 105, 20, { align: "center" });
-    doc.setFontSize(14);
-    doc.text("Ban Kiểm soát Hệ thống Tuần Thủ", 105, 30, { align: "center" });
-    doc.text(
-      `BẢNG TỔNG HỢP ĐIỂM KSNB CỦA CÁC BỘ PHẬN THÁNG ${selectedMonthLabel}/${year}`,
-      105,
-      40,
-      { align: "center" }
-    );
+  //   // Add title
+  //   doc.setFontSize(16);
+  //   doc.text("CÔNG TY TNHH MAY VIỆT LONG HƯNG", 105, 20, { align: "center" });
+  //   doc.setFontSize(14);
+  //   doc.text("Ban Kiểm soát Hệ thống Tuần Thủ", 105, 30, { align: "center" });
+  //   doc.text(
+  //     `BẢNG TỔNG HỢP ĐIỂM KSNB CỦA CÁC BỘ PHẬN THÁNG ${selectedMonthLabel}/${year}`,
+  //     105,
+  //     40,
+  //     { align: "center" }
+  //   );
 
-    // Prepare table data
-    const tableData = [];
-    let stt = 1;
+  //   // Prepare table data
+  //   const tableData = [];
+  //   let stt = 1;
 
-    reportData.workshops.forEach((workshop) => {
-      // Add workshop header row
-      tableData.push([
-        "",
-        workshop.workshopName,
-        "",
-        ...reportData.phases.flatMap(() => ["", "", ""]),
-      ]);
+  //   reportData.workshops.forEach((workshop) => {
+  //     // Add workshop header row
+  //     tableData.push([
+  //       "",
+  //       workshop.workshopName,
+  //       "",
+  //       ...reportData.phases.flatMap(() => ["", "", ""]),
+  //     ]);
 
-      // Add department rows
-      workshop.departments.forEach((dept) => {
-        const row = [stt++, dept.name_department, dept.max_points];
+  //     // Add department rows
+  //     workshop.departments.forEach((dept) => {
+  //       const row = [stt++, dept.name_department, dept.max_points];
 
-        // Add data for each phase
-        dept.phases.forEach((phase) => {
-          row.push(
-            phase.failedCount,
-            `${phase.scorePercentage}%`,
-            phase.knockoutTypes || ""
-          );
-        });
+  //       // Add data for each phase
+  //       dept.phases.forEach((phase) => {
+  //         row.push(
+  //           phase.failedCount,
+  //           `${phase.scorePercentage}%`,
+  //           phase.knockoutTypes || ""
+  //         );
+  //       });
 
-        tableData.push(row);
-      });
-    });
+  //       tableData.push(row);
+  //     });
+  //   });
 
-    // Create dynamic headers based on number of phases
-    const headers = [
-      [
-        { content: "STT", rowSpan: 2 },
-        { content: "Tên bộ phận", rowSpan: 2 },
-        { content: "Điểm tối đa", rowSpan: 2 },
-        ...reportData.phases.map((phase) => ({
-          content: phase.name_phase,
-          colSpan: 3,
-        })),
-      ],
-      [
-        ...reportData.phases.flatMap(() => [
-          "Tổng điểm trừ",
-          "% Điểm đạt",
-          "Hạng mục Điểm liệt",
-        ]),
-      ],
-    ];
+  //   // Create dynamic headers based on number of phases
+  //   const headers = [
+  //     [
+  //       { content: "STT", rowSpan: 2 },
+  //       { content: "Tên bộ phận", rowSpan: 2 },
+  //       { content: "Điểm tối đa", rowSpan: 2 },
+  //       ...reportData.phases.map((phase) => ({
+  //         content: phase.name_phase,
+  //         colSpan: 3,
+  //       })),
+  //     ],
+  //     [
+  //       ...reportData.phases.flatMap(() => [
+  //         "Tổng điểm trừ",
+  //         "% Điểm đạt",
+  //         "Hạng mục Điểm liệt",
+  //       ]),
+  //     ],
+  //   ];
 
-    // Add table to PDF
-    doc.autoTable({
-      head: headers,
-      body: tableData,
-      theme: "grid",
-      styles: {
-        fontSize: 8,
-        cellPadding: 2,
-      },
-      columnStyles: {
-        0: { cellWidth: 10 },
-        1: { cellWidth: 40 },
-      },
-    });
+  //   // Add table to PDF
+  //   doc.autoTable({
+  //     head: headers,
+  //     body: tableData,
+  //     theme: "grid",
+  //     styles: {
+  //       fontSize: 8,
+  //       cellPadding: 2,
+  //     },
+  //     columnStyles: {
+  //       0: { cellWidth: 10 },
+  //       1: { cellWidth: 40 },
+  //     },
+  //   });
 
-    doc.save(`baocao-ksnb-${selectedMonth}-${year}.pdf`);
-  };
+  //   doc.save(`baocao-ksnb-${selectedMonth}-${year}.pdf`);
+  // };
 
   if (loading) {
     return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="100vh"
-      >
-        <CircularProgress />
+      <Box sx={{ flexGrow: 1 }}>
+        <Header />
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          minHeight="calc(100vh - 64px)" // Trừ đi chiều cao của header
+        >
+          <CircularProgress />
+        </Box>
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Box p={3}>
-        <Typography color="error">{error}</Typography>
+      <Box sx={{ flexGrow: 1 }}>
+        <Header />
+        <Container maxWidth="xl" sx={{ py: 4 }}>
+          <Typography color="error" align="center">
+            {error}
+          </Typography>
+        </Container>
       </Box>
     );
   }
 
-  if (!reportData || !reportData.workshops) {
+  if (!reportData || !reportData.workshops || !reportData.phases?.length) {
     return (
-      <Box p={3}>
-        <Typography>No data available for this period</Typography>
+      <Box sx={{ flexGrow: 1 }}>
+        <Header />
+        <Container maxWidth="xl" sx={{ py: 4 }}>
+          {/* Header */}
+          <Box textAlign="center" mb={4}>
+            <Typography variant="h5" fontWeight="bold" gutterBottom>
+              BAN KIỂM SOÁT NỘI BỘ
+            </Typography>
+            <Box
+              display="flex"
+              justifyContent="center"
+              alignItems="center"
+              gap={2}
+            >
+              <Typography variant="h5" fontWeight="bold">
+                BẢNG TỔNG HỢP ĐIỂM KSNB CỦA CÁC BỘ PHẬN
+              </Typography>
+              <FormControl sx={{ minWidth: 120 }}>
+                <Select
+                  value={selectedMonth}
+                  onChange={handleMonthChange}
+                  size="small"
+                  sx={{ fontWeight: "bold" }}
+                >
+                  {months.map((month) => (
+                    <MenuItem key={month.value} value={month.value}>
+                      {month.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Typography variant="h5" fontWeight="bold">
+                / {year}
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Thông báo không có dữ liệu */}
+          <Paper sx={{ p: 4, mt: 4 }}>
+            <Typography variant="h6" align="center" color="text.secondary">
+              Không có dữ liệu cho tháng {selectedMonth} năm {year}
+            </Typography>
+          </Paper>
+        </Container>
       </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      {/* Header */}
-      <Box textAlign="center" mb={4}>
-        <Typography variant="h5" fontWeight="bold" gutterBottom>
-          BAN KIỂM SOÁT NỘI BỘ
-        </Typography>
-        <Box display="flex" justifyContent="center" alignItems="center" gap={2}>
-          <Typography variant="h5" fontWeight="bold">
-            BẢNG TỔNG HỢP ĐIỂM KSNB CỦA CÁC BỘ PHẬN
+    <Box sx={{ flexGrow: 1 }}>
+      <Header />
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        {/* Header */}
+        <Box textAlign="center" mb={4}>
+          <Typography variant="h5" fontWeight="bold" gutterBottom>
+            BAN KIỂM SOÁT NỘI BỘ
           </Typography>
-          <FormControl sx={{ minWidth: 120 }}>
-            <Select
-              value={selectedMonth}
-              onChange={handleMonthChange}
-              size="small"
-              sx={{ fontWeight: "bold" }}
-            >
-              {months.map((month) => (
-                <MenuItem key={month.value} value={month.value}>
-                  {month.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Typography variant="h5" fontWeight="bold">
-            /{year}
-          </Typography>
+          <Box
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+            gap={2}
+          >
+            <Typography variant="h5" fontWeight="bold">
+              BẢNG TỔNG HỢP ĐIỂM KSNB CỦA CÁC BỘ PHẬN
+            </Typography>
+            <FormControl sx={{ minWidth: 120 }}>
+              <Select
+                value={selectedMonth}
+                onChange={handleMonthChange}
+                size="small"
+                sx={{ fontWeight: "bold" }}
+              >
+                {months.map((month) => (
+                  <MenuItem key={month.value} value={month.value}>
+                    {month.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Typography variant="h5" fontWeight="bold">
+              / {year}
+            </Typography>
+          </Box>
         </Box>
-      </Box>
 
-      {/* Download Button */}
-      <Box mb={3}>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<DownloadIcon />}
-          onClick={handleDownloadPDF}
-        >
-          Tải xuống PDF
-        </Button>
-      </Box>
+        {/* Download Button */}
+        {/* <Box mb={3}>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadPDF}
+          >
+            Tải xuống PDF
+          </Button>
+        </Box> */}
 
-      {/* Report Table */}
-      <StyledTableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <StyledTableCell
-                align="center"
-                rowSpan={2}
-                className="sticky-top-row sticky-left-0"
-              >
-                STT
-              </StyledTableCell>
-              <StyledTableCell
-                align="center"
-                rowSpan={2}
-                className="sticky-top-row sticky-left-1"
-              >
-                Tên bộ phận
-              </StyledTableCell>
-              <StyledTableCell
-                align="center"
-                rowSpan={2}
-                className="sticky-top-row sticky-left-2"
-              >
-                Điểm tối đa
-              </StyledTableCell>
-              {reportData.phases.map((phase) => (
+        {/* Report Table */}
+        <StyledTableContainer component={Paper}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
                 <StyledTableCell
-                  key={phase.id_phase}
                   align="center"
-                  colSpan={3}
-                  className="phase-header sticky-top-row"
+                  rowSpan={2}
+                  className="sticky-top-row sticky-left-0"
                 >
-                  {phase.name_phase}
+                  STT
                 </StyledTableCell>
-              ))}
-              <StyledTableCell
-                align="center"
-                rowSpan={2}
-                className="summary-header sticky-top-row"
-              >
-                Tổng điểm đạt (%)
-              </StyledTableCell>
-            </TableRow>
-            <TableRow>
-              {reportData.phases.map((phase) => (
-                <React.Fragment key={`headers-${phase.id_phase}`}>
+                <StyledTableCell
+                  align="center"
+                  rowSpan={2}
+                  className="sticky-top-row sticky-left-1"
+                >
+                  Tên bộ phận
+                </StyledTableCell>
+                <StyledTableCell
+                  align="center"
+                  rowSpan={2}
+                  className="sticky-top-row sticky-left-2"
+                >
+                  Điểm tối đa
+                </StyledTableCell>
+                {reportData.phases.map((phase) => (
                   <StyledTableCell
+                    key={phase.id_phase}
                     align="center"
-                    className="phase-header sticky-bottom-row"
+                    colSpan={3}
+                    className="phase-header sticky-top-row"
                   >
-                    Tổng điểm trừ
+                    {phase.name_phase}
                   </StyledTableCell>
-                  <StyledTableCell
-                    align="center"
-                    className="phase-header sticky-bottom-row"
-                  >
-                    % Điểm đạt
-                  </StyledTableCell>
-                  <StyledTableCell
-                    align="center"
-                    className="phase-header sticky-bottom-row"
-                  >
-                    Hạng mục Điểm liệt
-                  </StyledTableCell>
-                </React.Fragment>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {reportData.workshops.map((workshop, wIndex) => (
-              <React.Fragment key={wIndex}>
-                {/* Workshop header row with average scores */}
-                <StyledTableRow className="workshop-row">
-                  <StyledTableCell
-                    colSpan={2}
-                    className="sticky-left-0"
-                    sx={{ backgroundColor: "#fff3e0" }}
-                  >
-                    <Typography variant="subtitle1" fontWeight="bold">
-                      {workshop.workshopName}
-                    </Typography>
-                  </StyledTableCell>
-                  <StyledTableCell
-                    className="sticky-left-2"
-                    sx={{ backgroundColor: "#fff3e0" }}
-                  >
-                    {/* Ô trống để giữ alignment*/}
-                  </StyledTableCell>
-                  {reportData.phases.map((phase, phaseIndex) => {
-                    const avgScore = calculateWorkshopAverage(
-                      workshop.departments,
-                      phaseIndex
-                    );
-
-                    return (
-                      <React.Fragment key={`avg-${phaseIndex}`}>
-                        <StyledTableCell align="center">
-                          {/* Empty cell for total points deducted */}
-                        </StyledTableCell>
-                        <StyledTableCell
-                          align="center"
-                          sx={{
-                            fontWeight: "bold",
-                          }}
-                        >
-                          {typeof avgScore === "number"
-                            ? `${avgScore}%`
-                            : `${avgScore}%`}
-                        </StyledTableCell>
-                        <StyledTableCell align="center">
-                          {/* Empty cell for knockout types */}
-                        </StyledTableCell>
-                      </React.Fragment>
-                    );
-                  })}
-                  <StyledTableCell align="center" sx={{ fontWeight: "bold" }}>
-                    {typeof calculateWorkshopTotalAverage(workshop) === "number"
-                      ? `${calculateWorkshopTotalAverage(workshop)}%`
-                      : `${calculateWorkshopTotalAverage(workshop)}%`}
-                  </StyledTableCell>
-                </StyledTableRow>
-
-                {/* Department rows */}
-                {workshop.departments.map((dept, dIndex) => (
-                  <StyledTableRow key={`${wIndex}-${dIndex}`}>
-                    <StyledTableCell align="center" className="sticky-left-0">
-                      {dIndex + 1}
+                ))}
+                <StyledTableCell
+                  align="center"
+                  rowSpan={2}
+                  className="summary-header sticky-top-row"
+                >
+                  Tổng điểm đạt (%)
+                </StyledTableCell>
+              </TableRow>
+              <TableRow>
+                {reportData.phases.map((phase) => (
+                  <React.Fragment key={`headers-${phase.id_phase}`}>
+                    <StyledTableCell
+                      align="center"
+                      className="phase-header sticky-bottom-row"
+                    >
+                      Tổng điểm trừ
                     </StyledTableCell>
-                    <StyledTableCell className="sticky-left-1">
-                      {dept.name_department}
+                    <StyledTableCell
+                      align="center"
+                      className="phase-header sticky-bottom-row"
+                    >
+                      % Điểm đạt
                     </StyledTableCell>
-                    <StyledTableCell align="center" className="sticky-left-2">
-                      {dept.max_points}
+                    <StyledTableCell
+                      align="center"
+                      className="phase-header sticky-bottom-row"
+                    >
+                      Hạng mục Điểm liệt
                     </StyledTableCell>
-                    {dept.phases.map((phase, pIndex) => {
-                      const isInactive = reportData.phases[
-                        pIndex
-                      ]?.inactiveDepartments?.includes(dept.id_department);
+                  </React.Fragment>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {reportData.workshops.map((workshop, wIndex) => (
+                <React.Fragment key={wIndex}>
+                  {/* Workshop header row with average scores */}
+                  <StyledTableRow className="workshop-row">
+                    <StyledTableCell
+                      colSpan={2}
+                      className="sticky-left-0"
+                      sx={{ backgroundColor: "#fff3e0" }}
+                    >
+                      <Typography variant="subtitle1" fontWeight="bold">
+                        {workshop.workshopName}
+                      </Typography>
+                    </StyledTableCell>
+                    <StyledTableCell
+                      className="sticky-left-2"
+                      sx={{ backgroundColor: "#fff3e0" }}
+                    >
+                      {/* Ô trống để giữ alignment*/}
+                    </StyledTableCell>
+                    {reportData.phases.map((phase, phaseIndex) => {
+                      const avgScore = calculateWorkshopAverage(
+                        workshop.departments,
+                        phaseIndex
+                      );
 
                       return (
-                        <React.Fragment key={`${dIndex}-${pIndex}`}>
-                          <StyledTableCell
-                            align="center"
-                            sx={isInactive ? inactiveCellStyle : {}}
-                          >
-                            {isInactive ? "" : phase.failedCount}
+                        <React.Fragment key={`avg-${phaseIndex}`}>
+                          <StyledTableCell align="center">
+                            {/* Empty cell for total points deducted */}
                           </StyledTableCell>
                           <StyledTableCell
                             align="center"
                             sx={{
-                              ...(isInactive
-                                ? inactiveCellStyle
-                                : {
-                                    fontWeight: "bold",
-                                    backgroundColor: (theme) => {
-                                      if (
-                                        phase.knockoutTypes ||
-                                        phase.has_knockout ||
-                                        phase.scorePercentage < 80
-                                      ) {
-                                        return "#ffebee";
-                                      }
-                                      return "#e8f5e9";
-                                    },
-                                    color: (theme) => {
-                                      if (
-                                        phase.knockoutTypes ||
-                                        phase.has_knockout ||
-                                        phase.scorePercentage < 80
-                                      ) {
-                                        return "#FF0000";
-                                      }
-                                      return "#009900";
-                                    },
-                                  }),
+                              fontWeight: "bold",
                             }}
                           >
-                            {isInactive ? "" : `${phase.scorePercentage}%`}
+                            {typeof avgScore === "number"
+                              ? `${avgScore}%`
+                              : `${avgScore}%`}
                           </StyledTableCell>
-                          <StyledTableCell
-                            align="center"
-                            sx={isInactive ? inactiveCellStyle : {}}
-                          >
-                            {isInactive ? "" : phase.knockoutTypes}
+                          <StyledTableCell align="center">
+                            {/* Empty cell for knockout types */}
                           </StyledTableCell>
                         </React.Fragment>
                       );
                     })}
-                    <StyledTableCell
-                      align="center"
-                      sx={{
-                        fontWeight: "bold",
-                        ...(typeof calculateDepartmentAverage(dept) === "number"
-                          ? {
-                              backgroundColor: (theme) => {
-                                const avg = calculateDepartmentAverage(dept);
-                                // Tô màu xanh chỉ khi tổng điểm >= 80 và ô đợt cuối có màu xanh
-                                if (avg >= 80 && isLatestPhaseGreen(dept)) {
-                                  return "#e8f5e9";
-                                }
-                                return "#ffebee";
-                              },
-                              color: (theme) => {
-                                const avg = calculateDepartmentAverage(dept);
-                                if (avg >= 80 && isLatestPhaseGreen(dept)) {
-                                  return "#009900";
-                                }
-                                return "#FF0000";
-                              },
-                            }
-                          : inactiveCellStyle),
-                      }}
-                    >
-                      {typeof calculateDepartmentAverage(dept) === "number"
-                        ? `${calculateDepartmentAverage(dept)}%`
-                        : calculateDepartmentAverage(dept)}
+                    <StyledTableCell align="center" sx={{ fontWeight: "bold" }}>
+                      {typeof calculateWorkshopTotalAverage(workshop) ===
+                      "number"
+                        ? `${calculateWorkshopTotalAverage(workshop)}%`
+                        : `${calculateWorkshopTotalAverage(workshop)}%`}
                     </StyledTableCell>
                   </StyledTableRow>
-                ))}
-              </React.Fragment>
-            ))}
-            {/* Summary Rows */}
-            <TableRow
-              className="summary-row"
-              sx={{ backgroundColor: "#1976d3" }}
-            >
-              <StyledTableCell
-                colSpan={2}
-                align="center"
-                className="sticky-left-0"
-                sx={{
-                  backgroundColor: "#1976d3",
-                  color: "white",
-                }}
-              >
-                <Typography fontWeight="bold">TỔNG KẾT</Typography>
-              </StyledTableCell>
-              <StyledTableCell
-                className="sticky-left-2"
-                sx={{
-                  backgroundColor: "#1976d3",
-                  color: "white",
-                }}
-              >
-                {/* Ô trống để giữ alignment*/}
-              </StyledTableCell>
-              {reportData.phases.map((phase, index) => (
-                <React.Fragment key={`summary-${index}`}>
-                  <StyledTableCell />
-                  <StyledTableCell align="center" sx={{ fontWeight: "bold" }}>
-                    {typeof calculateWorkshopAverage(
-                      reportData.workshops.flatMap((w) => w.departments),
-                      index
-                    ) === "number"
-                      ? `${calculateWorkshopAverage(
-                          reportData.workshops.flatMap((w) => w.departments),
-                          index
-                        )}%`
-                      : `${calculateWorkshopAverage(
-                          reportData.workshops.flatMap((w) => w.departments),
-                          index
-                        )}%`}
-                  </StyledTableCell>
-                  <StyledTableCell />
+
+                  {/* Department rows */}
+                  {workshop.departments.map((dept, dIndex) => (
+                    <StyledTableRow key={`${wIndex}-${dIndex}`}>
+                      <StyledTableCell align="center" className="sticky-left-0">
+                        {dIndex + 1}
+                      </StyledTableCell>
+                      <StyledTableCell className="sticky-left-1">
+                        {dept.name_department}
+                      </StyledTableCell>
+                      <StyledTableCell align="center" className="sticky-left-2">
+                        {dept.max_points}
+                      </StyledTableCell>
+                      {dept.phases.map((phase, pIndex) => {
+                        const isInactive = reportData.phases[
+                          pIndex
+                        ]?.inactiveDepartments?.includes(dept.id_department);
+
+                        return (
+                          <React.Fragment key={`${dIndex}-${pIndex}`}>
+                            <StyledTableCell
+                              align="center"
+                              sx={isInactive ? inactiveCellStyle : {}}
+                            >
+                              {isInactive ? "" : phase.failedCount}
+                            </StyledTableCell>
+                            <StyledTableCell
+                              align="center"
+                              sx={{
+                                ...(isInactive
+                                  ? inactiveCellStyle
+                                  : {
+                                      fontWeight: "bold",
+                                      backgroundColor: (theme) => {
+                                        if (
+                                          phase.knockoutTypes ||
+                                          phase.has_knockout ||
+                                          phase.scorePercentage < 80
+                                        ) {
+                                          return "#ffebee";
+                                        }
+                                        return "#e8f5e9";
+                                      },
+                                      color: (theme) => {
+                                        if (
+                                          phase.knockoutTypes ||
+                                          phase.has_knockout ||
+                                          phase.scorePercentage < 80
+                                        ) {
+                                          return "#FF0000";
+                                        }
+                                        return "#009900";
+                                      },
+                                    }),
+                              }}
+                            >
+                              {isInactive ? "" : `${phase.scorePercentage}%`}
+                            </StyledTableCell>
+                            <StyledTableCell
+                              align="center"
+                              sx={isInactive ? inactiveCellStyle : {}}
+                            >
+                              {isInactive ? "" : phase.knockoutTypes}
+                            </StyledTableCell>
+                          </React.Fragment>
+                        );
+                      })}
+                      <StyledTableCell
+                        align="center"
+                        sx={{
+                          fontWeight: "bold",
+                          ...(typeof calculateDepartmentAverage(dept) ===
+                          "number"
+                            ? {
+                                backgroundColor: (theme) => {
+                                  const avg = calculateDepartmentAverage(dept);
+                                  // Tô màu xanh chỉ khi tổng điểm >= 80 và ô đợt cuối có màu xanh
+                                  if (avg >= 80 && isLatestPhaseGreen(dept)) {
+                                    return "#e8f5e9";
+                                  }
+                                  return "#ffebee";
+                                },
+                                color: (theme) => {
+                                  const avg = calculateDepartmentAverage(dept);
+                                  if (avg >= 80 && isLatestPhaseGreen(dept)) {
+                                    return "#009900";
+                                  }
+                                  return "#FF0000";
+                                },
+                              }
+                            : inactiveCellStyle),
+                        }}
+                      >
+                        {typeof calculateDepartmentAverage(dept) === "number"
+                          ? `${calculateDepartmentAverage(dept)}%`
+                          : calculateDepartmentAverage(dept)}
+                      </StyledTableCell>
+                    </StyledTableRow>
+                  ))}
                 </React.Fragment>
               ))}
-              <StyledTableCell align="center" sx={{ fontWeight: "bold" }}>
-                {typeof calculateOverallAverage() === "number"
-                  ? `${calculateOverallAverage()}%`
-                  : `${calculateOverallAverage()}%`}
-              </StyledTableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </StyledTableContainer>
+              {/* Summary Rows */}
+              <TableRow
+                className="summary-row"
+                sx={{ backgroundColor: "#1976d3" }}
+              >
+                <StyledTableCell
+                  colSpan={2}
+                  align="center"
+                  className="sticky-left-0"
+                  sx={{
+                    backgroundColor: "#1976d3",
+                    color: "white",
+                  }}
+                >
+                  <Typography fontWeight="bold">TỔNG KẾT</Typography>
+                </StyledTableCell>
+                <StyledTableCell
+                  className="sticky-left-2"
+                  sx={{
+                    backgroundColor: "#1976d3",
+                    color: "white",
+                  }}
+                >
+                  {/* Ô trống để giữ alignment*/}
+                </StyledTableCell>
+                {reportData.phases.map((phase, index) => (
+                  <React.Fragment key={`summary-${index}`}>
+                    <StyledTableCell />
+                    <StyledTableCell align="center" sx={{ fontWeight: "bold" }}>
+                      {typeof calculateWorkshopAverage(
+                        reportData.workshops.flatMap((w) => w.departments),
+                        index
+                      ) === "number"
+                        ? `${calculateWorkshopAverage(
+                            reportData.workshops.flatMap((w) => w.departments),
+                            index
+                          )}%`
+                        : `${calculateWorkshopAverage(
+                            reportData.workshops.flatMap((w) => w.departments),
+                            index
+                          )}%`}
+                    </StyledTableCell>
+                    <StyledTableCell />
+                  </React.Fragment>
+                ))}
+                <StyledTableCell align="center" sx={{ fontWeight: "bold" }}>
+                  {typeof calculateOverallAverage() === "number"
+                    ? `${calculateOverallAverage()}%`
+                    : `${calculateOverallAverage()}%`}
+                </StyledTableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </StyledTableContainer>
 
-      <ScorePercentageChart reportData={reportData} />
-      <KnockoutStatsChart reportData={reportData} />
-      <WorkshopStatistics reportData={reportData} />
-    </Container>
+        <ScorePercentageChart reportData={reportData} />
+        <KnockoutStatsChart reportData={reportData} />
+        <WorkshopStatistics reportData={reportData} />
+      </Container>
+    </Box>
   );
 }
