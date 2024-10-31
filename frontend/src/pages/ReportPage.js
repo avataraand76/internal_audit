@@ -3,10 +3,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import API_URL from "../data/api";
-// import { jsPDF } from "jspdf";
 import "jspdf-autotable";
 import {
-  // Button,
   Container,
   Typography,
   Table,
@@ -22,7 +20,6 @@ import {
   MenuItem,
   FormControl,
 } from "@mui/material";
-// import DownloadIcon from "@mui/icons-material/Download";
 import { styled } from "@mui/material/styles";
 import ScorePercentageChart from "../components/ScorePercentageChart";
 import KnockoutStatsChart from "../components/KnockoutStatsChart";
@@ -30,6 +27,7 @@ import WorkshopStatistics from "../components/WorkshopStatistics";
 import ViolationImages from "../components/ViolationImages";
 import Header from "../components/Header";
 import NavigationBubble from "../components/NavigationBubble";
+import ExportPDFButtons from "../components/ExportPDFButtons";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   border: "1px solid rgba(240, 240, 240, 1)",
@@ -363,92 +361,6 @@ export default function MonthlyReportPage() {
     navigate(`/report/${newMonth}/${year}`);
   };
 
-  // const handleDownloadPDF = () => {
-  //   const doc = new jsPDF();
-  //   const selectedMonthLabel =
-  //     months.find((m) => m.value === selectedMonth)?.label ||
-  //     `Tháng ${selectedMonth}`;
-
-  //   // Add title
-  //   doc.setFontSize(16);
-  //   doc.text("CÔNG TY TNHH MAY VIỆT LONG HƯNG", 105, 20, { align: "center" });
-  //   doc.setFontSize(14);
-  //   doc.text("Ban Kiểm soát Hệ thống Tuần Thủ", 105, 30, { align: "center" });
-  //   doc.text(
-  //     `BẢNG TỔNG HỢP ĐIỂM KSNB CỦA CÁC BỘ PHẬN THÁNG ${selectedMonthLabel}/${year}`,
-  //     105,
-  //     40,
-  //     { align: "center" }
-  //   );
-
-  //   // Prepare table data
-  //   const tableData = [];
-  //   let stt = 1;
-
-  //   reportData.workshops.forEach((workshop) => {
-  //     // Add workshop header row
-  //     tableData.push([
-  //       "",
-  //       workshop.workshopName,
-  //       "",
-  //       ...reportData.phases.flatMap(() => ["", "", ""]),
-  //     ]);
-
-  //     // Add department rows
-  //     workshop.departments.forEach((dept) => {
-  //       const row = [stt++, dept.name_department, dept.max_points];
-
-  //       // Add data for each phase
-  //       dept.phases.forEach((phase) => {
-  //         row.push(
-  //           phase.failedCount,
-  //           `${phase.scorePercentage}%`,
-  //           phase.knockoutTypes || ""
-  //         );
-  //       });
-
-  //       tableData.push(row);
-  //     });
-  //   });
-
-  //   // Create dynamic headers based on number of phases
-  //   const headers = [
-  //     [
-  //       { content: "STT", rowSpan: 2 },
-  //       { content: "Tên bộ phận", rowSpan: 2 },
-  //       { content: "Điểm tối đa", rowSpan: 2 },
-  //       ...reportData.phases.map((phase) => ({
-  //         content: phase.name_phase,
-  //         colSpan: 3,
-  //       })),
-  //     ],
-  //     [
-  //       ...reportData.phases.flatMap(() => [
-  //         "Tổng điểm trừ",
-  //         "% Điểm đạt",
-  //         "Hạng mục Điểm liệt",
-  //       ]),
-  //     ],
-  //   ];
-
-  //   // Add table to PDF
-  //   doc.autoTable({
-  //     head: headers,
-  //     body: tableData,
-  //     theme: "grid",
-  //     styles: {
-  //       fontSize: 8,
-  //       cellPadding: 2,
-  //     },
-  //     columnStyles: {
-  //       0: { cellWidth: 10 },
-  //       1: { cellWidth: 40 },
-  //     },
-  //   });
-
-  //   doc.save(`baocao-ksnb-${selectedMonth}-${year}.pdf`);
-  // };
-
   if (loading) {
     return (
       <Box sx={{ flexGrow: 1 }}>
@@ -566,17 +478,8 @@ export default function MonthlyReportPage() {
           </Box>
         </Box>
 
-        {/* Download Button */}
-        {/* <Box mb={3}>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<DownloadIcon />}
-            onClick={handleDownloadPDF}
-          >
-            Tải xuống PDF
-          </Button>
-        </Box> */}
+        {/* ExportPDFButtons */}
+        <ExportPDFButtons />
 
         {/* Report Table */}
         <StyledTableContainer ref={tableRef} component={Paper}>
