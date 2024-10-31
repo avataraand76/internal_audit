@@ -27,6 +27,7 @@ import { styled } from "@mui/material/styles";
 import ScorePercentageChart from "../components/ScorePercentageChart";
 import KnockoutStatsChart from "../components/KnockoutStatsChart";
 import WorkshopStatistics from "../components/WorkshopStatistics";
+import ViolationImages from "../components/ViolationImages";
 import Header from "../components/Header";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -852,6 +853,7 @@ export default function MonthlyReportPage() {
         <ScorePercentageChart reportData={reportData} />
         <KnockoutStatsChart reportData={reportData} />
         <WorkshopStatistics reportData={reportData} />
+        <ViolationImages reportData={reportData} />
       </Container>
     </Box>
   );

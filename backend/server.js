@@ -2223,6 +2223,41 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
     });
   }
 });
+
+// Endpoint để lấy tất cả ảnh vi phạm của bộ phận trong một đợt
+app.get("/get-phase-details-images/:phaseId/:departmentId", (req, res) => {
+  const { phaseId, departmentId } = req.params;
+
+  const query = `
+    SELECT pd.id_criteria, pd.imgURL_before, pd.imgURL_after, c.name_criteria, c.codename
+    FROM tb_phase_details pd
+    JOIN tb_criteria c ON pd.id_criteria = c.id_criteria
+    WHERE pd.id_phase = ? 
+    AND pd.id_department = ?
+    AND (pd.imgURL_before IS NOT NULL OR pd.imgURL_after IS NOT NULL)
+  `;
+
+  db.query(query, [phaseId, departmentId], (err, results) => {
+    if (err) {
+      console.error("Error fetching violation images:", err);
+      res.status(500).json({ error: "Error fetching violation images" });
+      return;
+    }
+
+    // Transform kết quả thành object theo criteria
+    const violationImages = {};
+    results.forEach((result) => {
+      violationImages[result.id_criteria] = {
+        criterionName: result.name_criteria,
+        codename: result.codename,
+        before: result.imgURL_before,
+        after: result.imgURL_after,
+      };
+    });
+
+    res.json(violationImages);
+  });
+});
 //////////report page//////////
 
 const PORT = 8081;
