@@ -125,12 +125,13 @@ const WorkshopStatistics = ({ reportData }) => {
         let knockoutsByDept = new Map();
 
         const errorCounts = {
-          ATLĐ: { count: 0, deptCount: 0 },
-          PNKL: { count: 0, deptCount: 0 },
-          QMS: { count: 0, deptCount: 0 },
-          TTNV: { count: 0, deptCount: 0 },
+          ATLĐ: { deptCount: 0 },
+          PNKL: { deptCount: 0 },
+          QMS: { deptCount: 0 },
+          TTNV: { deptCount: 0 },
         };
 
+        // Collect all departments that are active
         workshop.departments.forEach((dept) => {
           const isActive = dept.phases.some((phase, phaseIndex) => {
             return !reportData.phases[
@@ -140,7 +141,7 @@ const WorkshopStatistics = ({ reportData }) => {
 
           if (isActive) {
             activeDepartments++;
-            knockoutsByDept.set(dept.id_department, new Set());
+            const deptKnockouts = new Set();
 
             dept.phases.forEach((phase, phaseIndex) => {
               const isPhaseActive = !reportData.phases[
@@ -151,26 +152,29 @@ const WorkshopStatistics = ({ reportData }) => {
                 const knockouts = phase.knockoutTypes
                   .split(",")
                   .map((k) => k.trim());
+
                 knockouts.forEach((knockout) => {
                   if (knockout.includes("An toàn lao động")) {
-                    knockoutsByDept.get(dept.id_department).add("ATLĐ");
+                    deptKnockouts.add("ATLĐ");
                   }
                   if (knockout.includes("Phòng ngừa kim loại")) {
-                    knockoutsByDept.get(dept.id_department).add("PNKL");
+                    deptKnockouts.add("PNKL");
                   }
                   if (knockout.includes("QMS")) {
-                    knockoutsByDept.get(dept.id_department).add("QMS");
+                    deptKnockouts.add("QMS");
                   }
                   if (knockout.includes("Trật tự nội vụ")) {
-                    knockoutsByDept.get(dept.id_department).add("TTNV");
+                    deptKnockouts.add("TTNV");
                   }
                 });
               }
             });
+
+            knockoutsByDept.set(dept.id_department, deptKnockouts);
           }
         });
 
-        // Count departments with each type of knockout
+        // Count departments with knockouts
         for (const knockouts of knockoutsByDept.values()) {
           if (knockouts.has("ATLĐ")) errorCounts.ATLĐ.deptCount++;
           if (knockouts.has("PNKL")) errorCounts.PNKL.deptCount++;
@@ -178,36 +182,12 @@ const WorkshopStatistics = ({ reportData }) => {
           if (knockouts.has("TTNV")) errorCounts.TTNV.deptCount++;
         }
 
-        const percentages = {
-          ATLĐ: 0,
-          PNKL: 0,
-          QMS: 0,
-          TTNV: 0,
-        };
-
-        if (activeDepartments > 0) {
-          Object.keys(errorCounts).forEach((key) => {
-            percentages[key] = Math.round(
-              (errorCounts[key].deptCount / activeDepartments) * 100
-            );
-          });
-        }
-
         return {
-          percentages,
           counts: errorCounts,
           activeDepartments,
         };
       })
       .filter(Boolean);
-
-    // Calculate averages and total counts
-    const averages = {
-      ATLĐ: 0,
-      PNKL: 0,
-      QMS: 0,
-      TTNV: 0,
-    };
 
     const totalCounts = {
       ATLĐ: 0,
@@ -218,16 +198,26 @@ const WorkshopStatistics = ({ reportData }) => {
 
     let totalActiveDepartments = 0;
 
+    // Sum up all counts and active departments
     workshopErrors.forEach((workshop) => {
-      Object.keys(averages).forEach((key) => {
-        averages[key] += workshop.percentages[key];
+      Object.keys(totalCounts).forEach((key) => {
         totalCounts[key] += workshop.counts[key].deptCount;
       });
       totalActiveDepartments += workshop.activeDepartments;
     });
 
+    // Calculate percentages based on total counts divided by total active departments
+    const averages = {
+      ATLĐ: 0,
+      PNKL: 0,
+      QMS: 0,
+      TTNV: 0,
+    };
+
     Object.keys(averages).forEach((key) => {
-      averages[key] = Math.round(averages[key] / workshopErrors.length);
+      averages[key] = Math.round(
+        (totalCounts[key] / totalActiveDepartments) * 100
+      );
     });
 
     return {
@@ -320,7 +310,7 @@ const WorkshopStatistics = ({ reportData }) => {
         color: "#000",
         anchor: "end",
         align: "end",
-        offset: -8,
+        offset: -10,
         font: {
           size: 12,
           weight: "bold",
@@ -338,6 +328,7 @@ const WorkshopStatistics = ({ reportData }) => {
         beginAtZero: true,
         max: 100,
         ticks: {
+          stepSize: 20,
           callback: (value) => `${value}%`,
         },
         title: {
@@ -418,6 +409,7 @@ const WorkshopStatistics = ({ reportData }) => {
         beginAtZero: true,
         max: 100,
         ticks: {
+          stepSize: 20,
           callback: (value) => `${value}%`,
         },
         title: {
@@ -440,6 +432,14 @@ const WorkshopStatistics = ({ reportData }) => {
 
   return (
     <Box sx={{ width: "100%", mt: 4, mb: 4 }}>
+      <Typography
+        variant="h5"
+        align="center"
+        sx={{ fontWeight: "bold", mb: 2, mt: 4 }}
+      >
+        THỐNG KÊ SAO XANH VÀ % ĐIỂM LIỆT / 4 XƯỞNG
+      </Typography>
+
       {/* Green Star Statistics */}
       <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
         <Typography
@@ -450,7 +450,7 @@ const WorkshopStatistics = ({ reportData }) => {
             mb: 3,
           }}
         >
-          THỐNG KÊ CHUYỀN ĐẠT SAO XANH / 4 XƯỞNG
+          CHUYỀN ĐẠT SAO XANH / 4 XƯỞNG
         </Typography>
         <Box
           sx={{
@@ -483,7 +483,7 @@ const WorkshopStatistics = ({ reportData }) => {
             mb: 3,
           }}
         >
-          THỐNG KÊ % HẠNG MỤC ĐIỂM LIỆT / 4 XƯỞNG
+          % HẠNG MỤC ĐIỂM LIỆT / 4 XƯỞNG
         </Typography>
         <Box sx={{ height: 400 }}>
           <Bar data={errorChartData} options={errorOptions} />

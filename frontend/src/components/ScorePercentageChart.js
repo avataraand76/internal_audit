@@ -58,6 +58,7 @@ const Chart = ({ title, data }) => {
           text: "Điểm đạt (%)",
           font: {
             size: 12,
+            weight: "bold",
           },
         },
       },
@@ -101,13 +102,13 @@ const Chart = ({ title, data }) => {
         color: "#000",
         // Hiển thị label bên trên cột
         anchor: "end",
-        align: "top",
+        align: "end",
 
         // Hiển thị label ở giữa cột
         // anchor: "center",
         // align: "center",
 
-        offset: -25,
+        offset: -10,
         font: {
           size: 15,
           weight: "bold",

@@ -46,12 +46,9 @@ const KnockoutStatsChart = ({ reportData }) => {
 
     // Đếm số department hoạt động
     let activeDepartments = 0;
-    // Tổng số điểm liệt của tất cả department hoạt động
-    let totalKnockouts = 0;
-    // Map để theo dõi loại điểm liệt của workshop
+    // Map để theo dõi loại điểm liệt của mỗi department
     let knockoutsByDept = new Map();
 
-    // Kiểm tra và đếm department hoạt động
     workshop.departments.forEach((dept) => {
       const isActive = dept.phases.some((phase, phaseIndex) => {
         return !reportData.phases[phaseIndex]?.inactiveDepartments?.includes(
@@ -61,7 +58,8 @@ const KnockoutStatsChart = ({ reportData }) => {
 
       if (isActive) {
         activeDepartments++;
-        knockoutsByDept.set(dept.id_department, []);
+        // Sử dụng Set để lưu unique knockout types cho mỗi department
+        const deptKnockouts = new Set();
 
         dept.phases.forEach((phase, phaseIndex) => {
           const isPhaseActive = !reportData.phases[
@@ -72,34 +70,37 @@ const KnockoutStatsChart = ({ reportData }) => {
             const knockoutList = phase.knockoutTypes
               .split(",")
               .map((type) => type.trim());
+
             knockoutList.forEach((type) => {
-              totalKnockouts++;
               if (type.includes("An toàn lao động")) {
-                stats["ATLĐ"].count++;
-                knockoutsByDept.get(dept.id_department).push("ATLĐ");
+                deptKnockouts.add("ATLĐ");
               }
               if (type.includes("Phòng ngừa kim loại")) {
-                stats["PNKL"].count++;
-                knockoutsByDept.get(dept.id_department).push("PNKL");
+                deptKnockouts.add("PNKL");
               }
               if (type.includes("QMS")) {
-                stats["QMS"].count++;
-                knockoutsByDept.get(dept.id_department).push("QMS");
+                deptKnockouts.add("QMS");
               }
               if (type.includes("Trật tự nội vụ")) {
-                stats["TTNV"].count++;
-                knockoutsByDept.get(dept.id_department).push("TTNV");
+                deptKnockouts.add("TTNV");
               }
             });
           }
         });
+
+        // Lưu các loại knockout unique của department
+        knockoutsByDept.set(dept.id_department, Array.from(deptKnockouts));
+
+        // Cập nhật count dựa trên các loại knockout unique
+        deptKnockouts.forEach((type) => {
+          stats[type].count++;
+        });
       }
     });
 
-    // Tính phần trăm dựa trên số department hoạt động
+    // Tính tỷ lệ phần trăm dựa trên số department hoạt động
     if (activeDepartments > 0) {
       Object.keys(stats).forEach((key) => {
-        // Số department có điểm liệt loại này / tổng số department hoạt động * 100
         const deptsWithThisKnockout = Array.from(
           knockoutsByDept.values()
         ).filter((knockouts) => knockouts.includes(key)).length;
@@ -109,17 +110,14 @@ const KnockoutStatsChart = ({ reportData }) => {
       });
     }
 
-    // Thêm metadata
     const statsWithInfo = {
       ...stats,
       _meta: {
-        totalKnockouts,
         activeDepartments,
         workshopName,
       },
     };
 
-    // Lọc bỏ các loại không có điểm liệt
     return Object.fromEntries(
       Object.entries(statsWithInfo).filter(
         ([key, value]) => key === "_meta" || value.count > 0
@@ -188,7 +186,7 @@ const KnockoutStatsChart = ({ reportData }) => {
             display: true,
             text: "Số lượng điểm liệt",
             color: "#000",
-            font: { size: 12 },
+            font: { size: 14 },
           },
         },
         y: {
