@@ -26,6 +26,26 @@ ChartJS.register(
 const WorkshopStatistics = ({ reportData }) => {
   const workshops = ["XƯỞNG 1", "XƯỞNG 2", "XƯỞNG 3", "XƯỞNG 4"];
 
+  const isLatestPhaseGreen = (dept) => {
+    // Lặp từ đợt gần nhất về đợt cũ nhất
+    for (let i = dept.phases.length - 1; i >= 0; i--) {
+      const phase = dept.phases[i];
+      const isPhaseInactive = reportData.phases[
+        i
+      ]?.inactiveDepartments?.includes(dept.id_department);
+
+      // Nếu tìm thấy đợt hoạt động, kiểm tra điều kiện màu xanh
+      if (!isPhaseInactive && phase) {
+        return !(
+          phase.knockoutTypes ||
+          phase.has_knockout ||
+          phase.scorePercentage < 80
+        );
+      }
+    }
+    return false;
+  };
+
   // Calculate total active departments and green star departments
   const calculateTotalStats = () => {
     let totalActiveDepts = 0;
@@ -93,16 +113,32 @@ const WorkshopStatistics = ({ reportData }) => {
             dept.phases.length - 1
           ]?.inactiveDepartments?.includes(dept.id_department);
 
+          // Tính trung bình điểm của các phase hoạt động
+          const activePhases = dept.phases.filter((phase, index) => {
+            return !reportData.phases[index]?.inactiveDepartments?.includes(
+              dept.id_department
+            );
+          });
+
+          if (activePhases.length === 0) return;
+
+          const avgScore = Math.round(
+            activePhases.reduce((acc, phase) => {
+              return acc + (phase.scorePercentage || 0);
+            }, 0) / activePhases.length
+          );
+
           if (
             isLatestPhaseActive &&
             latestPhase &&
             !latestPhase.knockoutTypes &&
-            latestPhase.scorePercentage >= 80
+            avgScore >= 80 &&
+            isLatestPhaseGreen(dept)
           ) {
             greenStarDepts.push({
               workshopName: workshopName,
               deptName: dept.name_department,
-              score: latestPhase.scorePercentage,
+              score: avgScore,
             });
           }
         }
