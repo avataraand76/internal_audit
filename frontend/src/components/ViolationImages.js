@@ -100,7 +100,7 @@ const ViolationImages = ({ reportData }) => {
         align="center"
         sx={{ fontWeight: "bold", mb: 2, mt: 4 }}
       >
-        ẢNH VI PHẠM TIÊU CHÍ
+        HÌNH ẢNH VI PHẠM TIÊU CHÍ
       </Typography>
       <Paper elevation={3} sx={{ p: 3 }}>
         {Object.entries(violationImages).map(([workshopName, departments]) => (

@@ -1,5 +1,5 @@
 // frontend/src/pages/ReportPage.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import API_URL from "../data/api";
@@ -29,6 +29,7 @@ import KnockoutStatsChart from "../components/KnockoutStatsChart";
 import WorkshopStatistics from "../components/WorkshopStatistics";
 import ViolationImages from "../components/ViolationImages";
 import Header from "../components/Header";
+import NavigationBubble from "../components/NavigationBubble";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   border: "1px solid rgba(240, 240, 240, 1)",
@@ -168,6 +169,12 @@ export default function MonthlyReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+
+  const tableRef = useRef(null);
+  const scoreChartRef = useRef(null);
+  const knockoutChartRef = useRef(null);
+  const workshopStatsRef = useRef(null);
+  const imagesRef = useRef(null);
 
   // Lấy tham số tháng và năm từ URL
   const { month: urlMonth, year: urlYear } = useParams();
@@ -572,7 +579,7 @@ export default function MonthlyReportPage() {
         </Box> */}
 
         {/* Report Table */}
-        <StyledTableContainer component={Paper}>
+        <StyledTableContainer ref={tableRef} component={Paper}>
           <Table size="small">
             <TableHead>
               <TableRow>
@@ -850,10 +857,31 @@ export default function MonthlyReportPage() {
           </Table>
         </StyledTableContainer>
 
-        <ScorePercentageChart reportData={reportData} />
-        <KnockoutStatsChart reportData={reportData} />
-        <WorkshopStatistics reportData={reportData} />
-        <ViolationImages reportData={reportData} />
+        <Box ref={scoreChartRef}>
+          <ScorePercentageChart reportData={reportData} />
+        </Box>
+
+        <Box ref={knockoutChartRef}>
+          <KnockoutStatsChart reportData={reportData} />
+        </Box>
+
+        <Box ref={workshopStatsRef}>
+          <WorkshopStatistics reportData={reportData} />
+        </Box>
+
+        <Box ref={imagesRef}>
+          <ViolationImages reportData={reportData} />
+        </Box>
+
+        <NavigationBubble
+          scrollRefs={{
+            tableRef,
+            scoreChartRef,
+            knockoutChartRef,
+            workshopStatsRef,
+            imagesRef,
+          }}
+        />
       </Container>
     </Box>
   );
