@@ -13,7 +13,6 @@ import {
 import {
   TableChart,
   BarChart,
-  PieChart,
   Image,
   KeyboardArrowUp,
   Menu,
@@ -80,7 +79,7 @@ const NavigationBubble = ({ scrollRefs }) => {
       color: theme.palette.success.main,
     },
     {
-      icon: <PieChart />,
+      icon: <BarChart />,
       label: "Thống kê điểm liệt",
       onClick: () => scrollToRef(scrollRefs.knockoutChartRef),
       color: theme.palette.warning.main,
