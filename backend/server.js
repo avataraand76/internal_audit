@@ -2260,7 +2260,7 @@ app.get("/get-phase-details-images/:phaseId/:departmentId", (req, res) => {
 });
 //////////report page//////////
 
-const PORT = 8081;
+const PORT = process.env.PORT;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
