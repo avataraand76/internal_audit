@@ -19,7 +19,8 @@ CREATE TABLE tb_user
 (
 	id_user BIGINT NOT NULL AUTO_INCREMENT,
 	name_user VARCHAR(50) NOT NULL,
-	ma_nv char(5),
+	ma_nv CHAR(5),
+	ten_nv VARCHAR(50),
 	password_user TEXT NOT NULL,
 	PRIMARY KEY (id_user)
 );

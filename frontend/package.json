@@ -44,7 +44,9 @@
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
-    "ignorePatterns": ["node_modules/exceljs/*"],
+    "ignorePatterns": [
+      "node_modules/exceljs/*"
+    ],
     "extends": [
       "react-app",
       "react-app/jest"

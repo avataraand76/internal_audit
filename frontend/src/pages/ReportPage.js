@@ -27,8 +27,9 @@ import WorkshopStatistics from "../components/WorkshopStatistics";
 import ViolationImages from "../components/ViolationImages";
 import Header from "../components/Header";
 import NavigationBubble from "../components/NavigationBubble";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import ExcelExportService from "../components/ExportToExcel";
+import { FileSpreadsheet, FileText } from "lucide-react";
+import ExportToPDF from "../components/ExportToPDF";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   border: "1px solid rgba(240, 240, 240, 1)",
@@ -454,6 +455,22 @@ export default function MonthlyReportPage() {
     await excelService.exportToExcel(selectedMonth, year);
   };
 
+  const exportToPdf = async () => {
+    const refs = {
+      scoreChartRef,
+      knockoutChartRef,
+      workshopStatsRef,
+      imagesRef,
+    };
+
+    try {
+      const pdfExporter = new ExportToPDF(selectedMonth, year);
+      await pdfExporter.generatePdf(refs);
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+    }
+  };
+
   return (
     <Box sx={{ flexGrow: 1 }}>
       <Header />
@@ -491,11 +508,29 @@ export default function MonthlyReportPage() {
             </Typography>
             <Button
               variant="contained"
-              color="primary"
-              startIcon={<FileDownloadIcon />}
+              sx={{
+                backgroundColor: "#217346",
+                "&:hover": {
+                  backgroundColor: "#1e6b3e",
+                },
+              }}
+              startIcon={<FileSpreadsheet size={20} />}
               onClick={exportToExcel}
             >
               Xuất Excel
+            </Button>
+            <Button
+              variant="contained"
+              sx={{
+                backgroundColor: "#FF0000",
+                "&:hover": {
+                  backgroundColor: "#D32F2F",
+                },
+              }}
+              startIcon={<FileText size={20} />}
+              onClick={exportToPdf}
+            >
+              Xuất PDF
             </Button>
           </Box>
         </Box>

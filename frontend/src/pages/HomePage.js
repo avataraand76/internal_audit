@@ -16,13 +16,14 @@ function HomePage() {
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [isSupervisor, setIsSupervisor] = useState(false);
 
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user"));
     if (storedUser) {
-      setUsername(storedUser.name_user);
+      // Use ten_nv if available, otherwise fall back to name_user
+      setDisplayName(storedUser.ten_nv || storedUser.name_user);
       checkUserRole(storedUser.id_user);
     } else {
       // Redirect to login if no user data is present
@@ -67,7 +68,7 @@ function HomePage() {
             component="h1"
             textAlign="center"
           >
-            Chào mừng {username}
+            Chào mừng {displayName}
           </Typography>
 
           <Stack

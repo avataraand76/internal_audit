@@ -91,13 +91,14 @@ const Header = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [mobileOpen, setMobileOpen] = useState(false);
   const isLoginPage = location.pathname === "/login";
-  const [userName, setUserName] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [isSupervisor, setIsSupervisor] = useState(false);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
-    if (user && user.name_user) {
-      setUserName(user.name_user);
+    if (user) {
+      // Use ten_nv if available, otherwise fall back to name_user
+      setDisplayName(user.ten_nv || user.name_user);
       checkUserRole(user.id_user);
     }
   }, []);
@@ -172,7 +173,7 @@ const Header = () => {
             <ListItemIcon sx={{ minWidth: 40 }}>
               <AccountCircleIcon />
             </ListItemIcon>
-            <ListItemText primary={userName} />
+            <ListItemText primary={displayName} />
           </ListItem>
         )}
         {!isLoginPage &&
@@ -245,7 +246,7 @@ const Header = () => {
                   <AccountCircleIcon />
                 </Avatar>
                 <Typography variant="body2" color="black">
-                  {userName}
+                  {displayName}
                 </Typography>
               </UserInfo>
               {filteredNavItems.map((item) => (
