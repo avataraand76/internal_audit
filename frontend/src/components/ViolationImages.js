@@ -53,8 +53,20 @@ const ViolationImages = ({ reportData }) => {
 
         for (const dept of workshop.departments) {
           imagesData[workshop.workshopName][dept.name_department] = {};
+          let hasActivePhaseWithImages = false;
 
           for (const phase of reportData.phases) {
+            // Check if department is inactive for this phase
+            const isDepartmentInactive =
+              reportData.inactiveDepartments?.[phase.id_phase]?.[
+                dept.id_department
+              ];
+
+            // Skip fetching images if department is inactive for this phase
+            if (isDepartmentInactive) {
+              continue;
+            }
+
             try {
               const response = await axios.get(
                 `${API_URL}/get-phase-details-images/${phase.id_phase}/${dept.id_department}`
@@ -64,22 +76,20 @@ const ViolationImages = ({ reportData }) => {
                 imagesData[workshop.workshopName][dept.name_department][
                   phase.name_phase
                 ] = response.data;
+                hasActivePhaseWithImages = true;
               }
             } catch (error) {
               console.error("Error fetching images:", error);
             }
           }
 
-          // Nếu department không có ảnh nào, xóa department đó
-          if (
-            Object.keys(imagesData[workshop.workshopName][dept.name_department])
-              .length === 0
-          ) {
+          // If department has no active phases with images, delete it
+          if (!hasActivePhaseWithImages) {
             delete imagesData[workshop.workshopName][dept.name_department];
           }
         }
 
-        // Nếu workshop không có department nào có ảnh, xóa workshop đó
+        // If workshop has no departments with images, delete it
         if (Object.keys(imagesData[workshop.workshopName]).length === 0) {
           delete imagesData[workshop.workshopName];
         }
@@ -88,10 +98,29 @@ const ViolationImages = ({ reportData }) => {
       setViolationImages(imagesData);
     };
 
-    if (reportData && reportData.workshops) {
+    if (reportData && reportData.workshops && reportData.inactiveDepartments) {
       fetchViolationImages();
     }
   }, [reportData]);
+
+  if (Object.keys(violationImages).length === 0) {
+    return (
+      <Box sx={{ width: "100%", mt: 4, mb: 4 }}>
+        <Typography
+          variant="h5"
+          align="center"
+          sx={{ fontWeight: "bold", mb: 2, mt: 4 }}
+        >
+          HÌNH ẢNH VI PHẠM TIÊU CHÍ
+        </Typography>
+        <Paper elevation={3} sx={{ p: 3 }}>
+          <Typography variant="body1" align="center" color="text.secondary">
+            Không có hình ảnh vi phạm nào
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ width: "100%", mt: 4, mb: 4 }}>

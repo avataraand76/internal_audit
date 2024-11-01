@@ -26,6 +26,26 @@ ChartJS.register(
 
 // Chart component được định nghĩa trước
 const Chart = ({ title, data }) => {
+  let chartId = "score-chart-";
+  if (title.includes("XƯỞNG")) {
+    if (title.includes("CẮT") || title.includes("KHO")) {
+      // For support section (Xưởng cắt and Kho)
+      chartId += "support";
+    } else {
+      // For main workshops
+      const num = title.match(/\d+/);
+      if (num) {
+        chartId += `xuong${num[0]}`;
+      }
+    }
+  } else {
+    // For office section
+    chartId += "phongban";
+  }
+
+  console.log("Chart title:", title); // Debug log
+  console.log("Chart ID:", chartId); // Debug log
+
   const chartData = {
     labels: data.map((item) => item.name),
     datasets: [
@@ -121,7 +141,7 @@ const Chart = ({ title, data }) => {
   };
 
   return (
-    <Card sx={{ width: "100%", mt: 4 }}>
+    <Card sx={{ width: "100%", mt: 4 }} data-chart-id={chartId}>
       <CardContent>
         <Typography
           variant="h6"

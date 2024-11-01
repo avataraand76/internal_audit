@@ -260,27 +260,32 @@ const KnockoutStatsChart = ({ reportData }) => {
           gap: 2,
         }}
       >
-        {workshopStats.map((workshop) => (
-          <Card key={workshop.name}>
-            <CardContent>
-              <Typography
-                variant="h6"
-                component="div"
-                align="center"
-                color="#000"
-                sx={{ fontWeight: "bold", mb: 2 }}
-              >
-                HẠNG MỤC ĐIỂM LIỆT {workshop.name}
-              </Typography>
-              <Box sx={{ height: "400px" }}>
-                <Bar
-                  data={createChartConfig(workshop).data}
-                  options={createChartConfig(workshop).options}
-                />
-              </Box>
-            </CardContent>
-          </Card>
-        ))}
+        {workshopStats.map((workshop) => {
+          const num = workshop.name.match(/\d+/)[0];
+          const chartId = `knockout-chart-xuong${num}`;
+
+          return (
+            <Card key={workshop.name} data-chart-id={chartId}>
+              <CardContent>
+                <Typography
+                  variant="h6"
+                  component="div"
+                  align="center"
+                  color="#000"
+                  sx={{ fontWeight: "bold", mb: 2 }}
+                >
+                  HẠNG MỤC ĐIỂM LIỆT {workshop.name}
+                </Typography>
+                <Box sx={{ height: "400px" }}>
+                  <Bar
+                    data={createChartConfig(workshop).data}
+                    options={createChartConfig(workshop).options}
+                  />
+                </Box>
+              </CardContent>
+            </Card>
+          );
+        })}
       </Box>
     </Box>
   );

@@ -477,7 +477,11 @@ const WorkshopStatistics = ({ reportData }) => {
       </Typography>
 
       {/* Green Star Statistics */}
-      <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
+      <Paper
+        elevation={3}
+        sx={{ p: 3, mb: 4 }}
+        data-chart-id="green-star-chart"
+      >
         <Typography
           variant="h5"
           align="center"
@@ -510,7 +514,7 @@ const WorkshopStatistics = ({ reportData }) => {
       </Paper>
 
       {/* Average Error Statistics */}
-      <Paper elevation={3} sx={{ p: 3 }}>
+      <Paper elevation={3} sx={{ p: 3 }} data-chart-id="error-stats-chart">
         <Typography
           variant="h5"
           align="center"

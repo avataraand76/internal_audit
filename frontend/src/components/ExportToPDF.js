@@ -29,17 +29,20 @@ export default class ExportToPDF {
           display: block !important;
           width: 100% !important;
           background: white !important;
+          box-sizing: border-box !important;
         }
 
         .chart-page {
           page-break-before: always;
           page-break-inside: avoid;
-          height: calc(100vh - 20mm) !important;
+          min-height: calc(100vh - 20mm) !important; /* Account for page margins */
           width: 100% !important;
-          padding: 10mm !important;
           display: flex !important;
           flex-direction: column !important;
+          justify-content: center !important; /* Center vertically */
           align-items: center !important;
+          box-sizing: border-box !important;
+          padding: 0 !important; /* Remove padding to allow true centering */
         }
 
         .chart-page:first-child {
@@ -50,22 +53,26 @@ export default class ExportToPDF {
           font-size: 16pt !important;
           font-weight: bold !important;
           text-align: center !important;
-          margin-bottom: 10mm !important;
+          margin: 0 0 20mm 0 !important; /* Add bottom margin for spacing */
           color: black !important;
           display: block !important;
+          width: 100% !important;
         }
 
         .chart-container {
-          flex: 1;
-          width: 100% !important;
+          width: 85% !important; /* Slightly reduce width for better margins */
           display: flex !important;
           justify-content: center !important;
           align-items: center !important;
+          margin: 0 auto !important;
+          box-sizing: border-box !important;
         }
 
         canvas {
           max-width: 100% !important;
           height: auto !important;
+          display: block !important;
+          margin: 0 auto !important;
         }
 
         /* Remove other titles */
@@ -83,22 +90,31 @@ export default class ExportToPDF {
   }
 
   getChartTitle(elementId) {
-    // Map of chart IDs to their titles
+    // Log ID để debug
+    console.log("Processing chart ID:", elementId);
+
+    // Map chart IDs
     const titles = {
-      "score-chart-xuong-1": "ĐIỂM ĐẠT - MÀU SAO XƯỞNG 1",
-      "score-chart-xuong-2": "ĐIỂM ĐẠT - MÀU SAO XƯỞNG 2",
-      "score-chart-xuong-3": "ĐIỂM ĐẠT - MÀU SAO XƯỞNG 3",
-      "score-chart-xuong-4": "ĐIỂM ĐẠT - MÀU SAO XƯỞNG 4",
-      "score-chart-support": "ĐIỂM ĐẠT - MÀU SAO XƯỞNG CẮT, KHO TP, KHO NPL",
-      "score-chart-office": "ĐIỂM ĐẠT - MÀU SAO PHÒNG BAN",
-      "knockout-chart-1": "HẠNG MỤC ĐIỂM LIỆT XƯỞNG 1",
-      "knockout-chart-2": "HẠNG MỤC ĐIỂM LIỆT XƯỞNG 2",
-      "knockout-chart-3": "HẠNG MỤC ĐIỂM LIỆT XƯỞNG 3",
-      "knockout-chart-4": "HẠNG MỤC ĐIỂM LIỆT XƯỞNG 4",
+      // Main workshop score charts
+      "score-chart-xuong1": "% ĐIỂM ĐẠT - MÀU SAO XƯỞNG 1",
+      "score-chart-xuong2": "% ĐIỂM ĐẠT - MÀU SAO XƯỞNG 2",
+      "score-chart-xuong3": "% ĐIỂM ĐẠT - MÀU SAO XƯỞNG 3",
+      "score-chart-xuong4": "% ĐIỂM ĐẠT - MÀU SAO XƯỞNG 4",
+      "score-chart-support": "% ĐIỂM ĐẠT - MÀU SAO XƯỞNG CẮT, KHO TP, KHO NPL",
+      "score-chart-phongban": "% ĐIỂM ĐẠT - MÀU SAO PHÒNG BAN",
+
+      // Knockout charts
+      "knockout-chart-xuong1": "HẠNG MỤC ĐIỂM LIỆT XƯỞNG 1",
+      "knockout-chart-xuong2": "HẠNG MỤC ĐIỂM LIỆT XƯỞNG 2",
+      "knockout-chart-xuong3": "HẠNG MỤC ĐIỂM LIỆT XƯỞNG 3",
+      "knockout-chart-xuong4": "HẠNG MỤC ĐIỂM LIỆT XƯỞNG 4",
+
+      // Workshop stats
       "green-star-chart": "CHUYỀN ĐẠT SAO XANH / 4 XƯỞNG",
       "error-stats-chart": "% HẠNG MỤC ĐIỂM LIỆT / 4 XƯỞNG",
     };
-    return titles[elementId] || "BIỂU ĐỒ THỐNG KÊ";
+
+    return titles[elementId] || elementId;
   }
 
   async captureChart(chartElement, title) {

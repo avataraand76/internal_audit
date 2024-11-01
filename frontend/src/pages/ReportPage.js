@@ -28,8 +28,9 @@ import ViolationImages from "../components/ViolationImages";
 import Header from "../components/Header";
 import NavigationBubble from "../components/NavigationBubble";
 import ExcelExportService from "../components/ExportToExcel";
-import { FileSpreadsheet, FileText } from "lucide-react";
 import ExportToPDF from "../components/ExportToPDF";
+import ExportViolationImagesPDF from "../components/ExportViolationImagesPDF";
+import { FileSpreadsheet, FileText, FileImage } from "lucide-react";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   border: "1px solid rgba(240, 240, 240, 1)",
@@ -471,6 +472,15 @@ export default function MonthlyReportPage() {
     }
   };
 
+  const exportViolationImagesToPdf = async () => {
+    try {
+      const pdfExporter = new ExportViolationImagesPDF(selectedMonth, year);
+      await pdfExporter.generatePdf(imagesRef);
+    } catch (error) {
+      console.error("Error exporting violation images to PDF:", error);
+    }
+  };
+
   return (
     <Box sx={{ flexGrow: 1 }}>
       <Header />
@@ -504,7 +514,7 @@ export default function MonthlyReportPage() {
               </Select>
             </FormControl>
             <Typography variant="h5" fontWeight="bold">
-              / {year}
+              /{year}
             </Typography>
             <Button
               variant="contained"
@@ -531,6 +541,20 @@ export default function MonthlyReportPage() {
               onClick={exportToPdf}
             >
               Xuất PDF
+            </Button>
+            <Button
+              variant="contained"
+              sx={{
+                backgroundColor: "#6B4423",
+                "&:hover": {
+                  backgroundColor: "#5A381D",
+                },
+                ml: 1,
+              }}
+              startIcon={<FileImage size={20} />}
+              onClick={exportViolationImagesToPdf}
+            >
+              Xuất hình ảnh vi phạm
             </Button>
           </Box>
         </Box>
