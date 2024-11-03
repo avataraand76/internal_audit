@@ -826,6 +826,7 @@ const CreatePhasePage = () => {
 
         {/* Create/Edit Phase Dialog */}
         <Dialog
+          // fullScreen={isMobile}
           open={openDialog}
           onClose={handleCloseDialog}
           PaperProps={{
@@ -916,6 +917,7 @@ const CreatePhasePage = () => {
 
         {/* Delete Confirmation Dialog */}
         <Dialog
+          // fullScreen={isMobile}
           open={openDeleteDialog}
           onClose={() => setOpenDeleteDialog(false)}
           PaperProps={{

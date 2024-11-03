@@ -124,6 +124,7 @@ const DetailedPhasePage = () => {
     atld: 0,
     qms: 0,
   });
+  const [showImageLimitWarning, setShowImageLimitWarning] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -614,7 +615,7 @@ const DetailedPhasePage = () => {
   };
 
   const searchPlaceholder = isSupervisor
-    ? "Tìm kiếm theo tên hạng mục, mã tiêu chí hoặc tên tiêu chí..."
+    ? "Tìm kiếm theo tên hạng mục, mã tiêu chí, tên tiêu chí hoặc nội dung..."
     : "Tìm kiếm trong các tiêu chí không đạt...";
 
   const renderDepartmentMenuContent = () => (
@@ -1067,12 +1068,15 @@ const DetailedPhasePage = () => {
         return codeNumber === searchTerm;
       }
 
-      // Check if the search term matches the name or codename, with or without diacritics
+      // Check if the search term matches the name, codename, or description
       return (
         removeDiacritics(criterion.name.toLowerCase()).includes(
           searchWithoutDiacritics
         ) ||
         removeDiacritics(criterion.codename.toLowerCase()).includes(
+          searchWithoutDiacritics
+        ) ||
+        removeDiacritics(criterion.description.toLowerCase()).includes(
           searchWithoutDiacritics
         )
       );
@@ -1941,10 +1945,26 @@ const DetailedPhasePage = () => {
                     >
                       Chụp/tải lên hình ảnh mới:
                     </Typography>
+                    {showImageLimitWarning && (
+                      <Typography
+                        color="error"
+                        sx={{
+                          mt: 1,
+                          p: 1,
+                          bgcolor: "error.light",
+                          color: "error.contrastText",
+                          borderRadius: 1,
+                        }}
+                      >
+                        Chỉ được phép tải lên tối đa 10 hình ảnh. Vui lòng xóa
+                        bớt hình ảnh.
+                      </Typography>
+                    )}
                   </Box>
                   <ImageHandler
                     onImagesChange={(updatedImages) => {
                       setSelectedImages(updatedImages);
+                      setShowImageLimitWarning(updatedImages.length > 10);
                     }}
                     images={selectedImages}
                     disabled={isUploading}
@@ -2052,7 +2072,7 @@ const DetailedPhasePage = () => {
                       onClick={() => handleScore("không đạt")}
                       variant="contained"
                       color="error"
-                      disabled={isUploading}
+                      disabled={isUploading || showImageLimitWarning}
                     >
                       Không đạt
                     </Button>
@@ -2068,7 +2088,11 @@ const DetailedPhasePage = () => {
                     onClick={handleRemediate}
                     variant="contained"
                     color="primary"
-                    disabled={isUploading || selectedImages.length === 0}
+                    disabled={
+                      isUploading ||
+                      selectedImages.length === 0 ||
+                      showImageLimitWarning
+                    }
                   >
                     Khắc phục
                   </Button>

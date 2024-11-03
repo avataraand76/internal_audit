@@ -1449,247 +1449,6 @@ app.post("/inactive-departments/:phaseId", (req, res) => {
   });
 });
 
-///////////upload ảnh gg photos////////////
-// const upload = multer({
-//   storage: multer.memoryStorage(),
-//   limits: { fileSize: 10 * 1024 * 1024 }, // Giới hạn kích thước file, ví dụ: 10MB
-// });
-
-// const oauth2Client = new google.auth.OAuth2(
-//   process.env.GOOGLE_CLIENT_ID,
-//   process.env.GOOGLE_CLIENT_SECRET,
-//   process.env.GOOGLE_REDIRECT_URI
-// );
-// let cachedAccessToken = null;
-// let tokenExpirationTime = 0;
-
-// async function getAccessToken() {
-//   const currentTime = Date.now();
-//   if (cachedAccessToken && currentTime < tokenExpirationTime) {
-//     return cachedAccessToken;
-//   }
-
-//   const { token, expiry_date } = await oauth2Client.getAccessToken();
-//   cachedAccessToken = token;
-//   tokenExpirationTime = expiry_date;
-//   return token;
-// }
-// oauth2Client.on("tokens", (tokens) => {
-//   if (tokens.refresh_token) {
-//     // Lưu refresh_token mới nếu nhận được
-//     process.env.GOOGLE_REFRESH_TOKEN = tokens.refresh_token;
-//   }
-// });
-
-// oauth2Client.setCredentials({
-//   refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-// });
-
-// async function retryWithBackoff(fn, maxRetries = 5, initialDelay = 1000) {
-//   let delay = initialDelay;
-//   for (let i = 0; i < maxRetries; i++) {
-//     try {
-//       return await fn();
-//     } catch (error) {
-//       if (
-//         error.response &&
-//         (error.response.status === 429 || error.response.status >= 500)
-//       ) {
-//         if (i === maxRetries - 1) throw error;
-//         console.log(
-//           `Retrying after ${delay}ms due to ${error.response.status} error`
-//         );
-//         await new Promise((resolve) => setTimeout(resolve, delay));
-//         delay *= 2; // Exponential backoff
-//       } else {
-//         throw error;
-//       }
-//     }
-//   }
-// }
-
-// async function uploadPhoto(fileBuffer, fileName) {
-//   return retryWithBackoff(async () => {
-//     const accessToken = await getAccessToken();
-
-//     if (!fileBuffer || fileBuffer.length === 0) {
-//       throw new Error("File buffer is empty");
-//     }
-
-//     try {
-//       const response = await axios.post(
-//         "https://photoslibrary.googleapis.com/v1/uploads",
-//         fileBuffer,
-//         {
-//           headers: {
-//             "Content-Type": "application/octet-stream",
-//             "X-Goog-Upload-File-Name": encodeURIComponent(fileName),
-//             "X-Goog-Upload-Protocol": "raw",
-//             Authorization: `Bearer ${accessToken}`,
-//           },
-//         }
-//       );
-//       return response.data;
-//     } catch (error) {
-//       console.error(
-//         "Error in uploadPhoto:",
-//         error.response?.data || error.message
-//       );
-//       throw error;
-//     }
-//   });
-// }
-
-// async function createMediaItemInAlbum(uploadToken, albumId) {
-//   try {
-//     const accessToken = await getAccessToken();
-//     const response = await axios.post(
-//       "https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate",
-//       {
-//         albumId: albumId,
-//         newMediaItems: [
-//           {
-//             description: "Uploaded from Node.js",
-//             simpleMediaItem: {
-//               uploadToken: uploadToken,
-//             },
-//           },
-//         ],
-//       },
-//       {
-//         headers: {
-//           "Content-Type": "application/json",
-//           Authorization: `Bearer ${accessToken}`,
-//         },
-//       }
-//     );
-
-//     if (
-//       !response.data.newMediaItemResults ||
-//       response.data.newMediaItemResults.length === 0
-//     ) {
-//       throw new Error("No media items were created");
-//     }
-
-//     const mediaItem = response.data.newMediaItemResults[0];
-//     if (mediaItem.status && mediaItem.status.message !== "Success") {
-//       throw new Error(
-//         `Failed to create media item: ${mediaItem.status.message}`
-//       );
-//     }
-
-//     return mediaItem.mediaItem;
-//   } catch (error) {
-//     console.error(
-//       "Error in createMediaItemInAlbum:",
-//       error.response?.data || error.message
-//     );
-//     throw error;
-//   }
-// }
-
-// app.post("/upload", upload.array("photos", 10), async (req, res) => {
-//   const startTime = Date.now();
-//   console.log("Received files:", req.files);
-
-//   try {
-//     if (!req.files || req.files.length === 0) {
-//       return res.status(400).json({
-//         success: false,
-//         error: "No files were uploaded",
-//       });
-//     }
-
-//     const albumId = req.query.albumId;
-//     if (!albumId) {
-//       return res.status(400).json({
-//         success: false,
-//         error: "Album ID is required",
-//       });
-//     }
-
-//     const mediaItems = [];
-//     const errors = [];
-
-//     // Process each file sequentially to avoid rate limiting
-//     for (const file of req.files) {
-//       try {
-//         const { buffer, originalname } = file;
-//         console.log(`Processing file: ${originalname}`);
-
-//         // Upload photo
-//         const uploadToken = await uploadPhoto(buffer, originalname);
-//         console.log(`Upload token received for ${originalname}`);
-
-//         // Create media item
-//         const mediaItem = await createMediaItemInAlbum(uploadToken, albumId);
-//         console.log(`Media item created for ${originalname}`);
-
-//         mediaItems.push(mediaItem);
-//       } catch (error) {
-//         console.error(`Error processing file ${file.originalname}:`, error);
-//         errors.push({
-//           filename: file.originalname,
-//           error: error.message || "Unknown error occurred",
-//         });
-//       }
-//     }
-
-//     const endTime = Date.now();
-//     console.log(`Upload completed in ${endTime - startTime}ms`);
-
-//     res.json({
-//       success: true,
-//       albumId: albumId,
-//       mediaItems: mediaItems,
-//       errors: errors,
-//       totalFiles: req.files.length,
-//       successfulUploads: mediaItems.length,
-//       failedUploads: errors.length,
-//       processingTime: endTime - startTime,
-//     });
-//   } catch (error) {
-//     const endTime = Date.now();
-//     console.error(
-//       `Upload failed in ${endTime - startTime}ms:`,
-//       error.response?.data || error.message
-//     );
-
-//     res.status(500).json({
-//       success: false,
-//       error: "Failed to upload images",
-//       details: error.response?.data || error.message,
-//       processingTime: endTime - startTime,
-//     });
-//   }
-// });
-
-// // API to save image URLs to the database
-// app.post("/save-image-urls", async (req, res) => {
-//   const { id_department, id_criteria, id_phase, imageUrls } = req.body;
-//   const imgURL_before = imageUrls.join("; ");
-
-//   const query = `
-//     UPDATE tb_phase_details
-//     SET imgURL_before = ?
-//     WHERE id_department = ? AND id_criteria = ? AND id_phase = ?
-//   `;
-
-//   db.query(
-//     query,
-//     [imgURL_before, id_department, id_criteria, id_phase],
-//     (err, result) => {
-//       if (err) {
-//         console.error("Error saving image URLs:", err);
-//         res.status(500).json({ error: "Error saving image URLs" });
-//         return;
-//       }
-//       res.status(200).json({ message: "Image URLs saved successfully" });
-//     }
-//   );
-// });
-///////////upload ảnh gg photos////////////
-
 ///////////upload ảnh gg drive////////////
 // Multer config
 const upload = multer({
@@ -1731,39 +1490,6 @@ async function getAccessToken() {
   }
 }
 
-// Retry mechanism for API calls
-async function retryWithBackoff(fn, maxRetries = 5, initialDelay = 1000) {
-  let lastError = null;
-  let delay = initialDelay;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error;
-
-      // Check if error is retryable
-      if (
-        error.response &&
-        (error.response.status === 429 || error.response.status >= 500)
-      ) {
-        if (attempt === maxRetries) break;
-
-        console.log(
-          `Attempt ${attempt}/${maxRetries} failed. Retrying in ${delay}ms...`
-        );
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        delay *= 2; // Exponential backoff
-      } else {
-        // Non-retryable error
-        throw error;
-      }
-    }
-  }
-
-  throw lastError;
-}
-
 // Create and configure Drive instance with fresh token
 async function getDriveInstance() {
   const accessToken = await getAccessToken();
@@ -1774,23 +1500,6 @@ async function getDriveInstance() {
       Authorization: `Bearer ${accessToken}`,
     },
   });
-}
-
-// Set file permissions
-async function setFilePermissions(fileId) {
-  const drive = await getDriveInstance();
-  try {
-    await drive.permissions.create({
-      fileId: fileId,
-      requestBody: {
-        role: "reader",
-        type: "anyone",
-      },
-    });
-  } catch (error) {
-    console.error("Error setting file permissions:", error);
-    throw error;
-  }
 }
 
 // Main upload function
@@ -1822,25 +1531,14 @@ async function uploadToDrive(fileBuffer, fileName, folderId) {
     };
 
     // Upload file
-    console.log("Starting file upload...");
+    // console.log("Starting file upload...");
     const response = await drive.files.create({
       requestBody: fileMetadata,
       media: media,
       fields: "id, name, webViewLink, description",
     });
 
-    console.log("File uploaded successfully, setting permissions...");
-
-    // Set permissions
-    await drive.permissions.create({
-      fileId: response.data.id,
-      requestBody: {
-        role: "reader",
-        type: "anyone",
-      },
-    });
-
-    console.log("Permissions set successfully");
+    // console.log("File uploaded successfully...");
 
     // Get updated file info
     const file = await drive.files.get({
@@ -1882,39 +1580,24 @@ async function uploadToDrive(fileBuffer, fileName, folderId) {
   }
 }
 
-// Upload endpoint
-app.post("/upload", upload.array("photos", 10), async (req, res) => {
-  const startTime = Date.now();
-  console.log(`\nStarting upload of ${req.files?.length || 0} files`);
-  const folderId = FOLDER_ID;
+// Hàm để xử lý upload song song với giới hạn
+async function uploadFilesInParallel(files, maxConcurrent = 10) {
+  const uploadedFiles = [];
+  const errors = [];
+  const chunks = [];
+  const batchSize = maxConcurrent;
 
-  try {
-    // Validate request
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: "Không có file được tải lên",
-      });
-    }
+  // Chia files thành các nhóm nhỏ để xử lý
+  for (let i = 0; i < files.length; i += batchSize) {
+    chunks.push(files.slice(i, i + batchSize));
+  }
 
-    // Sử dụng FOLDER_ID từ biến môi trường thay vì từ query params
-    if (!FOLDER_ID) {
-      return res.status(500).json({
-        success: false,
-        error: "Folder ID không được cấu hình",
-      });
-    }
-
-    const uploadedFiles = [];
-    const errors = [];
-
-    // Process files sequentially
-    for (const file of req.files) {
+  // Xử lý từng nhóm song song
+  for (const chunk of chunks) {
+    const uploadPromises = chunk.map(async (file) => {
+      const fileStartTime = Date.now();
       try {
-        const fileStartTime = Date.now();
-        console.log(`\nProcessing file: ${file.originalname}`);
-
-        // Basic validations
+        // Validate file
         if (file.size > 10 * 1024 * 1024) {
           throw new Error("File size exceeds 10MB limit");
         }
@@ -1929,10 +1612,9 @@ app.post("/upload", upload.array("photos", 10), async (req, res) => {
           file.originalname,
           FOLDER_ID
         );
+
         const fileEndTime = Date.now();
-        const fileUploadTime = (fileEndTime - fileStartTime) / 1000; // Convert to seconds
-        console.log(`Successfully uploaded: ${file.originalname}`);
-        console.log(`File uploaded in ${fileUploadTime.toFixed(2)} seconds`);
+        const fileUploadTime = (fileEndTime - fileStartTime) / 1000;
 
         uploadedFiles.push({
           ...uploadedFile,
@@ -1941,6 +1623,12 @@ app.post("/upload", upload.array("photos", 10), async (req, res) => {
           mimeType: file.mimetype,
           uploadTime: fileUploadTime,
         });
+
+        console.log(
+          `\nSuccessfully uploaded: ${
+            file.originalname
+          } in ${fileUploadTime.toFixed(2)}s`
+        );
       } catch (error) {
         console.error(`Error uploading ${file.originalname}:`, error);
         errors.push({
@@ -1948,9 +1636,40 @@ app.post("/upload", upload.array("photos", 10), async (req, res) => {
           error: error.message,
         });
       }
+    });
+
+    // Đợi tất cả file trong chunk hoàn thành trước khi chuyển sang chunk tiếp theo
+    await Promise.all(uploadPromises);
+  }
+
+  return { uploadedFiles, errors };
+}
+
+// Upload endpoint
+app.post("/upload", upload.array("photos", 10), async (req, res) => {
+  const startTime = Date.now();
+  console.log(`\nStarting upload of ${req.files?.length || 0} files`);
+
+  try {
+    // Validate request
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Không có file được tải lên",
+      });
     }
 
-    const totalTime = (Date.now() - startTime) / 1000; // Convert to seconds
+    if (!FOLDER_ID) {
+      return res.status(500).json({
+        success: false,
+        error: "Folder ID không được cấu hình",
+      });
+    }
+
+    // Upload files song song
+    const { uploadedFiles, errors } = await uploadFilesInParallel(req.files);
+
+    const totalTime = (Date.now() - startTime) / 1000;
     console.log(
       `\nTOTAL UPLOAD PROCESS COMPLETED IN ${totalTime.toFixed(2)} SECONDS`
     );
@@ -1958,7 +1677,7 @@ app.post("/upload", upload.array("photos", 10), async (req, res) => {
     // Send response
     res.json({
       success: uploadedFiles.length > 0,
-      folderId,
+      folderId: FOLDER_ID,
       uploadedFiles,
       errors,
       stats: {

@@ -129,20 +129,20 @@ CREATE TABLE tb_total_point
 
 CREATE TABLE tb_user_supervised
 (
-	id_user_supervised BIGINT NOT NULL AUTO_INCREMENT,
 	id_workshop BIGINT,
 	id_user BIGINT,
-	PRIMARY KEY (id_user_supervised),
+	PRIMARY KEY (id_workshop, id_user),
+	UNIQUE (id_workshop, id_user),
 	FOREIGN KEY (id_workshop) REFERENCES tb_workshop(id_workshop),
 	FOREIGN KEY (id_user) REFERENCES tb_user(id_user)
 );
 
 CREATE TABLE tb_user_supervisor
 (
-	id_user_supervisor BIGINT NOT NULL AUTO_INCREMENT,
 	id_category BIGINT,
 	id_user BIGINT,
-	PRIMARY KEY (id_user_supervisor),
+	PRIMARY KEY (id_category, id_user),
+	UNIQUE (id_category, id_user),
 	FOREIGN KEY (id_category) REFERENCES tb_category(id_category),
 	FOREIGN KEY (id_user) REFERENCES tb_user(id_user)
 );

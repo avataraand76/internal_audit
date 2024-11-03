@@ -346,9 +346,9 @@ const WorkshopStatistics = ({ reportData }) => {
         color: "#000",
         anchor: "end",
         align: "end",
-        offset: -10,
+        offset: -6,
         font: {
-          size: 12,
+          size: 13,
           weight: "bold",
         },
         formatter: (value, context) => {
@@ -423,9 +423,9 @@ const WorkshopStatistics = ({ reportData }) => {
         color: "#000",
         anchor: "end",
         align: "end",
-        offset: -10,
+        offset: -6,
         font: {
-          size: 12,
+          size: 13,
           weight: "bold",
         },
         formatter: (value, context) => {

@@ -128,9 +128,9 @@ const Chart = ({ title, data }) => {
         // anchor: "center",
         // align: "center",
 
-        offset: -10,
+        offset: -6,
         font: {
-          size: 15,
+          size: 13,
           weight: "bold",
         },
         formatter: function (value) {
