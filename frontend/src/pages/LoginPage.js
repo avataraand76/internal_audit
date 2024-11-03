@@ -1,5 +1,5 @@
 // frontend/src/pages/LoginPage.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Container,
   TextField,
@@ -15,6 +15,7 @@ import {
   useMediaQuery,
   IconButton,
   InputAdornment,
+  FormHelperText,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
@@ -28,9 +29,39 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [openError, setOpenError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [capsLockOn, setCapsLockOn] = useState(false);
+  const [formErrors, setFormErrors] = useState({
+    username: false,
+    password: false,
+  });
+
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  // Check for CapsLock
+  useEffect(() => {
+    const handleCapsLock = (event) => {
+      setCapsLockOn(event.getModifierState("CapsLock"));
+    };
+
+    window.addEventListener("keydown", handleCapsLock);
+    window.addEventListener("keyup", handleCapsLock);
+
+    return () => {
+      window.removeEventListener("keydown", handleCapsLock);
+      window.removeEventListener("keyup", handleCapsLock);
+    };
+  }, []);
+
+  const validateForm = () => {
+    const errors = {
+      username: !username.trim(),
+      password: !password.trim(),
+    };
+    setFormErrors(errors);
+    return !errors.username && !errors.password;
+  };
 
   const handleClickShowPassword = () => {
     setShowPassword(!showPassword);
@@ -41,6 +72,10 @@ const LoginPage = () => {
   };
 
   const handleLogin = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
     setIsLoading(true);
     try {
       const response = await fetch(`${API_URL}/login`, {
@@ -66,6 +101,12 @@ const LoginPage = () => {
       setOpenError(true);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleKeyPress = (event) => {
+    if (event.key === "Enter") {
+      handleLogin();
     }
   };
 
@@ -128,8 +169,14 @@ const LoginPage = () => {
               autoComplete="username"
               autoFocus
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => {
+                setUsername(e.target.value);
+                setFormErrors((prev) => ({ ...prev, username: false }));
+              }}
+              onKeyPress={handleKeyPress}
               size={isMobile ? "small" : "medium"}
+              error={formErrors.username}
+              helperText={formErrors.username && "Vui lòng nhập tên đăng nhập"}
             />
             <TextField
               margin="normal"
@@ -141,8 +188,14 @@ const LoginPage = () => {
               id="password"
               autoComplete="current-password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setFormErrors((prev) => ({ ...prev, password: false }));
+              }}
+              onKeyPress={handleKeyPress}
               size={isMobile ? "small" : "medium"}
+              error={formErrors.password}
+              helperText={formErrors.password && "Vui lòng nhập mật khẩu"}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
@@ -158,6 +211,11 @@ const LoginPage = () => {
                 ),
               }}
             />
+            {capsLockOn && (
+              <FormHelperText error sx={{ mt: 1 }}>
+                CAPSLOCK đang bật
+              </FormHelperText>
+            )}
             <Button
               fullWidth
               variant="contained"

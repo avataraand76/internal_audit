@@ -615,7 +615,7 @@ const DetailedPhasePage = () => {
   };
 
   const searchPlaceholder = isSupervisor
-    ? "Tìm kiếm theo tên hạng mục, mã tiêu chí, tên tiêu chí hoặc nội dung..."
+    ? "Tìm kiếm theo mã tiêu chí, tên tiêu chí hoặc nội dung..."
     : "Tìm kiếm trong các tiêu chí không đạt...";
 
   const renderDepartmentMenuContent = () => (
@@ -1956,7 +1956,7 @@ const DetailedPhasePage = () => {
                           borderRadius: 1,
                         }}
                       >
-                        Chỉ được phép tải lên tối đa 10 hình ảnh. Vui lòng xóa
+                        Chỉ được phép tải lên tối đa 20 hình ảnh. Vui lòng xóa
                         bớt hình ảnh.
                       </Typography>
                     )}
@@ -1964,7 +1964,7 @@ const DetailedPhasePage = () => {
                   <ImageHandler
                     onImagesChange={(updatedImages) => {
                       setSelectedImages(updatedImages);
-                      setShowImageLimitWarning(updatedImages.length > 10);
+                      setShowImageLimitWarning(updatedImages.length > 20);
                     }}
                     images={selectedImages}
                     disabled={isUploading}

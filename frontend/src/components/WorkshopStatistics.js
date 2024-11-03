@@ -369,7 +369,7 @@ const WorkshopStatistics = ({ reportData }) => {
         },
         title: {
           display: true,
-          text: "Điểm đạt được (%)",
+          text: "Điểm đạt (%)",
           font: {
             weight: "bold",
           },

@@ -1490,6 +1490,41 @@ async function getAccessToken() {
   }
 }
 
+/////////không xóa hàm này, hàm này để refresh token/////////
+// Retry mechanism for API calls
+async function retryWithBackoff(fn, maxRetries = 5, initialDelay = 1000) {
+  let lastError = null;
+  let delay = initialDelay;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+
+      // Check if error is retryable
+      if (
+        error.response &&
+        (error.response.status === 429 || error.response.status >= 500)
+      ) {
+        if (attempt === maxRetries) break;
+
+        console.log(
+          `Attempt ${attempt}/${maxRetries} failed. Retrying in ${delay}ms...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff
+      } else {
+        // Non-retryable error
+        throw error;
+      }
+    }
+  }
+
+  throw lastError;
+}
+/////////không xóa hàm này, hàm này để refresh token/////////
+
 // Create and configure Drive instance with fresh token
 async function getDriveInstance() {
   const accessToken = await getAccessToken();
@@ -1581,7 +1616,7 @@ async function uploadToDrive(fileBuffer, fileName, folderId) {
 }
 
 // Hàm để xử lý upload song song với giới hạn
-async function uploadFilesInParallel(files, maxConcurrent = 10) {
+async function uploadFilesInParallel(files, maxConcurrent = 20) {
   const uploadedFiles = [];
   const errors = [];
   const chunks = [];
@@ -1646,7 +1681,7 @@ async function uploadFilesInParallel(files, maxConcurrent = 10) {
 }
 
 // Upload endpoint
-app.post("/upload", upload.array("photos", 10), async (req, res) => {
+app.post("/upload", upload.array("photos", 20), async (req, res) => {
   const startTime = Date.now();
   console.log(`\nStarting upload of ${req.files?.length || 0} files`);
 

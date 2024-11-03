@@ -71,6 +71,7 @@ const Chart = ({ title, data }) => {
         ticks: {
           stepSize: 20,
           color: "#000",
+          callback: (value) => `${value}%`,
         },
         title: {
           display: true,

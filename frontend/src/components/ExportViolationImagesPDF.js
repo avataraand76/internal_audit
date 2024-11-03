@@ -11,8 +11,8 @@ export default class ExportViolationImagesPDF {
     style.textContent = `
       @media print {
         @page {
-          size: portrait;
-          margin: 15mm;
+          size: A4;
+          margin: 10mm;
         }
 
         body {
@@ -33,20 +33,18 @@ export default class ExportViolationImagesPDF {
         }
 
         .violation-page {
-          page-break-before: always;
-          page-break-inside: avoid;
           width: 100% !important;
           display: flex !important;
           flex-direction: column !important;
           align-items: center !important;
           box-sizing: border-box !important;
           padding: 5mm 0 !important;
+          min-height: 0 !important;
+          page-break-after: always !important;
         }
 
-        /* Remove page break for first content */
-        .violation-page:first-of-type {
-          page-break-before: avoid !important;
-          padding-top: 0 !important;
+        .violation-page:last-child {
+          page-break-after: auto !important;
         }
 
         .violation-header {
@@ -55,75 +53,78 @@ export default class ExportViolationImagesPDF {
           text-align: center !important;
           color: black !important;
           width: 100% !important;
-          padding-top: 10mm !important;
-          margin-bottom: 20mm !important;
-          page-break-after: avoid !important;
+          padding-top: 5mm !important;
+          margin-bottom: 5mm !important;
         }
 
         .workshop-title {
-          font-size: 14pt !important;
+          font-size: 12pt !important;
           font-weight: bold !important;
           color: #1976d2 !important;
-          margin-bottom: 3mm !important;
+          margin-bottom: 1mm !important;
           width: 100% !important;
           text-align: left !important;
-          page-break-after: avoid !important;
         }
 
         .department-title {
-          font-size: 13pt !important;
+          font-size: 11pt !important;
           font-weight: bold !important;
-          color: #2196f3 !important;
-          margin-bottom: 3mm !important;
+          color: #9c27b0 !important;
+          margin-bottom: 1mm !important;
           width: 100% !important;
           text-align: left !important;
-          page-break-after: avoid !important;
         }
 
         .phase-title {
-          font-size: 12pt !important;
+          font-size: 10pt !important;
           font-weight: bold !important;
-          margin-bottom: 3mm !important;
+          margin-bottom: 1mm !important;
           width: 100% !important;
           text-align: left !important;
-          page-break-after: avoid !important;
         }
 
         .criteria-title {
-          font-size: 11pt !important;
+          font-size: 10pt !important;
           background-color: #f5f5f5 !important;
-          padding: 2mm !important;
-          margin-bottom: 3mm !important;
+          padding: 1mm !important;
+          margin-bottom: 1mm !important;
           width: 95% !important;
-          border-radius: 2mm !important;
+          border-radius: 1mm !important;
           text-align: left !important;
-          page-break-after: avoid !important;
         }
 
         .image-section {
           display: flex !important;
-          justify-content: space-between !important;
-          width: 95% !important;
+          flex-direction: column !important;
+          width: 100% !important;
+          gap: 5mm !important;
           margin-bottom: 5mm !important;
+        }
+
+        .image-row {
+          display: flex !important;
+          justify-content: space-between !important;
+          width: 100% !important;
           gap: 5mm !important;
         }
 
         .image-container {
-          flex: 1 !important;
-          max-width: calc(50% - 2.5mm) !important;
+          flex: 1 1 calc(50% - 2.5mm) !important;
+          display: flex !important;
+          flex-direction: column !important;
+          min-height: 50mm !important;
         }
 
         .image-title {
-          font-size: 11pt !important;
+          font-size: 10pt !important;
           font-weight: bold !important;
-          margin-bottom: 2mm !important;
+          margin-bottom: 1mm !important;
           text-align: left !important;
         }
 
         .violation-image {
           width: 100% !important;
-          height: 80mm !important;
-          max-height: 120mm !important;
+          height: 45mm !important;
           object-fit: contain !important;
           border: 1px solid #ddd !important;
           background-color: white !important;
@@ -131,32 +132,21 @@ export default class ExportViolationImagesPDF {
 
         .no-image-placeholder {
           width: 100% !important;
-          height: 80mm !important;
+          height: 45mm !important;
           background-color: #f5f5f5 !important;
           border: 1px dashed #ccc !important;
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
           color: #666 !important;
-          font-size: 10pt !important;
+          font-size: 9pt !important;
         }
 
-        /* Đảm bảo tất cả text đều rõ ràng khi in */
         * {
           text-rendering: optimizeLegibility !important;
           -webkit-font-smoothing: antialiased !important;
           color-adjust: exact !important;
           -webkit-print-color-adjust: exact !important;
-        }
-
-        /* Đảm bảo các break-inside cho tất cả các phần tử quan trọng */
-        .workshop-title,
-        .department-title,
-        .phase-title,
-        .criteria-title,
-        .image-section,
-        .image-container {
-          break-inside: avoid !important;
         }
       }
     `;
@@ -171,7 +161,6 @@ export default class ExportViolationImagesPDF {
   getDirectImageUrl(iframe) {
     if (!iframe?.src) return null;
 
-    // Xử lý URL từ Google Drive
     if (iframe.src.includes("drive.google.com/file/d/")) {
       const fileId = iframe.src.match(/\/d\/(.*?)\/preview/);
       if (fileId) {
@@ -197,13 +186,11 @@ export default class ExportViolationImagesPDF {
     container.id = "print-violations-container";
     container.style.display = "none";
 
-    // Add header instead of separate title page
     const titleHeader = document.createElement("div");
     titleHeader.className = "violation-header";
     titleHeader.textContent = `HÌNH ẢNH VI PHẠM TIÊU CHÍ THÁNG ${this.month}/${this.year}`;
     container.appendChild(titleHeader);
 
-    // Process each workshop
     const workshops = imagesRef.current.querySelectorAll(
       ".MuiPaper-root > .MuiBox-root"
     );
@@ -212,19 +199,16 @@ export default class ExportViolationImagesPDF {
       const workshopTitle = workshop.querySelector("h4");
       if (!workshopTitle) continue;
 
-      // Process each department
       const departments = workshop.querySelectorAll(":scope > .MuiBox-root");
       for (const dept of departments) {
         const deptTitle = dept.querySelector("h5");
         if (!deptTitle) continue;
 
-        // Process each phase
         const phases = dept.querySelectorAll(":scope > .MuiBox-root");
         for (const phase of phases) {
           const phaseTitle = phase.querySelector("h6");
           if (!phaseTitle) continue;
 
-          // Process each criterion
           const criteria = phase.querySelectorAll(":scope > .MuiBox-root");
           for (const criterion of criteria) {
             const criteriaTitle = criterion.querySelector(
@@ -235,7 +219,6 @@ export default class ExportViolationImagesPDF {
             const page = document.createElement("div");
             page.className = "violation-page";
 
-            // Add headers
             const workshopHeading = document.createElement("div");
             workshopHeading.className = "workshop-title";
             workshopHeading.textContent = workshopTitle.textContent;
@@ -256,43 +239,45 @@ export default class ExportViolationImagesPDF {
             criteriaHeading.textContent = criteriaTitle.textContent;
             page.appendChild(criteriaHeading);
 
-            // Create image section
             const imageSection = document.createElement("div");
             imageSection.className = "image-section";
 
-            // Before images
+            // Get all images
+            const beforeIframes = criterion.querySelectorAll(
+              ".MuiGrid-root > .MuiGrid-item:first-of-type iframe"
+            );
+            const afterIframes = criterion.querySelectorAll(
+              ".MuiGrid-root > .MuiGrid-item:last-of-type iframe"
+            );
+
+            // Always show violation images section
+            const beforeRow = document.createElement("div");
+            beforeRow.className = "image-row";
+
+            // First violation container
             const beforeContainer = document.createElement("div");
             beforeContainer.className = "image-container";
-
             const beforeTitle = document.createElement("div");
             beforeTitle.className = "image-title";
             beforeTitle.style.color = "#d32f2f";
             beforeTitle.textContent = "Ảnh vi phạm:";
             beforeContainer.appendChild(beforeTitle);
 
-            const beforeIframes = criterion.querySelectorAll(
-              ".MuiGrid-root > .MuiGrid-item:first-of-type iframe"
-            );
-
             if (beforeIframes.length > 0) {
-              for (const iframe of beforeIframes) {
-                const imageUrl = this.getDirectImageUrl(iframe);
-                if (imageUrl) {
-                  const img = document.createElement("img");
-                  img.className = "violation-image";
-                  img.src = imageUrl;
-                  img.crossOrigin = "anonymous";
-                  beforeContainer.appendChild(img);
-
-                  try {
-                    await this.waitForImage(img);
-                  } catch (error) {
-                    console.error("Error loading image:", error);
-                    const placeholder = document.createElement("div");
-                    placeholder.className = "no-image-placeholder";
-                    placeholder.textContent = "Không thể tải ảnh";
-                    beforeContainer.appendChild(placeholder);
-                  }
+              const imageUrl = this.getDirectImageUrl(beforeIframes[0]);
+              if (imageUrl) {
+                const img = document.createElement("img");
+                img.className = "violation-image";
+                img.src = imageUrl;
+                img.crossOrigin = "anonymous";
+                beforeContainer.appendChild(img);
+                try {
+                  await this.waitForImage(img);
+                } catch (error) {
+                  const placeholder = document.createElement("div");
+                  placeholder.className = "no-image-placeholder";
+                  placeholder.textContent = "Không thể tải ảnh";
+                  beforeContainer.appendChild(placeholder);
                 }
               }
             } else {
@@ -301,40 +286,67 @@ export default class ExportViolationImagesPDF {
               placeholder.textContent = "Không có ảnh vi phạm";
               beforeContainer.appendChild(placeholder);
             }
+            beforeRow.appendChild(beforeContainer);
 
-            // After images
+            // Second violation container
+            if (beforeIframes.length > 1) {
+              const beforeContainer2 = document.createElement("div");
+              beforeContainer2.className = "image-container";
+              const beforeTitle2 = document.createElement("div");
+              beforeTitle2.className = "image-title";
+              beforeTitle2.style.color = "#d32f2f";
+              beforeTitle2.textContent = "Ảnh vi phạm 2:";
+              beforeContainer2.appendChild(beforeTitle2);
+
+              const imageUrl = this.getDirectImageUrl(beforeIframes[1]);
+              if (imageUrl) {
+                const img = document.createElement("img");
+                img.className = "violation-image";
+                img.src = imageUrl;
+                img.crossOrigin = "anonymous";
+                beforeContainer2.appendChild(img);
+                try {
+                  await this.waitForImage(img);
+                } catch (error) {
+                  const placeholder = document.createElement("div");
+                  placeholder.className = "no-image-placeholder";
+                  placeholder.textContent = "Không thể tải ảnh";
+                  beforeContainer2.appendChild(placeholder);
+                }
+              }
+              beforeRow.appendChild(beforeContainer2);
+            }
+
+            imageSection.appendChild(beforeRow);
+
+            // Always show fixed images section
+            const afterRow = document.createElement("div");
+            afterRow.className = "image-row";
+
+            // First fixed container
             const afterContainer = document.createElement("div");
             afterContainer.className = "image-container";
-
             const afterTitle = document.createElement("div");
             afterTitle.className = "image-title";
             afterTitle.style.color = "#2e7d32";
             afterTitle.textContent = "Ảnh sau khắc phục:";
             afterContainer.appendChild(afterTitle);
 
-            const afterIframes = criterion.querySelectorAll(
-              ".MuiGrid-root > .MuiGrid-item:last-of-type iframe"
-            );
-
             if (afterIframes.length > 0) {
-              for (const iframe of afterIframes) {
-                const imageUrl = this.getDirectImageUrl(iframe);
-                if (imageUrl) {
-                  const img = document.createElement("img");
-                  img.className = "violation-image";
-                  img.src = imageUrl;
-                  img.crossOrigin = "anonymous";
-                  afterContainer.appendChild(img);
-
-                  try {
-                    await this.waitForImage(img);
-                  } catch (error) {
-                    console.error("Error loading image:", error);
-                    const placeholder = document.createElement("div");
-                    placeholder.className = "no-image-placeholder";
-                    placeholder.textContent = "Không thể tải ảnh";
-                    afterContainer.appendChild(placeholder);
-                  }
+              const imageUrl = this.getDirectImageUrl(afterIframes[0]);
+              if (imageUrl) {
+                const img = document.createElement("img");
+                img.className = "violation-image";
+                img.src = imageUrl;
+                img.crossOrigin = "anonymous";
+                afterContainer.appendChild(img);
+                try {
+                  await this.waitForImage(img);
+                } catch (error) {
+                  const placeholder = document.createElement("div");
+                  placeholder.className = "no-image-placeholder";
+                  placeholder.textContent = "Không thể tải ảnh";
+                  afterContainer.appendChild(placeholder);
                 }
               }
             } else {
@@ -343,11 +355,174 @@ export default class ExportViolationImagesPDF {
               placeholder.textContent = "Không có ảnh khắc phục";
               afterContainer.appendChild(placeholder);
             }
+            afterRow.appendChild(afterContainer);
 
-            imageSection.appendChild(beforeContainer);
-            imageSection.appendChild(afterContainer);
+            // Second fixed container
+            if (afterIframes.length > 1) {
+              const afterContainer2 = document.createElement("div");
+              afterContainer2.className = "image-container";
+              const afterTitle2 = document.createElement("div");
+              afterTitle2.className = "image-title";
+              afterTitle2.style.color = "#2e7d32";
+              afterTitle2.textContent = "Ảnh sau khắc phục 2:";
+              afterContainer2.appendChild(afterTitle2);
+
+              const imageUrl = this.getDirectImageUrl(afterIframes[1]);
+              if (imageUrl) {
+                const img = document.createElement("img");
+                img.className = "violation-image";
+                img.src = imageUrl;
+                img.crossOrigin = "anonymous";
+                afterContainer2.appendChild(img);
+                try {
+                  await this.waitForImage(img);
+                } catch (error) {
+                  const placeholder = document.createElement("div");
+                  placeholder.className = "no-image-placeholder";
+                  placeholder.textContent = "Không thể tải ảnh";
+                  afterContainer2.appendChild(placeholder);
+                }
+              }
+              afterRow.appendChild(afterContainer2);
+            }
+
+            imageSection.appendChild(afterRow);
+
+            // Process remaining violation images if any
+            if (beforeIframes.length > 2) {
+              for (let i = 2; i < beforeIframes.length; i += 2) {
+                const row = document.createElement("div");
+                row.className = "image-row";
+
+                // First image of the pair
+                const container1 = document.createElement("div");
+                container1.className = "image-container";
+                const title1 = document.createElement("div");
+                title1.className = "image-title";
+                title1.style.color = "#d32f2f";
+                title1.textContent = `Ảnh vi phạm ${i + 1}:`;
+                container1.appendChild(title1);
+
+                const imageUrl1 = this.getDirectImageUrl(beforeIframes[i]);
+                if (imageUrl1) {
+                  const img = document.createElement("img");
+                  img.className = "violation-image";
+                  img.src = imageUrl1;
+                  img.crossOrigin = "anonymous";
+                  container1.appendChild(img);
+                  try {
+                    await this.waitForImage(img);
+                  } catch (error) {
+                    const placeholder = document.createElement("div");
+                    placeholder.className = "no-image-placeholder";
+                    placeholder.textContent = "Không thể tải ảnh";
+                    container1.appendChild(placeholder);
+                  }
+                }
+                row.appendChild(container1);
+
+                // Second image of the pair if it exists
+                if (i + 1 < beforeIframes.length) {
+                  const container2 = document.createElement("div");
+                  container2.className = "image-container";
+                  const title2 = document.createElement("div");
+                  title2.className = "image-title";
+                  title2.style.color = "#d32f2f";
+                  title2.textContent = `Ảnh vi phạm ${i + 2}:`;
+                  container2.appendChild(title2);
+
+                  const imageUrl2 = this.getDirectImageUrl(
+                    beforeIframes[i + 1]
+                  );
+                  if (imageUrl2) {
+                    const img = document.createElement("img");
+                    img.className = "violation-image";
+                    img.src = imageUrl2;
+                    img.crossOrigin = "anonymous";
+                    container2.appendChild(img);
+                    try {
+                      await this.waitForImage(img);
+                    } catch (error) {
+                      const placeholder = document.createElement("div");
+                      placeholder.className = "no-image-placeholder";
+                      placeholder.textContent = "Không thể tải ảnh";
+                      container2.appendChild(placeholder);
+                    }
+                  }
+                  row.appendChild(container2);
+                }
+
+                imageSection.appendChild(row);
+              }
+            }
+
+            // Process remaining fixed images if any
+            if (afterIframes.length > 2) {
+              for (let i = 2; i < afterIframes.length; i += 2) {
+                const row = document.createElement("div");
+                row.className = "image-row";
+
+                // First image of the pair
+                const container1 = document.createElement("div");
+                container1.className = "image-container";
+                const title1 = document.createElement("div");
+                title1.className = "image-title";
+                title1.style.color = "#2e7d32";
+                title1.textContent = `Ảnh sau khắc phục ${i + 1}:`;
+                container1.appendChild(title1);
+
+                const imageUrl1 = this.getDirectImageUrl(afterIframes[i]);
+                if (imageUrl1) {
+                  const img = document.createElement("img");
+                  img.className = "violation-image";
+                  img.src = imageUrl1;
+                  img.crossOrigin = "anonymous";
+                  container1.appendChild(img);
+                  try {
+                    await this.waitForImage(img);
+                  } catch (error) {
+                    const placeholder = document.createElement("div");
+                    placeholder.className = "no-image-placeholder";
+                    placeholder.textContent = "Không thể tải ảnh";
+                    container1.appendChild(placeholder);
+                  }
+                }
+                row.appendChild(container1);
+
+                // Second image of the pair if it exists
+                if (i + 1 < afterIframes.length) {
+                  const container2 = document.createElement("div");
+                  container2.className = "image-container";
+                  const title2 = document.createElement("div");
+                  title2.className = "image-title";
+                  title2.style.color = "#2e7d32";
+                  title2.textContent = `Ảnh sau khắc phục ${i + 2}:`;
+                  container2.appendChild(title2);
+
+                  const imageUrl2 = this.getDirectImageUrl(afterIframes[i + 1]);
+                  if (imageUrl2) {
+                    const img = document.createElement("img");
+                    img.className = "violation-image";
+                    img.src = imageUrl2;
+                    img.crossOrigin = "anonymous";
+                    container2.appendChild(img);
+                    try {
+                      await this.waitForImage(img);
+                    } catch (error) {
+                      const placeholder = document.createElement("div");
+                      placeholder.className = "no-image-placeholder";
+                      placeholder.textContent = "Không thể tải ảnh";
+                      container2.appendChild(placeholder);
+                    }
+                  }
+                  row.appendChild(container2);
+                }
+
+                imageSection.appendChild(row);
+              }
+            }
+
             page.appendChild(imageSection);
-
             container.appendChild(page);
           }
         }
