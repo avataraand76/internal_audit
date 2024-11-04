@@ -1,11 +1,38 @@
 // frontend/src/components/ViolationImages.js
-import React, { useState, useEffect } from "react";
-import { Paper, Typography, Box, Grid } from "@mui/material";
+import React, { useState, useEffect, Suspense } from "react";
+import {
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Typography,
+  Box,
+  Grid,
+  Paper,
+} from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import axios from "axios";
 import API_URL from "../data/api";
 
+const LazyIframe = React.lazy(() =>
+  Promise.resolve({
+    default: ({ src, title }) => (
+      <iframe
+        src={src}
+        width="300px"
+        height="300px"
+        allow="autoplay"
+        style={{ border: "none" }}
+        title={title}
+      />
+    ),
+  })
+);
+
 const ViolationImages = ({ reportData }) => {
   const [violationImages, setViolationImages] = useState({});
+  const [expandedWorkshop, setExpandedWorkshop] = useState(false);
+  const [expandedDepartment, setExpandedDepartment] = useState(false);
+  const [expandedPhase, setExpandedPhase] = useState(false);
 
   const convertToIframeSrc = (url) => {
     if (!url) return null;
@@ -25,25 +52,6 @@ const ViolationImages = ({ reportData }) => {
       .filter(Boolean);
   };
 
-  const NoImagePlaceholder = ({ type }) => (
-    <Box
-      sx={{
-        width: "400px",
-        height: "400px",
-        backgroundColor: "#f5f5f5",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        border: "1px dashed #ccc",
-        borderRadius: 1,
-      }}
-    >
-      <Typography color="text.secondary" align="center">
-        {type === "before" ? "Không có ảnh vi phạm" : "Không có ảnh khắc phục"}
-      </Typography>
-    </Box>
-  );
-
   useEffect(() => {
     const fetchViolationImages = async () => {
       const imagesData = {};
@@ -56,16 +64,11 @@ const ViolationImages = ({ reportData }) => {
           let hasActivePhaseWithImages = false;
 
           for (const phase of reportData.phases) {
-            // Check if department is inactive for this phase
             const isDepartmentInactive =
               reportData.inactiveDepartments?.[phase.id_phase]?.[
                 dept.id_department
               ];
-
-            // Skip fetching images if department is inactive for this phase
-            if (isDepartmentInactive) {
-              continue;
-            }
+            if (isDepartmentInactive) continue;
 
             try {
               const response = await axios.get(
@@ -83,13 +86,11 @@ const ViolationImages = ({ reportData }) => {
             }
           }
 
-          // If department has no active phases with images, delete it
           if (!hasActivePhaseWithImages) {
             delete imagesData[workshop.workshopName][dept.name_department];
           }
         }
 
-        // If workshop has no departments with images, delete it
         if (Object.keys(imagesData[workshop.workshopName]).length === 0) {
           delete imagesData[workshop.workshopName];
         }
@@ -98,7 +99,7 @@ const ViolationImages = ({ reportData }) => {
       setViolationImages(imagesData);
     };
 
-    if (reportData && reportData.workshops && reportData.inactiveDepartments) {
+    if (reportData?.workshops && reportData?.inactiveDepartments) {
       fetchViolationImages();
     }
   }, [reportData]);
@@ -122,6 +123,66 @@ const ViolationImages = ({ reportData }) => {
     );
   }
 
+  const renderImages = (images, type) => {
+    const urls = images ? convertToIframeSrc(images) : null;
+    if (!urls) {
+      return (
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{ mb: 2 }}>
+            <Box
+              sx={{
+                width: "300px",
+                height: "300px",
+                backgroundColor: "#f5f5f5",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "1px dashed #ccc",
+                borderRadius: 1,
+              }}
+            >
+              <Typography color="text.secondary" align="center">
+                {type === "before"
+                  ? "Không có ảnh vi phạm"
+                  : "Không có ảnh khắc phục"}
+              </Typography>
+            </Box>
+          </Box>
+        </Grid>
+      );
+    }
+
+    return urls.map((src, index) => (
+      <Grid item xs={12} sm={6} md={3} key={index}>
+        <Box sx={{ mb: 2 }}>
+          <Suspense
+            fallback={
+              <Box
+                sx={{
+                  width: "300px",
+                  height: "300px",
+                  backgroundColor: "grey.100",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Typography>Đang tải...</Typography>
+              </Box>
+            }
+          >
+            <LazyIframe
+              src={src}
+              title={`${
+                type === "before" ? "Ảnh vi phạm" : "Ảnh sau khắc phục"
+              } ${index + 1}`}
+            />
+          </Suspense>
+        </Box>
+      </Grid>
+    ));
+  };
+
   return (
     <Box sx={{ width: "100%", mt: 4, mb: 4 }}>
       <Typography
@@ -132,129 +193,158 @@ const ViolationImages = ({ reportData }) => {
         HÌNH ẢNH VI PHẠM TIÊU CHÍ
       </Typography>
       <Paper elevation={3} sx={{ p: 3 }}>
-        {Object.entries(violationImages).map(([workshopName, departments]) => (
-          <Box key={workshopName} sx={{ mb: 6 }}>
-            <Typography
-              variant="h4"
-              sx={{ fontWeight: "bold", mb: 4, color: "primary.main" }}
+        {Object.entries(violationImages).map(
+          ([workshopName, departments], workshopIndex) => (
+            <Accordion
+              key={workshopName}
+              expanded={expandedWorkshop === workshopIndex}
+              onChange={() =>
+                setExpandedWorkshop(
+                  expandedWorkshop === workshopIndex ? false : workshopIndex
+                )
+              }
+              sx={{ mb: 2 }}
             >
-              {workshopName}
-            </Typography>
-
-            {Object.entries(departments).map(([deptName, phases]) => (
-              <Box key={deptName} sx={{ mb: 5, pl: 2 }}>
-                <Typography
-                  variant="h5"
-                  sx={{ fontWeight: "bold", mb: 3, color: "secondary.main" }}
-                >
-                  {deptName}
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                sx={{
+                  backgroundColor: "primary.light",
+                  "&:hover": {
+                    backgroundColor: "primary.main",
+                    color: "white",
+                  },
+                }}
+              >
+                <Typography sx={{ fontWeight: "bold" }}>
+                  {workshopName}
                 </Typography>
-
-                {Object.entries(phases).map(([phaseName, criteriaImages]) => (
-                  <Box key={phaseName} sx={{ mb: 4, pl: 2 }}>
-                    <Typography
-                      variant="h6"
-                      sx={{ fontWeight: "bold", mb: 3, color: "text.primary" }}
+              </AccordionSummary>
+              <AccordionDetails>
+                {Object.entries(departments).map(
+                  ([deptName, phases], deptIndex) => (
+                    <Accordion
+                      key={deptName}
+                      expanded={
+                        expandedDepartment === `${workshopIndex}-${deptIndex}`
+                      }
+                      onChange={() =>
+                        setExpandedDepartment(
+                          expandedDepartment === `${workshopIndex}-${deptIndex}`
+                            ? false
+                            : `${workshopIndex}-${deptIndex}`
+                        )
+                      }
+                      sx={{ ml: 2, mb: 2 }}
                     >
-                      {phaseName}
-                    </Typography>
-
-                    {Object.entries(criteriaImages).map(
-                      ([criteriaId, images]) => (
-                        <Box key={criteriaId} sx={{ mb: 5 }}>
-                          <Typography
-                            variant="subtitle1"
-                            sx={{
-                              backgroundColor: "#f5f5f5",
-                              p: 2,
-                              borderRadius: 1,
-                              fontWeight: "bold",
-                              mb: 2,
-                            }}
-                          >
-                            {images.codename} - {images.criterionName}
-                          </Typography>
-
-                          <Grid container spacing={3}>
-                            {/* Before Images */}
-                            <Grid item xs={12} md={6}>
-                              <Typography
-                                variant="subtitle2"
-                                fontWeight="bold"
-                                color="error"
-                                fontSize={20}
+                      <AccordionSummary
+                        expandIcon={<ExpandMoreIcon />}
+                        sx={{
+                          backgroundColor: "secondary.light",
+                          "&:hover": {
+                            backgroundColor: "secondary.main",
+                            color: "white",
+                          },
+                        }}
+                      >
+                        <Typography sx={{ fontWeight: "bold" }}>
+                          {deptName}
+                        </Typography>
+                      </AccordionSummary>
+                      <AccordionDetails>
+                        {Object.entries(phases).map(
+                          ([phaseName, criteriaImages], phaseIndex) => (
+                            <Accordion
+                              key={phaseName}
+                              expanded={
+                                expandedPhase ===
+                                `${workshopIndex}-${deptIndex}-${phaseIndex}`
+                              }
+                              onChange={() =>
+                                setExpandedPhase(
+                                  expandedPhase ===
+                                    `${workshopIndex}-${deptIndex}-${phaseIndex}`
+                                    ? false
+                                    : `${workshopIndex}-${deptIndex}-${phaseIndex}`
+                                )
+                              }
+                              sx={{ ml: 2, mb: 2 }}
+                            >
+                              <AccordionSummary
+                                expandIcon={<ExpandMoreIcon />}
+                                sx={{ backgroundColor: "grey.100" }}
                               >
-                                Ảnh vi phạm:
-                              </Typography>
-                              <Box sx={{ mt: 1 }}>
-                                {images.before ? (
-                                  convertToIframeSrc(images.before)?.map(
-                                    (src, index) => (
-                                      <Box key={index} sx={{ mb: 2 }}>
-                                        <iframe
-                                          src={src}
-                                          width="400px"
-                                          height="400px"
-                                          allow="autoplay"
-                                          style={{ border: "none" }}
-                                          title={`Ảnh vi phạm ${index + 1} - ${
-                                            images.criterionName
-                                          } - ${deptName} - ${phaseName}`}
-                                        />
-                                      </Box>
-                                    )
-                                  )
-                                ) : (
-                                  <NoImagePlaceholder type="before" />
-                                )}
-                              </Box>
-                            </Grid>
+                                <Typography sx={{ fontWeight: "bold" }}>
+                                  {phaseName}
+                                </Typography>
+                              </AccordionSummary>
+                              <AccordionDetails>
+                                {Object.entries(criteriaImages).map(
+                                  ([criteriaId, images]) => (
+                                    <Box key={criteriaId} sx={{ mb: 4 }}>
+                                      <Typography
+                                        sx={{
+                                          backgroundColor: "grey.100",
+                                          p: 2,
+                                          borderRadius: 1,
+                                          fontWeight: "bold",
+                                          mb: 2,
+                                        }}
+                                      >
+                                        {images.codename} -{" "}
+                                        {images.criterionName}
+                                      </Typography>
 
-                            {/* After Images */}
-                            <Grid item xs={12} md={6}>
-                              <Typography
-                                variant="subtitle2"
-                                fontWeight="bold"
-                                color="success.main"
-                                fontSize={20}
-                              >
-                                Ảnh sau khắc phục:
-                              </Typography>
-                              <Box sx={{ mt: 1 }}>
-                                {images.after ? (
-                                  convertToIframeSrc(images.after)?.map(
-                                    (src, index) => (
-                                      <Box key={index} sx={{ mb: 2 }}>
-                                        <iframe
-                                          src={src}
-                                          width="400px"
-                                          height="400px"
-                                          allow="autoplay"
-                                          style={{ border: "none" }}
-                                          title={`Ảnh sau khắc phục ${
-                                            index + 1
-                                          } - ${
-                                            images.criterionName
-                                          } - ${deptName} - ${phaseName}`}
-                                        />
+                                      <Box sx={{ mb: 3 }}>
+                                        <Typography
+                                          variant="subtitle2"
+                                          sx={{
+                                            fontWeight: "bold",
+                                            color: "error.main",
+                                            fontSize: 20,
+                                            mb: 2,
+                                          }}
+                                        >
+                                          Ảnh vi phạm:
+                                        </Typography>
+                                        <Grid container spacing={3}>
+                                          {renderImages(
+                                            images.before,
+                                            "before"
+                                          )}
+                                        </Grid>
                                       </Box>
-                                    )
+
+                                      <Box>
+                                        <Typography
+                                          variant="subtitle2"
+                                          sx={{
+                                            fontWeight: "bold",
+                                            color: "success.main",
+                                            fontSize: 20,
+                                            mb: 2,
+                                          }}
+                                        >
+                                          Ảnh sau khắc phục:
+                                        </Typography>
+                                        <Grid container spacing={3}>
+                                          {renderImages(images.after, "after")}
+                                        </Grid>
+                                      </Box>
+                                    </Box>
                                   )
-                                ) : (
-                                  <NoImagePlaceholder type="after" />
                                 )}
-                              </Box>
-                            </Grid>
-                          </Grid>
-                        </Box>
-                      )
-                    )}
-                  </Box>
-                ))}
-              </Box>
-            ))}
-          </Box>
-        ))}
+                              </AccordionDetails>
+                            </Accordion>
+                          )
+                        )}
+                      </AccordionDetails>
+                    </Accordion>
+                  )
+                )}
+              </AccordionDetails>
+            </Accordion>
+          )
+        )}
       </Paper>
     </Box>
   );
