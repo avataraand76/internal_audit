@@ -29,8 +29,8 @@ import Header from "../components/Header";
 import NavigationBubble from "../components/NavigationBubble";
 import ExcelExportService from "../components/ExportToExcel";
 import ExportToPDF from "../components/ExportToPDF";
-import ExportViolationImagesPDF from "../components/ExportViolationImagesPDF";
-import { FileSpreadsheet, FileText, FileImage } from "lucide-react";
+import BackupTableIcon from "@mui/icons-material/BackupTable";
+import AssessmentIcon from "@mui/icons-material/Assessment";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   border: "1px solid rgba(240, 240, 240, 1)",
@@ -472,15 +472,6 @@ export default function MonthlyReportPage() {
     }
   };
 
-  const exportViolationImagesToPdf = async () => {
-    try {
-      const pdfExporter = new ExportViolationImagesPDF(selectedMonth, year);
-      await pdfExporter.generatePdf(imagesRef);
-    } catch (error) {
-      console.error("Error exporting violation images to PDF:", error);
-    }
-  };
-
   return (
     <Box sx={{ flexGrow: 1 }}>
       <Header />
@@ -524,7 +515,7 @@ export default function MonthlyReportPage() {
                   backgroundColor: "#1e6b3e",
                 },
               }}
-              startIcon={<FileSpreadsheet size={20} />}
+              startIcon={<BackupTableIcon size={20} />}
               onClick={exportToExcel}
             >
               Xuất Excel
@@ -532,29 +523,15 @@ export default function MonthlyReportPage() {
             <Button
               variant="contained"
               sx={{
-                backgroundColor: "#FF0000",
+                backgroundColor: "#FF6347",
                 "&:hover": {
-                  backgroundColor: "#D32F2F",
+                  backgroundColor: "#E5533F",
                 },
               }}
-              startIcon={<FileText size={20} />}
+              startIcon={<AssessmentIcon size={20} />}
               onClick={exportToPdf}
             >
               Xuất PDF
-            </Button>
-            <Button
-              variant="contained"
-              sx={{
-                backgroundColor: "#6B4423",
-                "&:hover": {
-                  backgroundColor: "#5A381D",
-                },
-                ml: 1,
-              }}
-              startIcon={<FileImage size={20} />}
-              onClick={exportViolationImagesToPdf}
-            >
-              Xuất hình ảnh vi phạm
             </Button>
           </Box>
         </Box>
@@ -851,7 +828,11 @@ export default function MonthlyReportPage() {
         </Box>
 
         <Box ref={imagesRef}>
-          <ViolationImages reportData={reportData} />
+          <ViolationImages
+            reportData={reportData}
+            month={selectedMonth}
+            year={year}
+          />
         </Box>
 
         <NavigationBubble

@@ -68,7 +68,7 @@ function HomePage() {
             component="h1"
             textAlign="center"
           >
-            Chào mừng {displayName}
+            Xin chào {displayName}
           </Typography>
 
           <Stack

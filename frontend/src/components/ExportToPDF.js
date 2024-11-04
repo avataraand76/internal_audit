@@ -210,7 +210,7 @@ export default class ExportToPDF {
           };
           window.addEventListener("afterprint", handleAfterPrint);
 
-          document.title = `Bao_cao_KSNB_Thang_${this.month}_${this.year}`;
+          document.title = `Bao_cao_bieu_do_KSNB_Thang_${this.month}_${this.year}`;
 
           setTimeout(() => {
             window.print();

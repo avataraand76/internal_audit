@@ -131,7 +131,7 @@ export class ExcelExportService {
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
-    saveAs(blob, `Bao_cao_KSNB_Thang_${selectedMonth}_${year}.xlsx`);
+    saveAs(blob, `Bao_cao_bang_diem_KSNB_Thang_${selectedMonth}_${year}.xlsx`);
   }
 
   addHeaders(lastColLetter, selectedMonth, year) {
