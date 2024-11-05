@@ -38,6 +38,7 @@ import StarIcon from "@mui/icons-material/Star";
 import ClearIcon from "@mui/icons-material/Clear";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
 import Header from "../components/Header";
 import axios from "axios";
 import API_URL from "../data/api";
@@ -583,9 +584,22 @@ const DetailedPhasePage = () => {
       });
 
       if (uploadResponse.data.success) {
-        const imageUrls = uploadResponse.data.uploadedFiles.map(
+        const newImageUrls = uploadResponse.data.uploadedFiles.map(
           (file) => file.webViewLink
         );
+
+        // Get existing imgURL_after
+        const existingImagesResponse = await axios.get(
+          `${API_URL}/phase-details-images/${phaseId}/${selectedDepartment.id}/${selectedCriterion.id}`
+        );
+
+        let existingUrls = [];
+        if (existingImagesResponse.data.imgURL_after) {
+          existingUrls = existingImagesResponse.data.imgURL_after.split("; ");
+        }
+
+        // Combine existing and new URLs
+        const allUrls = [...existingUrls, ...newImageUrls];
 
         // Cập nhật trạng thái trong database
         await axios.post(`${API_URL}/phase-details`, {
@@ -595,7 +609,7 @@ const DetailedPhasePage = () => {
           id_user: user.id_user,
           date_updated: new Date().toISOString(),
           status_phase_details: "ĐÃ KHẮC PHỤC",
-          imgURL_after: imageUrls.join("; "),
+          imgURL_after: allUrls.join("; "),
         });
 
         // Cập nhật state criteriaStatuses
@@ -603,6 +617,9 @@ const DetailedPhasePage = () => {
           ...prev,
           [selectedCriterion.id]: "ĐÃ KHẮC PHỤC",
         }));
+
+        // Refresh hình ảnh hiển thị
+        await fetchCriterionImages(selectedDepartment.id, selectedCriterion.id);
 
         setIsUploading(false);
         handleCloseDialog();
@@ -1339,6 +1356,80 @@ const DetailedPhasePage = () => {
     }
   };
 
+  const handleAdditionalImages = async () => {
+    if (!selectedImages.length) {
+      alert("Vui lòng chụp hoặc tải ảnh lên trước khi bổ sung.");
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      const formData = new FormData();
+
+      // Process each image for upload
+      for (const image of selectedImages) {
+        let file;
+        if (image.file) {
+          file = image.file;
+        } else if (image.url && image.url.startsWith("data:image")) {
+          const response = await fetch(image.url);
+          const blob = await response.blob();
+          file = new File([blob], image.name, { type: "image/jpeg" });
+        }
+
+        if (file) {
+          formData.append("photos", file);
+        }
+      }
+
+      // Upload images to Google Drive
+      const uploadResponse = await axios.post(`${API_URL}/upload`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      if (uploadResponse.data.success) {
+        const imageUrls = uploadResponse.data.uploadedFiles.map(
+          (file) => file.webViewLink
+        );
+
+        // Get existing imgURL_before
+        const existingImagesResponse = await axios.get(
+          `${API_URL}/phase-details-images/${phaseId}/${selectedDepartment.id}/${selectedCriterion.id}`
+        );
+
+        let existingUrls = [];
+        if (existingImagesResponse.data.imgURL_before) {
+          existingUrls = existingImagesResponse.data.imgURL_before.split("; ");
+        }
+
+        // Combine existing and new URLs
+        const allUrls = [...existingUrls, ...imageUrls];
+
+        // Update database with combined URLs
+        await axios.post(`${API_URL}/save-image-urls`, {
+          id_department: selectedDepartment.id,
+          id_criteria: selectedCriterion.id,
+          id_phase: phaseId,
+          imageUrls: allUrls,
+        });
+
+        // Refresh images display
+        await fetchCriterionImages(selectedDepartment.id, selectedCriterion.id);
+
+        setIsUploading(false);
+        setSelectedImages([]);
+        // Không đóng dialog để người dùng có thể tiếp tục thêm ảnh nếu cần
+      }
+    } catch (error) {
+      console.error("Error in handleAdditionalImages:", error);
+      setIsUploading(false);
+      alert("Có lỗi xảy ra khi bổ sung ảnh. Vui lòng thử lại.");
+    }
+  };
+
   if (!phase) {
     return <Typography>Loading...</Typography>;
   }
@@ -2041,7 +2132,40 @@ const DetailedPhasePage = () => {
               </DialogActions>
             </Dialog>
 
-            <DialogActions>
+            <DialogActions
+              sx={{
+                display: "flex",
+                justifyContent: "flex-start",
+                gap: 1,
+                flexWrap: "wrap",
+                p: 2,
+              }}
+            >
+              {/* Nút bổ sung ảnh - chỉ hiển thị cho supervisor khi tiêu chí không đạt và chưa khắc phục */}
+              {isSupervisor &&
+                failedCriteria[selectedDepartment?.id]?.has(
+                  selectedCriterion?.id
+                ) &&
+                criterionStatus !== "ĐÃ KHẮC PHỤC" && (
+                  <Button
+                    onClick={() => handleAdditionalImages()}
+                    variant="outlined"
+                    color="primary"
+                    disabled={
+                      isUploading ||
+                      selectedImages.length === 0 ||
+                      showImageLimitWarning
+                    }
+                    startIcon={<AddPhotoAlternateIcon />}
+                  >
+                    Bổ sung ảnh
+                  </Button>
+                )}
+
+              {/* Spacer để đẩy các nút còn lại sang phải */}
+              <Box sx={{ flexGrow: 1 }} />
+
+              {/* Các nút điều khiển chính */}
               <Button
                 onClick={handleCloseDialog}
                 color="inherit"
@@ -2049,8 +2173,9 @@ const DetailedPhasePage = () => {
               >
                 Hủy
               </Button>
+
               {isSupervisor ? (
-                // Nút cho supervisor
+                // Các nút cho supervisor
                 <>
                   {failedCriteria[selectedDepartment?.id]?.has(
                     selectedCriterion.id

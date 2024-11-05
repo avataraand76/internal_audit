@@ -1,5 +1,5 @@
 // frontend/src/components/Header.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   AppBar,
   Toolbar,
@@ -94,16 +94,7 @@ const Header = () => {
   const [displayName, setDisplayName] = useState("");
   const [isSupervisor, setIsSupervisor] = useState(false);
 
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (user) {
-      // Use ten_nv if available, otherwise fall back to name_user
-      setDisplayName(user.ten_nv || user.name_user);
-      checkUserRole(user.id_user);
-    }
-  }, []);
-
-  const checkUserRole = async (userId) => {
+  const checkUserRole = useCallback(async (userId) => {
     try {
       const response = await fetch(`${API_URL}/check-supervisor/${userId}`);
       const data = await response.json();
@@ -111,9 +102,22 @@ const Header = () => {
     } catch (error) {
       console.error("Error checking user role:", error);
     }
-  };
+  }, []);
 
-  // Tạo navItems dựa trên vai trò của user
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (user) {
+      // Use ten_nv if available, otherwise fall back to name_user
+      setDisplayName(user.ten_nv || user.name_user);
+      checkUserRole(user.id_user);
+    }
+  }, [checkUserRole]);
+
+  // Check if current path is a report detail page
+  const isReportDetailPage = /^\/report\/\d{1,2}\/\d{4}$/.test(
+    location.pathname
+  );
+
   const getNavItems = () => {
     const baseItems = [
       { text: "Trang chủ", path: "/", icon: <HomeIcon /> },
@@ -124,8 +128,8 @@ const Header = () => {
       },
     ];
 
-    // Thêm nút báo cáo chỉ cho supervisor
-    if (isSupervisor) {
+    // Thêm nút báo cáo cho cả supervisor và supervised users
+    if ((isSupervisor || !isSupervisor) && !isReportDetailPage) {
       baseItems.push({
         text: "Báo cáo",
         path: "/report",
@@ -155,7 +159,7 @@ const Header = () => {
     }
   };
 
-  // Filter out navigation items based on current route
+  // Filter out navigation items based on current route and report detail page
   const filteredNavItems = getNavItems().filter((item) => {
     if (location.pathname === "/" && item.path === "/") return false;
     if (location.pathname === "/create-phase" && item.path === "/create-phase")

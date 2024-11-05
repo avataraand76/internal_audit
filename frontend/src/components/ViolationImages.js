@@ -618,7 +618,7 @@ const ViolationImages = ({ reportData, month, year }) => {
             ))}
           </ButtonGroup>
 
-          <Tooltip title={`Xuất PDF đợt ${selectedPhase}`} placement="left">
+          <Tooltip title={`Xuất PDF đợt ${selectedPhase}`} placement="top">
             <span>
               <Button
                 variant="contained"

@@ -19,6 +19,7 @@ import {
   MenuItem,
   FormControl,
   Button,
+  Tooltip,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import ScorePercentageChart from "../components/ScorePercentageChart";
@@ -429,7 +430,7 @@ export default function MonthlyReportPage() {
                 </Select>
               </FormControl>
               <Typography variant="h5" fontWeight="bold">
-                / {year}
+                /{year}
               </Typography>
             </Box>
           </Box>
@@ -519,42 +520,52 @@ export default function MonthlyReportPage() {
             <Typography variant="h5" fontWeight="bold">
               /{year}
             </Typography>
-            <Button
-              variant="contained"
-              sx={{
-                backgroundColor: "#217346",
-                "&:hover": {
-                  backgroundColor: "#1e6b3e",
-                },
-                "&.Mui-disabled": {
-                  backgroundColor: "#217346",
-                  opacity: 0.7,
-                },
-              }}
-              startIcon={<BackupTableIcon size={20} />}
-              onClick={exportToExcel}
-              disabled={isExportingExcel || isExportingPdf}
-            >
-              {isExportingExcel ? "Đang xuất Excel..." : "Xuất Excel"}
-            </Button>
-            <Button
-              variant="contained"
-              sx={{
-                backgroundColor: "#FF6347",
-                "&:hover": {
-                  backgroundColor: "#E5533F",
-                },
-                "&.Mui-disabled": {
-                  backgroundColor: "#FF6347",
-                  opacity: 0.7,
-                },
-              }}
-              startIcon={<AssessmentIcon size={20} />}
-              onClick={exportToPdf}
-              disabled={isExportingExcel || isExportingPdf}
-            >
-              {isExportingPdf ? "Đang xuất PDF..." : "Xuất PDF"}
-            </Button>
+
+            <Tooltip title={`Xuất bảng điểm `} placement="top">
+              <span>
+                <Button
+                  variant="contained"
+                  sx={{
+                    backgroundColor: "#217346",
+                    "&:hover": {
+                      backgroundColor: "#1e6b3e",
+                    },
+                    "&.Mui-disabled": {
+                      backgroundColor: "#217346",
+                      opacity: 0.7,
+                    },
+                  }}
+                  startIcon={<BackupTableIcon size={20} />}
+                  onClick={exportToExcel}
+                  disabled={isExportingExcel || isExportingPdf}
+                >
+                  {isExportingExcel ? "Đang xuất Excel..." : "Xuất Excel"}
+                </Button>
+              </span>
+            </Tooltip>
+
+            <Tooltip title={`Xuất thống kê biểu đồ`} placement="top">
+              <span>
+                <Button
+                  variant="contained"
+                  sx={{
+                    backgroundColor: "#FF6347",
+                    "&:hover": {
+                      backgroundColor: "#E5533F",
+                    },
+                    "&.Mui-disabled": {
+                      backgroundColor: "#FF6347",
+                      opacity: 0.7,
+                    },
+                  }}
+                  startIcon={<AssessmentIcon size={20} />}
+                  onClick={exportToPdf}
+                  disabled={isExportingExcel || isExportingPdf}
+                >
+                  {isExportingPdf ? "Đang xuất PDF..." : "Xuất PDF"}
+                </Button>
+              </span>
+            </Tooltip>
           </Box>
         </Box>
 
