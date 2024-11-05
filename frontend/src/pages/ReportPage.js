@@ -92,7 +92,7 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
   ".summary-row &.sticky-left-0, .summary-row &.sticky-left-1, .summary-row &.sticky-left-2":
     {
       backgroundColor: "#1976d3",
-      color: "black",
+      color: "white",
     },
   // Tăng z-index cho các cell vừa sticky ngang vừa dọc
   "&.sticky-top-row.sticky-left-0, &.sticky-top-row.sticky-left-1, &.sticky-top-row.sticky-left-2":
@@ -176,6 +176,8 @@ export default function MonthlyReportPage() {
   const knockoutChartRef = useRef(null);
   const workshopStatsRef = useRef(null);
   const imagesRef = useRef(null);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Lấy tham số tháng và năm từ URL
   const { month: urlMonth, year: urlYear } = useParams();
@@ -444,6 +446,7 @@ export default function MonthlyReportPage() {
   }
 
   const exportToExcel = async () => {
+    setIsExportingExcel(true);
     const calculations = {
       calculateWorkshopAverage,
       calculateDepartmentAverage,
@@ -452,11 +455,18 @@ export default function MonthlyReportPage() {
       isLatestPhaseGreen,
     };
 
-    const excelService = new ExcelExportService(reportData, calculations);
-    await excelService.exportToExcel(selectedMonth, year);
+    try {
+      const excelService = new ExcelExportService(reportData, calculations);
+      await excelService.exportToExcel(selectedMonth, year);
+    } catch (error) {
+      console.error("Error exporting Excel:", error);
+    } finally {
+      setIsExportingExcel(false);
+    }
   };
 
   const exportToPdf = async () => {
+    setIsExportingPdf(true);
     const refs = {
       scoreChartRef,
       knockoutChartRef,
@@ -469,6 +479,8 @@ export default function MonthlyReportPage() {
       await pdfExporter.generatePdf(refs);
     } catch (error) {
       console.error("Error exporting PDF:", error);
+    } finally {
+      setIsExportingPdf(false);
     }
   };
 
@@ -514,11 +526,16 @@ export default function MonthlyReportPage() {
                 "&:hover": {
                   backgroundColor: "#1e6b3e",
                 },
+                "&.Mui-disabled": {
+                  backgroundColor: "#217346",
+                  opacity: 0.7,
+                },
               }}
               startIcon={<BackupTableIcon size={20} />}
               onClick={exportToExcel}
+              disabled={isExportingExcel || isExportingPdf}
             >
-              Xuất Excel
+              {isExportingExcel ? "Đang xuất Excel..." : "Xuất Excel"}
             </Button>
             <Button
               variant="contained"
@@ -527,11 +544,16 @@ export default function MonthlyReportPage() {
                 "&:hover": {
                   backgroundColor: "#E5533F",
                 },
+                "&.Mui-disabled": {
+                  backgroundColor: "#FF6347",
+                  opacity: 0.7,
+                },
               }}
               startIcon={<AssessmentIcon size={20} />}
               onClick={exportToPdf}
+              disabled={isExportingExcel || isExportingPdf}
             >
-              Xuất PDF
+              {isExportingPdf ? "Đang xuất PDF..." : "Xuất PDF"}
             </Button>
           </Box>
         </Box>
@@ -787,8 +809,11 @@ export default function MonthlyReportPage() {
                 </StyledTableCell>
                 {reportData.phases.map((phase, index) => (
                   <React.Fragment key={`summary-${index}`}>
-                    <StyledTableCell />
-                    <StyledTableCell align="center" sx={{ fontWeight: "bold" }}>
+                    <StyledTableCell sx={{ color: "white" }} />
+                    <StyledTableCell
+                      align="center"
+                      sx={{ fontWeight: "bold", color: "white" }}
+                    >
                       {typeof calculateWorkshopAverage(
                         reportData.workshops.flatMap((w) => w.departments),
                         index
@@ -802,10 +827,13 @@ export default function MonthlyReportPage() {
                             index
                           )}%`}
                     </StyledTableCell>
-                    <StyledTableCell />
+                    <StyledTableCell sx={{ color: "white" }} />
                   </React.Fragment>
                 ))}
-                <StyledTableCell align="center" sx={{ fontWeight: "bold" }}>
+                <StyledTableCell
+                  align="center"
+                  sx={{ fontWeight: "bold", color: "white" }}
+                >
                   {typeof calculateOverallAverage() === "number"
                     ? `${calculateOverallAverage()}%`
                     : `${calculateOverallAverage()}%`}

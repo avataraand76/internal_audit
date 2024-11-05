@@ -631,9 +631,13 @@ const ViolationImages = ({ reportData, month, year }) => {
                   "&:hover": {
                     backgroundColor: "#1A78D6",
                   },
+                  "&.Mui-disabled": {
+                    backgroundColor: "#1E90FF",
+                    opacity: 0.7,
+                  },
                 }}
               >
-                {isExporting ? "Đang xuất..." : "Xuất PDF"}
+                {isExporting ? "Đang xuất PDF..." : "Xuất PDF"}
               </Button>
             </span>
           </Tooltip>
