@@ -22,12 +22,6 @@ const db = mysql.createConnection({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  ssl:
-    process.env.DB_HOST === "localhost"
-      ? false
-      : {
-          rejectUnauthorized: false,
-        },
 });
 const FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
@@ -2060,11 +2054,21 @@ app.get("/get-phase-details-images/:phaseId/:departmentId", (req, res) => {
 // Khởi tạo và xác thực Google Sheets
 async function initGoogleSheet() {
   try {
+    // Create new document instance
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID);
-    await doc.useServiceAccountAuth(
-      JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT)
-    );
+
+    // Parse credentials from environment variable
+    const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
+
+    // Initialize service account auth
+    await doc.useServiceAccountAuth({
+      client_email: credentials.client_email,
+      private_key: credentials.private_key.replace(/\\n/g, "\n"),
+    });
+
+    // Load document properties and worksheets
     await doc.loadInfo();
+
     return doc;
   } catch (error) {
     console.error("Error initializing Google Sheet:", error);
@@ -2075,8 +2079,28 @@ async function initGoogleSheet() {
 // Hàm format dữ liệu báo cáo cho Google Sheets
 async function formatReportDataForSheet(month, year) {
   try {
-    // Lấy dữ liệu báo cáo từ database
-    const query = `
+    // 1. Lấy danh sách phases trong tháng
+    const phasesQuery = `
+      SELECT id_phase, name_phase 
+      FROM tb_phase 
+      WHERE MONTH(date_recorded) = ? AND YEAR(date_recorded) = ?
+      ORDER BY date_recorded ASC
+    `;
+
+    const [phases] = await new Promise((resolve, reject) => {
+      db.query(phasesQuery, [month, year], (err, results) => {
+        if (err) reject(err);
+        else resolve([results]);
+      });
+    });
+
+    if (!phases || phases.length === 0) {
+      console.log("No phases found for this month");
+      return [];
+    }
+
+    // 2. Lấy dữ liệu báo cáo
+    const reportQuery = `
       SELECT 
         p.id_phase,
         p.name_phase,
@@ -2099,12 +2123,20 @@ async function formatReportDataForSheet(month, year) {
             AND pd2.id_department = d.id_department
             AND pd2.is_fail = 1
             AND c.failing_point_type IN (1, 2, 3)
-        ) as knockout_types
+        ) as knockout_types,
+        (
+          SELECT COUNT(*) 
+          FROM tb_inactive_department 
+          WHERE id_phase = p.id_phase 
+          AND id_department = d.id_department 
+          AND is_inactive = 1
+        ) as is_inactive
       FROM 
         tb_phase p
-        JOIN tb_phase_details pd ON p.id_phase = pd.id_phase
-        JOIN tb_department d ON pd.id_department = d.id_department
+        CROSS JOIN tb_department d
         JOIN tb_workshop w ON d.id_workshop = w.id_workshop
+        LEFT JOIN tb_phase_details pd ON p.id_phase = pd.id_phase 
+          AND pd.id_department = d.id_department
         LEFT JOIN tb_total_point tp ON tp.id_phase = p.id_phase 
           AND tp.id_department = d.id_department
       WHERE 
@@ -2113,20 +2145,22 @@ async function formatReportDataForSheet(month, year) {
       GROUP BY 
         p.id_phase, d.id_department
       ORDER BY 
-        p.date_recorded ASC, w.id_workshop, d.id_department
+        w.id_workshop, d.id_department, p.date_recorded ASC
     `;
 
     const [results] = await new Promise((resolve, reject) => {
-      db.query(query, [month, year], (err, results) => {
+      db.query(reportQuery, [month, year], (err, results) => {
         if (err) reject(err);
         else resolve([results]);
       });
     });
 
-    // Nhóm dữ liệu theo department
+    // 3. Tạo cấu trúc dữ liệu cho từng department
     const departmentData = {};
+
     results.forEach((row) => {
       const deptKey = `${row.name_workshop}-${row.name_department}`;
+
       if (!departmentData[deptKey]) {
         departmentData[deptKey] = {
           month: month,
@@ -2135,49 +2169,85 @@ async function formatReportDataForSheet(month, year) {
           department: row.name_department,
           max_points: row.max_points,
           phases: {},
-          total_score: null,
         };
       }
 
-      departmentData[deptKey].phases[row.name_phase] = {
-        failed_count: row.failed_count,
-        score_percentage: row.score_percentage,
-        knockout_types: row.knockout_types || "",
-      };
+      // Chỉ thêm dữ liệu khi department hoạt động
+      if (!row.is_inactive) {
+        departmentData[deptKey].phases[row.name_phase] = {
+          failedCount: row.failed_count,
+          scorePercentage: row.score_percentage,
+          knockoutTypes: row.knockout_types || "",
+        };
+      }
     });
 
-    // Chuyển đổi thành mảng dữ liệu cho sheet
+    // 4. Format dữ liệu cho Google Sheet
     const sheetData = Object.values(departmentData).map((dept) => {
-      const phaseColumns = Object.entries(dept.phases).flatMap(([_, phase]) => [
-        phase.failed_count,
-        phase.score_percentage,
-        phase.knockout_types,
-      ]);
+      // Thông tin cơ bản
+      let row = [
+        dept.month,
+        dept.year,
+        dept.workshop,
+        dept.department,
+        dept.max_points,
+      ];
+
+      // Thêm dữ liệu cho từng phase
+      phases.forEach((phase) => {
+        const phaseData = dept.phases[phase.name_phase] || {
+          failedCount: "",
+          scorePercentage: "",
+          knockoutTypes: "",
+        };
+
+        row.push(
+          phaseData.failedCount,
+          // Add % symbol for score percentage if it's not empty
+          phaseData.scorePercentage !== ""
+            ? `${phaseData.scorePercentage}%`
+            : "",
+          phaseData.knockoutTypes
+        );
+      });
 
       // Tính điểm trung bình
       const validScores = Object.values(dept.phases)
-        .map((p) => p.score_percentage)
-        .filter((score) => score !== null && score !== undefined);
+        .map((p) => p.scorePercentage)
+        .filter(
+          (score) => score !== "" && score !== null && score !== undefined
+        );
 
       const avgScore =
         validScores.length > 0
           ? Math.round(
               validScores.reduce((a, b) => a + b, 0) / validScores.length
             )
-          : null;
+          : "";
 
-      return [
-        dept.month,
-        dept.year,
-        dept.workshop,
-        dept.department,
-        dept.max_points,
-        ...phaseColumns,
-        avgScore,
-      ];
+      // Add % symbol to average score if it's not empty
+      row.push(avgScore !== "" ? `${avgScore}%` : "");
+      return row;
     });
 
-    return sheetData;
+    // 5. Tạo headers với định dạng mới
+    const headers = ["Tháng", "Năm", "Phòng ban", "Bộ phận", "Điểm tối đa"];
+
+    // Thêm headers cho từng lần với số thứ tự
+    phases.forEach((phase, index) => {
+      headers.push(
+        `Tổng điểm trừ L${index + 1}`,
+        `% Điểm đạt L${index + 1}`,
+        `Hạng mục Điểm liệt L${index + 1}`
+      );
+    });
+
+    headers.push("Tổng điểm đạt (%)");
+
+    return {
+      headers: headers,
+      data: sheetData,
+    };
   } catch (error) {
     console.error("Error formatting report data:", error);
     throw error;
@@ -2192,46 +2262,59 @@ async function updateGoogleSheet() {
     const currentYear = currentDate.getFullYear();
 
     // Format dữ liệu
-    const sheetData = await formatReportDataForSheet(currentMonth, currentYear);
+    const formattedData = await formatReportDataForSheet(
+      currentMonth,
+      currentYear
+    );
 
-    if (!sheetData || sheetData.length === 0) {
+    if (
+      !formattedData ||
+      !formattedData.data ||
+      formattedData.data.length === 0
+    ) {
       console.log("No data to update");
       return;
     }
 
     // Kết nối với Google Sheet
     const doc = await initGoogleSheet();
-    const sheet = doc.sheetsByIndex[0]; // Sử dụng sheet đầu tiên
+    // Lấy sheet theo tên chính xác
+    // const sheet = doc.sheetsByTitle['Dashboard']; // Thay 'Dashboard' bằng tên sheet
+
+    // Hoặc lấy sheet theo ID
+    const sheet = doc.sheetsById[0]; // Thay bằng ID gid sheet
+
+    if (!sheet) {
+      throw new Error("Sheet not found");
+    }
 
     // Xóa dữ liệu cũ
     await sheet.clear();
 
-    // Thêm headers
-    const headers = ["Tháng", "Năm", "Workshop", "Department", "Điểm tối đa"];
+    // Cập nhật headers
+    await sheet.setHeaderRow(formattedData.headers);
 
-    // Thêm headers cho các đợt kiểm tra
-    const phases = Object.keys(sheetData[0].phases || {});
-    phases.forEach((phase) => {
-      headers.push(
-        `${phase} - Tổng điểm trừ`,
-        `${phase} - % Điểm đạt`,
-        `${phase} - Hạng mục Điểm liệt`
-      );
+    // Convert data theo định dạng của headers
+    const rows = formattedData.data.map((row) => {
+      const obj = {};
+      formattedData.headers.forEach((header, index) => {
+        obj[header] = row[index];
+      });
+      return obj;
     });
 
-    headers.push("Tổng điểm đạt (%)");
+    // Thêm rows vào sheet
+    await sheet.addRows(rows);
 
-    // Cập nhật sheet
-    await sheet.setHeaderRow(headers);
-    await sheet.addRows(sheetData);
-
-    console.log(`Sheet updated successfully at ${new Date().toISOString()}`);
+    console.log(
+      `Sheet updated successfully at ${moment().format("HH:mm:ss DD/MM/YYYY")}`
+    );
   } catch (error) {
     console.error("Error updating Google Sheet:", error);
   }
 }
 
-// Thiết lập interval để chạy cập nhật mỗi 5 phút
+// Thiết lập interval để chạy cập nhật mỗi 1 phút
 setInterval(updateGoogleSheet, 1 * 60 * 1000);
 
 // Chạy lần đầu khi khởi động server
