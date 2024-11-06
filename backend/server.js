@@ -11,6 +11,7 @@ const fs = require("fs");
 const compression = require("compression");
 const axios = require("axios");
 const { Readable } = require("stream");
+const { GoogleSpreadsheet } = require("google-spreadsheet");
 
 const app = express();
 app.use(cors());
@@ -387,12 +388,31 @@ app.put("/phases/:id", (req, res) => {
 });
 
 // Delete a phase
-app.delete("/phases/:id", (req, res) => {
+app.delete("/phases/:id", async (req, res) => {
   const phaseId = req.params.id;
 
-  // First delete all related records from tb_phase_details and tb_total_point
-  const deleteRelatedRecords = async () => {
+  try {
+    // Start a transaction to ensure data consistency
+    await new Promise((resolve, reject) => {
+      db.beginTransaction((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
     try {
+      // First, delete records from tb_inactive_department
+      await new Promise((resolve, reject) => {
+        db.query(
+          "DELETE FROM tb_inactive_department WHERE id_phase = ?",
+          [phaseId],
+          (err) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+
       // Delete from tb_phase_details
       await new Promise((resolve, reject) => {
         db.query(
@@ -418,32 +438,54 @@ app.delete("/phases/:id", (req, res) => {
       });
 
       // Finally delete the phase itself
-      await new Promise((resolve, reject) => {
+      const [phaseResult] = await new Promise((resolve, reject) => {
         db.query(
           "DELETE FROM tb_phase WHERE id_phase = ?",
           [phaseId],
           (err, result) => {
             if (err) reject(err);
-            else if (result.affectedRows === 0) {
-              reject(new Error("Phase not found"));
-            } else resolve();
+            else resolve([result]);
           }
         );
       });
 
+      // Check if phase was actually deleted
+      if (phaseResult.affectedRows === 0) {
+        await new Promise((resolve, reject) => {
+          db.rollback((err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+        return res.status(404).json({ error: "Phase not found" });
+      }
+
+      // If all operations successful, commit the transaction
+      await new Promise((resolve, reject) => {
+        db.commit((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
       res.json({ message: "Phase deleted successfully" });
     } catch (error) {
-      console.error("Error deleting phase:", error);
-      res.status(error.message === "Phase not found" ? 404 : 500).json({
-        error:
-          error.message === "Phase not found"
-            ? "Phase not found"
-            : "Error deleting phase",
+      // If any error occurs during deletion, rollback the transaction
+      await new Promise((resolve, reject) => {
+        db.rollback((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
       });
+      throw error; // Re-throw to be caught by outer catch block
     }
-  };
-
-  deleteRelatedRecords();
+  } catch (error) {
+    console.error("Error deleting phase:", error);
+    res.status(500).json({
+      error: "Error deleting phase",
+      details: error.message,
+    });
+  }
 });
 
 // Create a new phase in CreatePhasePage.js
@@ -2013,6 +2055,188 @@ app.get("/get-phase-details-images/:phaseId/:departmentId", (req, res) => {
   });
 });
 //////////report page//////////
+
+//////////upload to gg sheet to power bi//////////
+// Khởi tạo và xác thực Google Sheets
+async function initGoogleSheet() {
+  try {
+    const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID);
+    await doc.useServiceAccountAuth(
+      JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT)
+    );
+    await doc.loadInfo();
+    return doc;
+  } catch (error) {
+    console.error("Error initializing Google Sheet:", error);
+    throw error;
+  }
+}
+
+// Hàm format dữ liệu báo cáo cho Google Sheets
+async function formatReportDataForSheet(month, year) {
+  try {
+    // Lấy dữ liệu báo cáo từ database
+    const query = `
+      SELECT 
+        p.id_phase,
+        p.name_phase,
+        w.name_workshop,
+        d.name_department,
+        d.id_department,
+        (
+          SELECT COUNT(*) 
+          FROM tb_department_criteria 
+          WHERE id_department = d.id_department
+        ) as max_points,
+        COALESCE(SUM(pd.is_fail), 0) as failed_count,
+        COALESCE(tp.total_point, 100) as score_percentage,
+        (
+          SELECT GROUP_CONCAT(DISTINCT cat.name_category SEPARATOR ', ')
+          FROM tb_phase_details pd2
+          JOIN tb_criteria c ON pd2.id_criteria = c.id_criteria
+          JOIN tb_category cat ON c.id_category = cat.id_category
+          WHERE pd2.id_phase = p.id_phase 
+            AND pd2.id_department = d.id_department
+            AND pd2.is_fail = 1
+            AND c.failing_point_type IN (1, 2, 3)
+        ) as knockout_types
+      FROM 
+        tb_phase p
+        JOIN tb_phase_details pd ON p.id_phase = pd.id_phase
+        JOIN tb_department d ON pd.id_department = d.id_department
+        JOIN tb_workshop w ON d.id_workshop = w.id_workshop
+        LEFT JOIN tb_total_point tp ON tp.id_phase = p.id_phase 
+          AND tp.id_department = d.id_department
+      WHERE 
+        MONTH(p.date_recorded) = ? 
+        AND YEAR(p.date_recorded) = ?
+      GROUP BY 
+        p.id_phase, d.id_department
+      ORDER BY 
+        p.date_recorded ASC, w.id_workshop, d.id_department
+    `;
+
+    const [results] = await new Promise((resolve, reject) => {
+      db.query(query, [month, year], (err, results) => {
+        if (err) reject(err);
+        else resolve([results]);
+      });
+    });
+
+    // Nhóm dữ liệu theo department
+    const departmentData = {};
+    results.forEach((row) => {
+      const deptKey = `${row.name_workshop}-${row.name_department}`;
+      if (!departmentData[deptKey]) {
+        departmentData[deptKey] = {
+          month: month,
+          year: year,
+          workshop: row.name_workshop,
+          department: row.name_department,
+          max_points: row.max_points,
+          phases: {},
+          total_score: null,
+        };
+      }
+
+      departmentData[deptKey].phases[row.name_phase] = {
+        failed_count: row.failed_count,
+        score_percentage: row.score_percentage,
+        knockout_types: row.knockout_types || "",
+      };
+    });
+
+    // Chuyển đổi thành mảng dữ liệu cho sheet
+    const sheetData = Object.values(departmentData).map((dept) => {
+      const phaseColumns = Object.entries(dept.phases).flatMap(([_, phase]) => [
+        phase.failed_count,
+        phase.score_percentage,
+        phase.knockout_types,
+      ]);
+
+      // Tính điểm trung bình
+      const validScores = Object.values(dept.phases)
+        .map((p) => p.score_percentage)
+        .filter((score) => score !== null && score !== undefined);
+
+      const avgScore =
+        validScores.length > 0
+          ? Math.round(
+              validScores.reduce((a, b) => a + b, 0) / validScores.length
+            )
+          : null;
+
+      return [
+        dept.month,
+        dept.year,
+        dept.workshop,
+        dept.department,
+        dept.max_points,
+        ...phaseColumns,
+        avgScore,
+      ];
+    });
+
+    return sheetData;
+  } catch (error) {
+    console.error("Error formatting report data:", error);
+    throw error;
+  }
+}
+
+// Hàm cập nhật Google Sheet
+async function updateGoogleSheet() {
+  try {
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
+
+    // Format dữ liệu
+    const sheetData = await formatReportDataForSheet(currentMonth, currentYear);
+
+    if (!sheetData || sheetData.length === 0) {
+      console.log("No data to update");
+      return;
+    }
+
+    // Kết nối với Google Sheet
+    const doc = await initGoogleSheet();
+    const sheet = doc.sheetsByIndex[0]; // Sử dụng sheet đầu tiên
+
+    // Xóa dữ liệu cũ
+    await sheet.clear();
+
+    // Thêm headers
+    const headers = ["Tháng", "Năm", "Workshop", "Department", "Điểm tối đa"];
+
+    // Thêm headers cho các đợt kiểm tra
+    const phases = Object.keys(sheetData[0].phases || {});
+    phases.forEach((phase) => {
+      headers.push(
+        `${phase} - Tổng điểm trừ`,
+        `${phase} - % Điểm đạt`,
+        `${phase} - Hạng mục Điểm liệt`
+      );
+    });
+
+    headers.push("Tổng điểm đạt (%)");
+
+    // Cập nhật sheet
+    await sheet.setHeaderRow(headers);
+    await sheet.addRows(sheetData);
+
+    console.log(`Sheet updated successfully at ${new Date().toISOString()}`);
+  } catch (error) {
+    console.error("Error updating Google Sheet:", error);
+  }
+}
+
+// Thiết lập interval để chạy cập nhật mỗi 5 phút
+setInterval(updateGoogleSheet, 1 * 60 * 1000);
+
+// Chạy lần đầu khi khởi động server
+updateGoogleSheet();
+//////////upload to gg sheet to power bi//////////
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => {
