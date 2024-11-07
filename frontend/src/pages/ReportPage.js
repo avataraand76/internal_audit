@@ -20,6 +20,8 @@ import {
   FormControl,
   Button,
   Tooltip,
+  Switch,
+  FormControlLabel,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import ScorePercentageChart from "../components/ScorePercentageChart";
@@ -179,6 +181,7 @@ export default function MonthlyReportPage() {
   const imagesRef = useRef(null);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [showOnlySIGP, setShowOnlySIGP] = useState(false);
 
   // Lấy tham số tháng và năm từ URL
   const { month: urlMonth, year: urlYear } = useParams();
@@ -207,6 +210,18 @@ export default function MonthlyReportPage() {
     { value: "11", label: "Tháng 11" },
     { value: "12", label: "Tháng 12" },
   ];
+
+  const handleSwitchChange = (event) => {
+    setShowOnlySIGP(event.target.checked);
+  };
+
+  // Thêm logic lọc workshops
+  const filteredWorkshops =
+    reportData && reportData.workshops
+      ? showOnlySIGP
+        ? reportData.workshops.filter((w) => w.workshopName === "SIGP")
+        : reportData.workshops
+      : [];
 
   useEffect(() => {
     if (!urlMonth) {
@@ -329,7 +344,9 @@ export default function MonthlyReportPage() {
   };
 
   const calculateOverallAverage = () => {
-    const workshopAverages = reportData.workshops
+    if (!reportData || !reportData.workshops) return "NaN";
+
+    const workshopAverages = filteredWorkshops
       .map(calculateWorkshopTotalAverage)
       .filter((avg) => avg !== "NaN" && typeof avg === "number");
 
@@ -566,6 +583,26 @@ export default function MonthlyReportPage() {
                 </Button>
               </span>
             </Tooltip>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showOnlySIGP}
+                  onChange={handleSwitchChange}
+                  color="primary"
+                />
+              }
+              label={
+                <Typography
+                  sx={{
+                    fontWeight: "bold",
+                    fontSize: "0.9rem",
+                    color: showOnlySIGP ? "primary.main" : "text.secondary",
+                  }}
+                >
+                  Chỉ hiện SIGP
+                </Typography>
+              }
+            />
           </Box>
         </Box>
 
@@ -639,7 +676,7 @@ export default function MonthlyReportPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {reportData.workshops.map((workshop, wIndex) => (
+              {filteredWorkshops.map((workshop, wIndex) => (
                 <React.Fragment key={wIndex}>
                   {/* Workshop header row with average scores */}
                   <StyledTableRow className="workshop-row">
@@ -826,15 +863,15 @@ export default function MonthlyReportPage() {
                       sx={{ fontWeight: "bold", color: "white" }}
                     >
                       {typeof calculateWorkshopAverage(
-                        reportData.workshops.flatMap((w) => w.departments),
+                        filteredWorkshops.flatMap((w) => w.departments),
                         index
                       ) === "number"
                         ? `${calculateWorkshopAverage(
-                            reportData.workshops.flatMap((w) => w.departments),
+                            filteredWorkshops.flatMap((w) => w.departments),
                             index
                           )}%`
                         : `${calculateWorkshopAverage(
-                            reportData.workshops.flatMap((w) => w.departments),
+                            filteredWorkshops.flatMap((w) => w.departments),
                             index
                           )}%`}
                     </StyledTableCell>
@@ -854,25 +891,51 @@ export default function MonthlyReportPage() {
           </Table>
         </StyledTableContainer>
 
-        <Box ref={scoreChartRef}>
-          <ScorePercentageChart reportData={reportData} />
-        </Box>
+        {reportData && (
+          <>
+            <Box ref={scoreChartRef}>
+              <ScorePercentageChart
+                reportData={
+                  showOnlySIGP
+                    ? { ...reportData, workshops: filteredWorkshops }
+                    : reportData
+                }
+              />
+            </Box>
 
-        <Box ref={knockoutChartRef}>
-          <KnockoutStatsChart reportData={reportData} />
-        </Box>
+            <Box ref={knockoutChartRef}>
+              <KnockoutStatsChart
+                reportData={
+                  showOnlySIGP
+                    ? { ...reportData, workshops: filteredWorkshops }
+                    : reportData
+                }
+              />
+            </Box>
 
-        <Box ref={workshopStatsRef}>
-          <WorkshopStatistics reportData={reportData} />
-        </Box>
+            <Box ref={workshopStatsRef}>
+              <WorkshopStatistics
+                reportData={
+                  showOnlySIGP
+                    ? { ...reportData, workshops: filteredWorkshops }
+                    : reportData
+                }
+              />
+            </Box>
 
-        <Box ref={imagesRef}>
-          <ViolationImages
-            reportData={reportData}
-            month={selectedMonth}
-            year={year}
-          />
-        </Box>
+            <Box ref={imagesRef}>
+              <ViolationImages
+                reportData={
+                  showOnlySIGP
+                    ? { ...reportData, workshops: filteredWorkshops }
+                    : reportData
+                }
+                month={selectedMonth}
+                year={year}
+              />
+            </Box>
+          </>
+        )}
 
         <NavigationBubble
           scrollRefs={{

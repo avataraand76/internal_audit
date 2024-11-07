@@ -17,49 +17,35 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const db = mysql.createConnection({
+const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  connectionLimit: 10, // Số lượng connection tối đa
+  waitForConnections: true, // Queue queries when no connections available
+  queueLimit: 0, // Unlimited queue size
+  connectTimeout: 10000, // 10 seconds
+  acquireTimeout: 10000, // 10 seconds
+  timeout: 60000, // 60 seconds
 });
-const FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
-// Add error handling for the connection
-db.connect((err) => {
-  if (err) {
-    console.error("Error connecting to database:", err);
-    if (err.code === "HANDSHAKE_NO_SSL_SUPPORT") {
-      console.error("Please check your MySQL server SSL configuration");
-    }
-    return;
-  }
+// Log mỗi khi có connection mới
+pool.on("connection", (connection) => {
   console.log("Connected to MySQL database");
 });
 
-// Add connection error handler
-db.on("error", (err) => {
-  console.error("Database error:", err);
-  if (err.code === "PROTOCOL_CONNECTION_LOST") {
-    console.log("Database connection was closed. Reconnecting...");
-    // Implement reconnection logic here if needed
-  } else if (err.code === "HANDSHAKE_NO_SSL_SUPPORT") {
-    console.error(
-      "SSL connection required by server but not properly configured"
-    );
-  }
+// Log khi có lỗi
+pool.on("error", (err) => {
+  console.error("Unexpected error on idle client", err);
+  process.exit(-1);
 });
 
-// Get all users in LoginPage.js
-app.get("/login", (req, res) => {
-  const query = "SELECT * FROM tb_user";
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error("Error fetching phases:", err);
-      res.status(500).json({ error: "Error fetching phases" });
-      return;
-    }
-    res.json(results);
+// Cleanup khi shutdown
+process.on("SIGINT", () => {
+  pool.end((err) => {
+    console.log("Pool has ended");
+    process.exit(err ? 1 : 0);
   });
 });
 
@@ -68,7 +54,7 @@ app.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
   const query = "SELECT * FROM tb_user WHERE name_user = ?";
-  db.query(query, [username], async (err, results) => {
+  pool.query(query, [username], async (err, results) => {
     if (err) {
       console.error("Error during login:", err);
       res.status(500).json({ error: "Error during login" });
@@ -103,7 +89,7 @@ app.get("/check-supervisor/:userId", (req, res) => {
   const userId = req.params.userId;
   const query = "SELECT * FROM tb_user_supervisor WHERE id_user = ?";
 
-  db.query(query, [userId], (err, results) => {
+  pool.query(query, [userId], (err, results) => {
     if (err) {
       console.error("Error checking supervisor role:", err);
       res.status(500).json({ error: "Error checking supervisor role" });
@@ -124,7 +110,7 @@ app.get("/user-workshop/:userId", (req, res) => {
     WHERE us.id_user = ?
   `;
 
-  db.query(query, [userId], (err, results) => {
+  pool.query(query, [userId], (err, results) => {
     if (err) {
       console.error("Error fetching user workshop:", err);
       res.status(500).json({ error: "Error fetching user workshop" });
@@ -143,7 +129,7 @@ app.get("/workshops/:userId", async (req, res) => {
     const supervisorQuery =
       "SELECT * FROM tb_user_supervisor WHERE id_user = ?";
     const [supervisorResults] = await new Promise((resolve, reject) => {
-      db.query(supervisorQuery, [userId], (err, results) => {
+      pool.query(supervisorQuery, [userId], (err, results) => {
         if (err) reject(err);
         else resolve([results, null]);
       });
@@ -190,7 +176,7 @@ app.get("/workshops/:userId", async (req, res) => {
     }
 
     const results = await new Promise((resolve, reject) => {
-      db.query(workshopQuery, queryParams, (err, results) => {
+      pool.query(workshopQuery, queryParams, (err, results) => {
         if (err) reject(err);
         else resolve(results);
       });
@@ -258,7 +244,7 @@ app.get("/supervised-categories/:userId/:departmentId", (req, res) => {
     ORDER BY c.id_category, cr.id_criteria
   `;
 
-  db.query(query, [departmentId, userId, departmentId], (err, results) => {
+  pool.query(query, [departmentId, userId, departmentId], (err, results) => {
     if (err) {
       console.error("Error fetching supervised categories:", err);
       res.status(500).json({ error: "Error fetching supervised categories" });
@@ -310,7 +296,7 @@ app.get("/phases", (req, res) => {
     ORDER BY date_recorded DESC
   `;
 
-  db.query(query, (err, results) => {
+  pool.query(query, (err, results) => {
     if (err) {
       console.error("Error fetching phases:", err);
       res.status(500).json({ error: "Error fetching phases" });
@@ -324,7 +310,7 @@ app.get("/phases", (req, res) => {
 app.get("/phases/:id", (req, res) => {
   const phaseId = req.params.id;
   const query = "SELECT * FROM tb_phase WHERE id_phase = ?";
-  db.query(query, [phaseId], (err, results) => {
+  pool.query(query, [phaseId], (err, results) => {
     if (err) {
       console.error("Error fetching phase:", err);
       res.status(500).json({ error: "Error fetching phase" });
@@ -353,7 +339,7 @@ app.put("/phases/:id", (req, res) => {
 
   const query =
     "UPDATE tb_phase SET name_phase = ?, time_limit_start = ?, time_limit_end = ? WHERE id_phase = ?";
-  db.query(
+  pool.query(
     query,
     [name_phase, formattedStartDate, formattedEndDate, phaseId],
     (err, result) => {
@@ -382,104 +368,88 @@ app.put("/phases/:id", (req, res) => {
 });
 
 // Delete a phase
-app.delete("/phases/:id", async (req, res) => {
+app.delete("/phases/:id", (req, res) => {
   const phaseId = req.params.id;
 
-  try {
-    // Start a transaction to ensure data consistency
-    await new Promise((resolve, reject) => {
-      db.beginTransaction((err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+  pool.getConnection((err, connection) => {
+    if (err) {
+      console.error("Error getting connection:", err);
+      return res.status(500).json({ error: "Database connection error" });
+    }
 
-    try {
-      // First, delete records from tb_inactive_department
-      await new Promise((resolve, reject) => {
-        db.query(
-          "DELETE FROM tb_inactive_department WHERE id_phase = ?",
-          [phaseId],
-          (err) => {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
-      });
-
-      // Delete from tb_phase_details
-      await new Promise((resolve, reject) => {
-        db.query(
-          "DELETE FROM tb_phase_details WHERE id_phase = ?",
-          [phaseId],
-          (err) => {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
-      });
-
-      // Delete from tb_total_point
-      await new Promise((resolve, reject) => {
-        db.query(
-          "DELETE FROM tb_total_point WHERE id_phase = ?",
-          [phaseId],
-          (err) => {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
-      });
-
-      // Finally delete the phase itself
-      const [phaseResult] = await new Promise((resolve, reject) => {
-        db.query(
-          "DELETE FROM tb_phase WHERE id_phase = ?",
-          [phaseId],
-          (err, result) => {
-            if (err) reject(err);
-            else resolve([result]);
-          }
-        );
-      });
-
-      // Check if phase was actually deleted
-      if (phaseResult.affectedRows === 0) {
-        await new Promise((resolve, reject) => {
-          db.rollback((err) => {
-            if (err) reject(err);
-            else resolve();
-          });
-        });
-        return res.status(404).json({ error: "Phase not found" });
+    connection.beginTransaction(async (err) => {
+      if (err) {
+        connection.release();
+        return res.status(500).json({ error: "Error starting transaction" });
       }
 
-      // If all operations successful, commit the transaction
-      await new Promise((resolve, reject) => {
-        db.commit((err) => {
-          if (err) reject(err);
-          else resolve();
+      try {
+        // Delete inactive departments
+        await new Promise((resolve, reject) => {
+          connection.query(
+            "DELETE FROM tb_inactive_department WHERE id_phase = ?",
+            [phaseId],
+            (err) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
         });
-      });
 
-      res.json({ message: "Phase deleted successfully" });
-    } catch (error) {
-      // If any error occurs during deletion, rollback the transaction
-      await new Promise((resolve, reject) => {
-        db.rollback((err) => {
-          if (err) reject(err);
-          else resolve();
+        // Delete phase details
+        await new Promise((resolve, reject) => {
+          connection.query(
+            "DELETE FROM tb_phase_details WHERE id_phase = ?",
+            [phaseId],
+            (err) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
         });
-      });
-      throw error; // Re-throw to be caught by outer catch block
-    }
-  } catch (error) {
-    console.error("Error deleting phase:", error);
-    res.status(500).json({
-      error: "Error deleting phase",
-      details: error.message,
+
+        // Delete total points
+        await new Promise((resolve, reject) => {
+          connection.query(
+            "DELETE FROM tb_total_point WHERE id_phase = ?",
+            [phaseId],
+            (err) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+
+        // Delete phase
+        await new Promise((resolve, reject) => {
+          connection.query(
+            "DELETE FROM tb_phase WHERE id_phase = ?",
+            [phaseId],
+            (err, result) => {
+              if (err) reject(err);
+              else resolve(result);
+            }
+          );
+        });
+
+        connection.commit((err) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release();
+              res.status(500).json({ error: "Error committing transaction" });
+            });
+          }
+          connection.release();
+          res.json({ message: "Phase deleted successfully" });
+        });
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          res.status(500).json({ error: "Transaction failed" });
+        });
+      }
     });
-  }
+  });
 });
 
 // Create a new phase in CreatePhasePage.js
@@ -497,7 +467,7 @@ app.post("/phases", (req, res) => {
 
   const query =
     "INSERT INTO tb_phase (name_phase, date_recorded, time_limit_start, time_limit_end) VALUES (?, ?, ?, ?)";
-  db.query(
+  pool.query(
     query,
     [name_phase, date_recorded, formattedStartDate, formattedEndDate],
     (err, result) => {
@@ -535,7 +505,7 @@ app.get("/categories", (req, res) => {
     ORDER BY c.id_category, cr.id_criteria
   `;
 
-  db.query(query, (err, results) => {
+  pool.query(query, (err, results) => {
     if (err) {
       console.error("Error fetching categories and criteria:", err);
       res.status(500).json({ error: "Error fetching categories and criteria" });
@@ -598,7 +568,7 @@ app.get("/categories/:userId", (req, res) => {
     ORDER BY c.id_category, cr.id_criteria
   `;
 
-  db.query(query, [userId], (err, results) => {
+  pool.query(query, [userId], (err, results) => {
     if (err) {
       console.error("Error fetching categories and criteria:", err);
       res.status(500).json({ error: "Error fetching categories and criteria" });
@@ -663,7 +633,7 @@ app.get("/categories/:userId/:departmentId", (req, res) => {
     ORDER BY c.id_category, cr.id_criteria
   `;
 
-  db.query(query, [userId, departmentId], (err, results) => {
+  pool.query(query, [userId, departmentId], (err, results) => {
     if (err) {
       console.error("Error fetching categories and criteria:", err);
       res.status(500).json({ error: "Error fetching categories and criteria" });
@@ -720,7 +690,7 @@ app.get("/workshops", (req, res) => {
     ORDER BY w.id_workshop, d.id_department
   `;
 
-  db.query(query, (err, results) => {
+  pool.query(query, (err, results) => {
     if (err) {
       console.error("Error fetching workshops and departments:", err);
       res
@@ -777,7 +747,7 @@ app.get("/departments/count", (req, res) => {
       d.id_department
   `;
 
-  db.query(query, (err, results) => {
+  pool.query(query, (err, results) => {
     if (err) {
       console.error("Error fetching criteria count by department:", err);
       res
@@ -799,7 +769,7 @@ app.get("/total-criteria/:departmentId", (req, res) => {
     WHERE id_department = ?
   `;
 
-  db.query(query, [departmentId], (err, results) => {
+  pool.query(query, [departmentId], (err, results) => {
     if (err) {
       console.error("Error fetching criteria count:", err);
       res.status(500).json({ error: "Error fetching criteria count" });
@@ -914,7 +884,7 @@ app.post("/phase-details", (req, res) => {
       ];
     }
 
-    db.query(query, params, (err, result) => {
+    pool.query(query, params, (err, result) => {
       if (err) {
         console.error("Error saving phase details:", err);
         res.status(500).json({ error: "Error saving phase details" });
@@ -944,7 +914,7 @@ app.post("/phase-details", (req, res) => {
           AND pd.is_fail = 1`;
 
       const [failedCriteria] = await new Promise((resolve, reject) => {
-        db.query(
+        pool.query(
           failedCriteriaQuery,
           [id_phase, id_department],
           (err, results) => {
@@ -961,7 +931,7 @@ app.post("/phase-details", (req, res) => {
         WHERE id_department = ?`;
 
       const [totalResult] = await new Promise((resolve, reject) => {
-        db.query(totalCriteriaQuery, [id_department], (err, results) => {
+        pool.query(totalCriteriaQuery, [id_department], (err, results) => {
           if (err) reject(err);
           else resolve([results, null]);
         });
@@ -982,10 +952,14 @@ app.post("/phase-details", (req, res) => {
         total_point = VALUES(total_point)`;
 
       await new Promise((resolve, reject) => {
-        db.query(updateQuery, [id_department, id_phase, totalPoint], (err) => {
-          if (err) reject(err);
-          else resolve();
-        });
+        pool.query(
+          updateQuery,
+          [id_department, id_phase, totalPoint],
+          (err) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
       });
 
       res.status(201).json({
@@ -1013,7 +987,7 @@ app.get(
     WHERE id_phase = ? AND id_department = ? AND id_criteria = ?
   `;
 
-    db.query(query, [phaseId, departmentId, criterionId], (err, results) => {
+    pool.query(query, [phaseId, departmentId, criterionId], (err, results) => {
       if (err) {
         console.error("Error fetching phase details status:", err);
         res.status(500).json({ error: "Error fetching phase details status" });
@@ -1038,7 +1012,7 @@ app.get("/criteria-statuses/:phaseId/:departmentId", (req, res) => {
     WHERE id_phase = ? AND id_department = ?
   `;
 
-  db.query(query, [phaseId, departmentId], (err, results) => {
+  pool.query(query, [phaseId, departmentId], (err, results) => {
     if (err) {
       console.error("Error fetching criteria statuses:", err);
       res.status(500).json({ error: "Error fetching criteria statuses" });
@@ -1061,7 +1035,7 @@ app.get(
     WHERE id_phase = ? AND id_department = ? AND id_criteria = ?
   `;
 
-    db.query(query, [phaseId, departmentId, criterionId], (err, results) => {
+    pool.query(query, [phaseId, departmentId, criterionId], (err, results) => {
       if (err) {
         console.error("Error fetching images:", err);
         res.status(500).json({ error: "Error fetching images" });
@@ -1102,7 +1076,7 @@ app.get("/failed/:phaseId", (req, res) => {
       pd.date_updated DESC
   `;
 
-  db.query(query, [phaseId], (err, results) => {
+  pool.query(query, [phaseId], (err, results) => {
     if (err) {
       console.error("Error fetching criteria details:", err);
       res.status(500).json({ error: "Error fetching criteria details" });
@@ -1121,7 +1095,7 @@ app.get("/failed-check/:phaseId", (req, res) => {
     WHERE id_phase = ? AND is_fail = 1
   `;
 
-  db.query(query, [phaseId], (err, results) => {
+  pool.query(query, [phaseId], (err, results) => {
     if (err) {
       console.error("Error fetching failed criteria:", err);
       res.status(500).json({ error: "Error fetching failed criteria" });
@@ -1149,10 +1123,14 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
         AND pd.is_fail = 1`;
 
     const [failedCriteria] = await new Promise((resolve, reject) => {
-      db.query(failedCriteriaQuery, [phaseId, departmentId], (err, results) => {
-        if (err) reject(err);
-        else resolve([results, null]);
-      });
+      pool.query(
+        failedCriteriaQuery,
+        [phaseId, departmentId],
+        (err, results) => {
+          if (err) reject(err);
+          else resolve([results, null]);
+        }
+      );
     });
 
     // Get total criteria count for the department
@@ -1162,7 +1140,7 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
       WHERE id_department = ?`;
 
     const [totalResult] = await new Promise((resolve, reject) => {
-      db.query(totalCriteriaQuery, [departmentId], (err, results) => {
+      pool.query(totalCriteriaQuery, [departmentId], (err, results) => {
         if (err) reject(err);
         else resolve([results, null]);
       });
@@ -1180,7 +1158,7 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
       GROUP BY c.id_category`;
 
     const [failingType2Counts] = await new Promise((resolve, reject) => {
-      db.query(failingType2CountQuery, [departmentId], (err, results) => {
+      pool.query(failingType2CountQuery, [departmentId], (err, results) => {
         if (err) reject(err);
         else resolve([results, null]);
       });
@@ -1203,7 +1181,7 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
       GROUP BY c.id_category`;
 
     const [categoryResults] = await new Promise((resolve, reject) => {
-      db.query(categoryCountQuery, [departmentId], (err, results) => {
+      pool.query(categoryCountQuery, [departmentId], (err, results) => {
         if (err) reject(err);
         else resolve([results, null]);
       });
@@ -1292,7 +1270,7 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
       total_point = VALUES(total_point)`;
 
     await new Promise((resolve, reject) => {
-      db.query(updateQuery, [departmentId, phaseId, totalPoint], (err) => {
+      pool.query(updateQuery, [departmentId, phaseId, totalPoint], (err) => {
         if (err) reject(err);
         else resolve();
       });
@@ -1336,7 +1314,7 @@ app.get("/knockout-criteria", (req, res) => {
       c.failing_point_type, cat.id_category, c.id_criteria
   `;
 
-  db.query(query, (err, results) => {
+  pool.query(query, (err, results) => {
     if (err) {
       console.error("Error fetching knockout criteria:", err);
       res.status(500).json({ error: "Error fetching knockout criteria" });
@@ -1377,7 +1355,7 @@ app.get("/knockout-criteria/:phaseId/:departmentId", (req, res) => {
       c.failing_point_type, c.id_criteria
   `;
 
-  db.query(query, [phaseId, departmentId], (err, results) => {
+  pool.query(query, [phaseId, departmentId], (err, results) => {
     if (err) {
       console.error("Error fetching knockout criteria:", err);
       res.status(500).json({ error: "Error fetching knockout criteria" });
@@ -1412,7 +1390,7 @@ app.get("/inactive-departments/:phaseId", (req, res) => {
     ORDER BY w.id_workshop, d.name_department
   `;
 
-  db.query(query, [phaseId], (err, results) => {
+  pool.query(query, [phaseId], (err, results) => {
     if (err) {
       console.error("Error fetching inactive departments:", err);
       res.status(500).json({ error: "Error fetching inactive departments" });
@@ -1427,65 +1405,68 @@ app.post("/inactive-departments/:phaseId", (req, res) => {
   const phaseId = req.params.phaseId;
   const { inactiveDepartments } = req.body;
 
-  // Start a transaction
-  db.beginTransaction(async (err) => {
+  pool.getConnection((err, connection) => {
     if (err) {
-      console.error("Error starting transaction:", err);
-      return res
-        .status(500)
-        .json({ error: "Error updating inactive departments" });
+      console.error("Error getting connection:", err);
+      return res.status(500).json({ error: "Database connection error" });
     }
 
-    try {
-      // First, delete existing records for this phase
-      await new Promise((resolve, reject) => {
-        db.query(
-          "DELETE FROM tb_inactive_department WHERE id_phase = ?",
-          [phaseId],
-          (err) => {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
-      });
+    connection.beginTransaction(async (err) => {
+      if (err) {
+        connection.release();
+        return res.status(500).json({ error: "Error starting transaction" });
+      }
 
-      // Then insert new records
-      if (inactiveDepartments.length > 0) {
-        const values = inactiveDepartments.map((id) => [phaseId, id, 1]);
+      try {
+        // Delete existing records
         await new Promise((resolve, reject) => {
-          db.query(
-            "INSERT INTO tb_inactive_department (id_phase, id_department, is_inactive) VALUES ?",
-            [values],
+          connection.query(
+            "DELETE FROM tb_inactive_department WHERE id_phase = ?",
+            [phaseId],
             (err) => {
               if (err) reject(err);
               else resolve();
             }
           );
         });
-      }
 
-      // Commit the transaction
-      db.commit((err) => {
-        if (err) {
-          console.error("Error committing transaction:", err);
-          return db.rollback(() => {
-            res
-              .status(500)
-              .json({ error: "Error updating inactive departments" });
+        // Insert new records if any
+        if (inactiveDepartments.length > 0) {
+          const values = inactiveDepartments.map((id) => [phaseId, id, 1]);
+          await new Promise((resolve, reject) => {
+            connection.query(
+              "INSERT INTO tb_inactive_department (id_phase, id_department, is_inactive) VALUES ?",
+              [values],
+              (err) => {
+                if (err) reject(err);
+                else resolve();
+              }
+            );
           });
         }
-        res.json({ message: "Inactive departments updated successfully" });
-      });
-    } catch (error) {
-      console.error("Error in transaction:", error);
-      db.rollback(() => {
-        res.status(500).json({ error: "Error updating inactive departments" });
-      });
-    }
+
+        connection.commit((err) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release();
+              res.status(500).json({ error: "Error committing transaction" });
+            });
+          }
+          connection.release();
+          res.json({ message: "Inactive departments updated successfully" });
+        });
+      } catch (error) {
+        connection.rollback(() => {
+          connection.release();
+          res.status(500).json({ error: "Transaction failed" });
+        });
+      }
+    });
   });
 });
 
 ///////////upload ảnh gg drive////////////
+const FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
 // Multer config
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -1791,7 +1772,7 @@ app.post("/save-image-urls", async (req, res) => {
     WHERE id_department = ? AND id_criteria = ? AND id_phase = ?
   `;
 
-  db.query(
+  pool.query(
     query,
     [imgURL_before, id_department, id_criteria, id_phase],
     (err, result) => {
@@ -1824,7 +1805,7 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
     `;
 
     const [phases] = await new Promise((resolve, reject) => {
-      db.query(phasesQuery, [month, year], (err, results) => {
+      pool.query(phasesQuery, [month, year], (err, results) => {
         if (err) reject(err);
         else resolve([results, null]);
       });
@@ -1865,7 +1846,7 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
     `;
 
     const [departments] = await new Promise((resolve, reject) => {
-      db.query(departmentsQuery, (err, results) => {
+      pool.query(departmentsQuery, (err, results) => {
         if (err) reject(err);
         else resolve([results, null]);
       });
@@ -1912,7 +1893,7 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
             `;
 
             const [details] = await new Promise((resolve, reject) => {
-              db.query(
+              pool.query(
                 detailsQuery,
                 [
                   phase.id_phase,
@@ -1980,7 +1961,7 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
         WHERE id_phase = ? AND is_inactive = 1
       `;
       const [inactiveDepts] = await new Promise((resolve, reject) => {
-        db.query(inactiveQuery, [phase.id_phase], (err, results) => {
+        pool.query(inactiveQuery, [phase.id_phase], (err, results) => {
           if (err) reject(err);
           else resolve([results, null]);
         });
@@ -2027,7 +2008,7 @@ app.get("/get-phase-details-images/:phaseId/:departmentId", (req, res) => {
     AND (pd.imgURL_before IS NOT NULL OR pd.imgURL_after IS NOT NULL)
   `;
 
-  db.query(query, [phaseId, departmentId], (err, results) => {
+  pool.query(query, [phaseId, departmentId], (err, results) => {
     if (err) {
       console.error("Error fetching violation images:", err);
       res.status(500).json({ error: "Error fetching violation images" });
@@ -2088,7 +2069,7 @@ async function formatReportDataForSheet(month, year) {
     `;
 
     const [phases] = await new Promise((resolve, reject) => {
-      db.query(phasesQuery, [month, year], (err, results) => {
+      pool.query(phasesQuery, [month, year], (err, results) => {
         if (err) reject(err);
         else resolve([results]);
       });
@@ -2149,7 +2130,7 @@ async function formatReportDataForSheet(month, year) {
     `;
 
     const [results] = await new Promise((resolve, reject) => {
-      db.query(reportQuery, [month, year], (err, results) => {
+      pool.query(reportQuery, [month, year], (err, results) => {
         if (err) reject(err);
         else resolve([results]);
       });

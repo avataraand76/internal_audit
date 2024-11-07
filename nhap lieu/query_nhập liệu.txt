@@ -21,7 +21,8 @@ INSERT INTO tb_workshop (id_sync_phong_ban, name_workshop) VALUES
 ('28','PHÒNG KỸ THUẬT'), -- id 10
 ('39','PHÒNG QA'), -- id 11
 ('15','PHÒNG CN-LEAN'), -- id 12
-('14','CƠ ĐIỆN'); -- id 13
+('14','CƠ ĐIỆN'), -- id 13
+(NULL,'SIGP'); -- id 14
 
 -- nhập liệu tài khoản user
 -- INSERT INTO tb_user (name_user, password_user) VALUES
@@ -220,7 +221,16 @@ INSERT INTO tb_department (id_workshop, id_sync_bo_phan, name_department) VALUES
 ('12','26','PHÒNG CN-LEAN'), -- id 62
 
 -- CƠ ĐIỆN ID 13 SYNC 14
-('13','117','BỘ PHẬN CƠ ĐIỆN'); -- id 63
+('13','117','BỘ PHẬN CƠ ĐIỆN'), -- id 63
+
+-- SIGP ID 14
+('14',NULL,'SAMPLE'), -- id 64
+('14',NULL,'QC'), -- id 65
+('14',NULL,'IN TAY'), -- id 66
+('14',NULL,'IN MÁY'), -- id 67
+('14',NULL,'LASER-PADPRINT'), -- id 68
+('14',NULL,'PHÒNG MÀU'), -- id 69
+('14',NULL,'PHÒNG KHUNG'); -- id 70
 
 -- nhập liệu tiêu chí criteria
 INSERT INTO tb_criteria (id_category, codename, name_criteria, description, failing_point_type) VALUES
@@ -605,4 +615,94 @@ INSERT INTO tb_criteria (id_category, codename, name_criteria, description, fail
 
 ('6','TTNV190','Nội quy công ty','Bỏ rác đúng nơi quy định (2 khu vực tập trung hút thuốc)','0'),
 
-('6','TTNV191','Phân loại rác thải','Rác thải phải được phân loại, để đúng vị trí qui định và có trực quan','0');
+('6','TTNV191','Phân loại rác thải','Rác thải phải được phân loại, để đúng vị trí qui định và có trực quan','0'),
+
+('1','P.ATLĐ1','Đường thoát hiểm - cửa thoát hiểm - dụng cụ PCCC','Đường thoát hiểm thông thoáng, không bị lấn chiếm, cửa thoát hiểm bảo đảm an toàn.','2'),
+
+('1','P.ATLĐ2','Đường thoát hiểm - cửa thoát hiểm - dụng cụ PCCC','Công cụ, dụng cụ phòng cháy chữa cháy (biển exit, biển báo bình chữa cháy, chuông báo cháy, bình chữa cháy,...) để đúng nơi quy định, không bị che khuất, che lối vào','2'),
+
+('1','P.ATLĐ3','Thoát nạn','Người lao động làm việc tại khu vực có thể thoát hiểm dễ dàng, không bị che chắn bởi máy móc, thiết bị, hay người lao động khác.','0'),
+
+('1','P.ATLĐ4','Thoát nạn','Vạch kẻ thoát hiểm, mũi tên hoặc bảng chỉ dẫn hướng thoát nạn rõ ràng, không bị quá mờ.','0'),
+
+('1','P.ATLĐ5','Dây điện','Dây điện không bị hở, không chạm đất, được cố định/ buộc gọn gàng, đấu nối đúng cách','2'),
+
+('1','P.ATLĐ6','Thiết bị điện','Khu vực tủ điện, bảng điện, thiết bị điện không bị lấn chiếm.','0'),
+
+('1','P.ATLĐ7','Thiết bị điện','Tủ điện có thảm cách điện.','0'),
+
+('1','P.ATLĐ8','Thiết bị điện','Bàn ủi ghim điện phải được để trên tấm cách nhiệt.','0'),
+
+('1','P.ATLĐ9','Quy định QA-QC','Chỉ sử dụng hóa chất ở những khu vực được cho phép','0'),
+
+('1','P.ATLĐ10','Bảo hộ lao động','NLĐ sử dụng đầy đủ và đúng phương tiện bảo hộ cá nhân cần thiết khi làm việc (như khẩu trang, găng tay, thảm chống mỏi, thảm cách điện,…)','2'),
+
+('1','P.ATLĐ11','Tai nạn lao động','Không tai nạn tại nơi làm việc/ khuôn viên Công ty, bao gồm không tai nạn sơ cứu, không tai nạn nhẹ, không tai nạn nghiêm trọng.','2'),
+
+('1','P.ATLĐ12','Tai nạn lao động','Không tai nạn tại nơi làm việc/ khuôn viên Công ty, bao gồm không tai nạn sơ cứu, không tai nạn nhẹ, không tai nạn nghiêm trọng ( có ngày nghĩ 1-2 ngày )','2'),
+
+('1','P.ATLĐ13','Nhãn an toàn','Các thùng, ca, lọ, hũ,... đựng hoá chất có nhãn an toàn (tem phụ) đúng loại, tên hoá chất.','2'),
+
+('1','P.ATLĐ14','Thùng chứa','Các thùng, ca, lọ, hũ,... đựng hoá chất còn nguyên vẹn, không bị bể vỡ, rò rỉ hoá chất.','2'),
+
+('1','P.ATLĐ15','Khay thứ cấp','Các thùng, ca, lọ, hũ,... đựng hoá chất được để trong khay chống tràn (hay khay chứa thứ cấp) và không xếp chồng lên nhau.','0'),
+
+('1','P.ATLĐ16','Thiết bị khẩn cấp','Các thiết bị ứng phó sự cố được giữ sạch sẽ, dễ dàng tiếp cận, và không bị che khuất.','2'),
+
+('4','P.PNKL1','Quản lý dụng cụ','Danh sách quản lý công cụ, vệ sinh, dụng cụ được cập nhật kịp thời, đúng loại và số lượng.','2'),
+
+('4','P.PNKL2','Quản lý dụng cụ','Kéo tại khu vực sản xuất được dán tên và buộc dây theo quy định.','2'),
+
+('4','P.PNKL3','Kiểm soát kim loại','Kim cúc, kẹp được kiểm soát theo số, các công cụ, dụng cụ khác được dán tên người/ bộ phận sử dụng.','2'),
+
+('4','P.PNKL4','Kiểm soát kim loại','Khi kim cúc / kéo/ lưỡi dao bị gãy, kịp thời báo cáo cho người quản lý, người quản lý phải báo lại cho người có trách nhiệm quản lý, cấp phát những dụng cụ trên.','2'),
+
+('5','P.QMS1','Cập nhật biểu mẫu, quy trình đúng quy định.','Biểu mẫu cập nhật đầy đủ, chính xác.','0'),
+
+('5','P.QMS2','Cập nhật biểu mẫu, quy trình đúng quy định.','Các quy trình phải có chữ ký phê duyệt.','0'),
+
+('5','P.QMS3','Chứng nhận nhân viên phụ trách','Đào tạo và cấp bằng chứng nhận cho nhân viên: (QC, Lazer,... )','0'),
+
+('5','P.QMS4','Hiệu chuẩn và đo lường.','Các dụng cụ đo lường được hiệu chuẩn theo quy định.','0'),
+
+('5','P.QMS5','Thực hiện đúng các quy trình kiểm in.','Hàng in thêu được kiểm tra chất lượng đầu vào trước khi đưa vào sản xuất và cập nhật trên file.','0'),
+
+('5','P.QMS6','Thực hiện đúng các quy trình kiểm tra chất lượng.','Báo cáo chất lượng In được cập nhật đầy đủ, chính xác.','0'),
+
+('5','P.QMS7','Thực hiện đúng các quy trình kiểm tra chất lượng.','Có bảng hướng dẫn nhận biết mẫu lỗi không phù hợp.','0'),
+
+('5','P.QMS8','Thực hiện đúng các quy trình kiểm tra chất lượng.','Có trực quan qui trình hướng dẫn kiểm và xử lí hàng in.','0'),
+
+('5','P.QMS9','Thực hiện đúng các quy trình kiểm tra chất lượng các khu vực.','Khu vực kiểm hàng được bố trí đủ độ sáng theo quy định của khách hàng: 1075 plux.','0'),
+
+('5','P.QMS10','Thực hiện đúng các quy trình kiểm tra chất lượng.','QC thực hiện đúng thao tác theo quy trình kiểm (không bỏ sót công đoạn).','0'),
+
+('5','P.QMS11','Thực hiện đúng các quy trình kiểm tra chất lượng.','QC thực hiện đo thông số thành phẩm theo đúng số lượng quy định.','0'),
+
+('5','P.QMS12','Thực hiện đúng các quy trình kiểm tra chất lượng trên chuyền.','QC inline kiểm tra chất lượng, đo thông số hàng ngày.','0'),
+
+('5','P.QMS13','Thực hiện đúng các quy trình kiểm tra chất lượng trên chuyền.','Rập phải được đóng mọc kiểm soát và ghi rõ đầy đủ thông tin (ngày, tháng, năm), thông tin phê duyệt trước khi ban hành.','0'),
+
+('5','P.QMS14','Thực hiện đúng các quy trình kiểm tra chất lượng trên chuyền.','Trên chuyền in có đầy đủ tài liệu yêu cầu: mẫu F/M/L, TOP, tài liệu kỹ thuật,...','0'),
+
+('5','P.QMS15','Chứng nhận thử nghiệm','Chứng nhận thử nghiệm đạt của các mực in ( các báo cáo thử nghiệm nội bộ)','0'),
+
+('5','P.QMS16','Chứng nhận thử nghiệm','Các mẫu strike-off, các mẫu thử nghiệm trước sản xuất, mẫu đối chiếu đã được phê duyệt về màu sắc, thông tin phân loại bản in và các tài liệu liên quan không?','0'),
+
+('6','P.TTNV1','Nội quy làm việc','Người lao động không sử dụng điện thoại, tai nghe,… trong thời gian làm việc (trừ trường hợp cần thiết).','0'),
+
+('6','P.TTNV2','Nội quy công ty','Người lao động mặc đồng phục, đeo thẻ nhân viên đúng nội quy lao động.','0'),
+
+('6','P.TTNV3','Nội quy công ty','Vật dụng cá nhân được để đúng nơi quy định','0'),
+
+('6','P.TTNV4','Trực quan','Thực tế sử dụng công cụ, dụng cụ,… phải đúng với trực quan.','0'),
+
+('6','P.TTNV5','Trực quan','Phải có trực quan để tạm thời hoặc không sử dụng với những máy móc/ khu vực chưa sử dụng/ hư hỏng.','0'),
+
+('6','P.TTNV6','Trực quan','Máy móc, khu vực có thể hiện đầy đủ yêu cầu an toàn, cảnh báo nguy hiểm,… (không bị rách/ quá mờ).','0'),
+
+('6','P.TTNV7','Chất thải','Chất thải nguy hại và không nguy hại được tách riêng biệt.','2'),
+
+('6','P.TTNV8','Chất thải','Thùng chứa chất thải nguy hại được đậy nắp.','2'),
+
+('6','P.TTNV9','Chất thải','Chất thải được phân loại đúng với trực quan thùng rác.','2');
