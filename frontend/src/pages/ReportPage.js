@@ -38,7 +38,6 @@ import logoSIGP from "../assets/logo_sigp.jpg";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   border: "1px solid rgba(240, 240, 240, 1)",
-  // border: "1px solid black",
   padding: "8px",
   whiteSpace: "nowrap",
   "&.phase-header": {
@@ -60,7 +59,7 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
     top: "41px",
     zIndex: 5,
   },
-  // Sticky styles cho các cột bên trái
+  // Sticky styles và widths cho các cột bên trái
   "&.sticky-left-0": {
     position: "sticky",
     left: 0,
@@ -68,13 +67,17 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
   },
   "&.sticky-left-1": {
     position: "sticky",
-    left: "41px",
+    left: "41px", // Điều chỉnh left dựa trên width của cột STT
     zIndex: 3,
+    width: "255px", // Chiều rộng cố định cho cột Tên bộ phận
+    minWidth: "255px",
   },
   "&.sticky-left-2": {
     position: "sticky",
-    left: "291px",
+    left: "305px", // Điều chỉnh left = 50px + 255px
     zIndex: 3,
+    width: "100px", // Chiều rộng cố định cho cột Điểm tối đa
+    minWidth: "100px",
   },
   // Màu nền mặc định cho sticky cells
   "&.sticky-left-0, &.sticky-left-1, &.sticky-left-2": {

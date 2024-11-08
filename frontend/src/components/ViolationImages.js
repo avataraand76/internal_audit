@@ -430,7 +430,7 @@ const ViolationImages = ({ reportData, month, year }) => {
       // Set filename
       const filePrefix = isSIGPOnly
         ? "Bao_cao_hinh_anh_vi_pham_SIGP"
-        : "Bao_cao_hinh_anh_vi_pham";
+        : "Bao_cao_hinh_anh_vi_pham_VLH";
       document.title = `${filePrefix}_Thang_${month}_${year}_Dot_${selectedPhase.replace(
         /\s+/g,
         "_"
@@ -579,7 +579,7 @@ const ViolationImages = ({ reportData, month, year }) => {
           <Typography variant="body1" align="center" color="text.secondary">
             {isSIGPOnly
               ? "Không có hình ảnh vi phạm nào của SIGP"
-              : "Không có hình ảnh vi phạm nào"}
+              : "Không có hình ảnh vi phạm nào của VLH"}
           </Typography>
         </Paper>
       ) : (
@@ -625,7 +625,10 @@ const ViolationImages = ({ reportData, month, year }) => {
               ))}
             </ButtonGroup>
 
-            <Tooltip title={`Xuất PDF đợt ${selectedPhase}`} placement="top">
+            <Tooltip
+              title={`Xuất ảnh vi phạm đợt ${selectedPhase}`}
+              placement="top"
+            >
               <span>
                 <Button
                   variant="contained"

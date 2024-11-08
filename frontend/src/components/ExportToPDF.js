@@ -236,7 +236,7 @@ export default class ExportToPDF {
           );
           const filePrefix = isSIGPOnly
             ? "Bao_cao_bieu_do_KSNB_SIGP"
-            : "Bao_cao_bieu_do_KSNB";
+            : "Bao_cao_bieu_do_KSNB_VLH";
           document.title = `${filePrefix}_Thang_${this.month}_${this.year}`;
 
           setTimeout(() => {
