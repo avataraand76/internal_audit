@@ -38,6 +38,9 @@ const Chart = ({ title, data }) => {
         chartId += `xuong${num[0]}`;
       }
     }
+  } else if (title.includes("SIGP")) {
+    // For SIGP chart
+    chartId += "sigp";
   } else {
     // For office section
     chartId += "phongban";
@@ -225,11 +228,52 @@ const WorkshopScoreChart = ({ reportData }) => {
     return false;
   };
 
+  const isOfficeType = (deptName) => {
+    // Danh sách các phòng ban (để dễ bảo trì và kiểm tra)
+    const officeDepartments = [
+      "PHÒNG NHÂN SỰ",
+      "PHÒNG HÀNH CHÍNH QUẢN TRỊ",
+      "BẢO VỆ",
+      "NHÀ ĂN",
+      "PHÒNG KẾ TOÁN",
+      "PHÒNG KẾ HOẠCH",
+      "PHÒNG KỸ THUẬT",
+      "MAY MẪU",
+      "PHÒNG QA",
+      "PHÒNG CN-LEAN",
+      "BỘ PHẬN CƠ ĐIỆN",
+    ];
+
+    return officeDepartments.some((dept) =>
+      deptName.trim().toUpperCase().includes(dept)
+    );
+  };
+
   const getWorkshopType = (workshop) => {
+    // Kiểm tra xem workshop có chứa cả departments support và office không
+    const hasSupportAndOffice =
+      workshop.departments.some((dept) =>
+        /(XƯỞNG CẮT|KHO THÀNH PHẨM|KHO NGUYÊN PHỤ LIỆU)/i.test(
+          dept.name_department.trim()
+        )
+      ) &&
+      workshop.departments.some((dept) =>
+        /PHÒNG KẾ HOẠCH/i.test(dept.name_department.trim())
+      );
+
+    if (workshop.workshopName === "SIGP") {
+      return "sigp";
+    }
     if (/^XƯỞNG\s+[1-4]$/i.test(workshop.workshopName.trim())) {
       return "main";
     }
-    // Kiểm tra xem workshop có chứa department nào thuộc nhóm support không
+
+    // Nếu workshop chứa cả hai loại, clone nó cho cả hai nhóm
+    if (hasSupportAndOffice) {
+      return "mixed";
+    }
+
+    // Các kiểm tra còn lại như cũ
     const hasSupportDepartment = workshop.departments.some((dept) =>
       /(XƯỞNG CẮT|KHO THÀNH PHẨM|KHO NGUYÊN PHỤ LIỆU)/i.test(
         dept.name_department.trim()
@@ -240,50 +284,91 @@ const WorkshopScoreChart = ({ reportData }) => {
       return "support";
     }
 
-    return "office";
+    const hasOfficeDepartment = workshop.departments.some((dept) =>
+      isOfficeType(dept.name_department)
+    );
+
+    if (hasOfficeDepartment) {
+      return "office";
+    }
+
+    return "";
   };
+
+  // Kiểm tra xem dữ liệu hiện tại có phải chỉ chứa SIGP không
+  const isSIGPOnly = reportData.workshops.every(
+    (w) => w.workshopName === "SIGP"
+  );
 
   const groupedData = reportData.workshops.reduce(
     (acc, workshop) => {
       const type = getWorkshopType(workshop);
 
-      if (type === "main") {
-        // Với xưởng chính, giữ nguyên cấu trúc
-        if (!acc.main) acc.main = [];
-        acc.main.push(workshop);
-      } else if (type === "support") {
-        // Với nhóm support, chỉ lấy các department phù hợp
-        if (!acc.support) acc.support = [];
-        const supportDepts = workshop.departments.filter((dept) =>
-          /(XƯỞNG CẮT|KHO THÀNH PHẨM|KHO NGUYÊN PHỤ LIỆU)/i.test(
-            dept.name_department.trim()
-          )
-        );
-        if (supportDepts.length > 0) {
-          acc.support.push({
-            ...workshop,
-            departments: supportDepts,
-          });
-        }
-      } else {
-        // Với office, lấy các department còn lại
-        if (!acc.office) acc.office = [];
-        const officeDepts = workshop.departments.filter(
-          (dept) =>
-            !/(XƯỞNG CẮT|KHO THÀNH PHẨM|KHO NGUYÊN PHỤ LIỆU)/i.test(
-              dept.name_department.trim()
-            ) && !/^XƯỞNG\s+[1-4]$/i.test(workshop.workshopName.trim())
-        );
-        if (officeDepts.length > 0) {
-          acc.office.push({
-            ...workshop,
-            departments: officeDepts,
-          });
-        }
+      switch (type) {
+        case "sigp":
+          if (isSIGPOnly) {
+            if (!acc.sigp) acc.sigp = [];
+            acc.sigp.push(workshop);
+          }
+          break;
+        case "main":
+          if (!isSIGPOnly) {
+            if (!acc.main) acc.main = [];
+            acc.main.push(workshop);
+          }
+          break;
+        case "mixed":
+          // Thêm vào cả support và office với các departments được lọc tương ứng
+          if (!isSIGPOnly) {
+            if (!acc.support) acc.support = [];
+            acc.support.push({
+              ...workshop,
+              departments: workshop.departments.filter((dept) =>
+                /(XƯỞNG CẮT|KHO THÀNH PHẨM|KHO NGUYÊN PHỤ LIỆU)/i.test(
+                  dept.name_department.trim()
+                )
+              ),
+            });
+
+            if (!acc.office) acc.office = [];
+            acc.office.push({
+              ...workshop,
+              departments: workshop.departments.filter((dept) =>
+                isOfficeType(dept.name_department)
+              ),
+            });
+          }
+          break;
+        case "support":
+          if (!isSIGPOnly) {
+            if (!acc.support) acc.support = [];
+            acc.support.push({
+              ...workshop,
+              departments: workshop.departments.filter((dept) =>
+                /(XƯỞNG CẮT|KHO THÀNH PHẨM|KHO NGUYÊN PHỤ LIỆU)/i.test(
+                  dept.name_department.trim()
+                )
+              ),
+            });
+          }
+          break;
+        case "office":
+          if (!isSIGPOnly) {
+            if (!acc.office) acc.office = [];
+            acc.office.push({
+              ...workshop,
+              departments: workshop.departments.filter((dept) =>
+                isOfficeType(dept.name_department)
+              ),
+            });
+          }
+          break;
+        default:
+          break;
       }
       return acc;
     },
-    { main: [], support: [], office: [] }
+    { main: [], support: [], office: [], sigp: [] }
   );
 
   const createChartData = (workshops) => {
@@ -322,17 +407,19 @@ const WorkshopScoreChart = ({ reportData }) => {
   };
 
   // Tạo các biểu đồ riêng cho xưởng chính
-  const mainWorkshopCharts = groupedData.main.map((workshop) => (
-    <Chart
-      key={workshop.workshopName}
-      title={`% ĐIỂM ĐẠT - MÀU SAO ${workshop.workshopName}`}
-      data={createChartData([workshop])}
-    />
-  ));
+  const mainWorkshopCharts =
+    !isSIGPOnly &&
+    groupedData.main.map((workshop) => (
+      <Chart
+        key={workshop.workshopName}
+        title={`% ĐIỂM ĐẠT - MÀU SAO ${workshop.workshopName}`}
+        data={createChartData([workshop])}
+      />
+    ));
 
   // Biểu đồ cho nhóm hỗ trợ
   const supportWorkshopChart =
-    groupedData.support.length > 0 ? (
+    !isSIGPOnly && groupedData.support.length > 0 ? (
       <Chart
         title="% ĐIỂM ĐẠT - MÀU SAO XƯỞNG CẮT, KHO TP, KHO NPL"
         data={createChartData(groupedData.support)}
@@ -341,10 +428,19 @@ const WorkshopScoreChart = ({ reportData }) => {
 
   // Biểu đồ cho nhóm phòng ban
   const officeWorkshopChart =
-    groupedData.office.length > 0 ? (
+    !isSIGPOnly && groupedData.office.length > 0 ? (
       <Chart
         title="% ĐIỂM ĐẠT - MÀU SAO PHÒNG BAN"
         data={createChartData(groupedData.office)}
+      />
+    ) : null;
+
+  // Biểu đồ SIGP
+  const sigpWorkshopChart =
+    isSIGPOnly && groupedData.sigp.length > 0 ? (
+      <Chart
+        title="% ĐIỂM ĐẠT - MÀU SAO SIGP"
+        data={createChartData(groupedData.sigp)}
       />
     ) : null;
 
@@ -357,9 +453,17 @@ const WorkshopScoreChart = ({ reportData }) => {
       >
         THỐNG KÊ % ĐIỂM ĐẠT - MÀU SAO
       </Typography>
-      {mainWorkshopCharts}
-      {supportWorkshopChart}
-      {officeWorkshopChart}
+      {isSIGPOnly ? (
+        // Khi ở chế độ SIGP, chỉ hiện biểu đồ SIGP
+        sigpWorkshopChart
+      ) : (
+        // Khi không ở chế độ SIGP, hiện các biểu đồ khác
+        <>
+          {mainWorkshopCharts}
+          {supportWorkshopChart}
+          {officeWorkshopChart}
+        </>
+      )}
     </Box>
   );
 };

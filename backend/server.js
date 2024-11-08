@@ -2296,7 +2296,7 @@ async function updateGoogleSheet() {
 }
 
 // Thiết lập interval để chạy cập nhật mỗi 1 phút
-setInterval(updateGoogleSheet, 1 * 60 * 1000);
+setInterval(updateGoogleSheet, 30 * 60 * 1000);
 
 // Chạy lần đầu khi khởi động server
 updateGoogleSheet();

@@ -102,6 +102,7 @@ export default class ExportToPDF {
       "score-chart-xuong4": "% ĐIỂM ĐẠT - MÀU SAO XƯỞNG 4",
       "score-chart-support": "% ĐIỂM ĐẠT - MÀU SAO XƯỞNG CẮT, KHO TP, KHO NPL",
       "score-chart-phongban": "% ĐIỂM ĐẠT - MÀU SAO PHÒNG BAN",
+      "score-chart-sigp": "% ĐIỂM ĐẠT - MÀU SAO SIGP",
 
       // Knockout charts
       "knockout-chart-xuong1": "HẠNG MỤC ĐIỂM LIỆT XƯỞNG 1",

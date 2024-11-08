@@ -220,7 +220,7 @@ export default function MonthlyReportPage() {
     reportData && reportData.workshops
       ? showOnlySIGP
         ? reportData.workshops.filter((w) => w.workshopName === "SIGP")
-        : reportData.workshops
+        : reportData.workshops.filter((w) => w.workshopName !== "SIGP")
       : [];
 
   useEffect(() => {
@@ -599,7 +599,7 @@ export default function MonthlyReportPage() {
                     color: showOnlySIGP ? "primary.main" : "text.secondary",
                   }}
                 >
-                  Chỉ hiện SIGP
+                  {showOnlySIGP ? "SIGP" : "VLH"}
                 </Typography>
               }
             />
