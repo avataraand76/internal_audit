@@ -122,7 +122,13 @@ export class ExcelExportService {
     const lastColumn = 3 + this.reportData.phases.length * 3 + 1;
     const lastColLetter = this.columnToLetter(lastColumn);
 
-    this.addHeaders(lastColLetter, selectedMonth, year);
+    const isSIGP =
+      this.reportData.workshops.length > 0 &&
+      this.reportData.workshops[0].workshopName === "SIGP";
+    const reportType = isSIGP ? "SIGP" : "VLH";
+
+    this.addHeaders(lastColLetter, selectedMonth, year, reportType);
+
     this.addTableStructure(lastColLetter);
     this.addData(lastColumn);
     this.setColumnWidths();
@@ -131,10 +137,13 @@ export class ExcelExportService {
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
-    saveAs(blob, `Bao_cao_bang_diem_KSNB_Thang_${selectedMonth}_${year}.xlsx`);
+    saveAs(
+      blob,
+      `Bao_cao_bang_diem_KSNB_${reportType}_Thang_${selectedMonth}_${year}.xlsx`
+    );
   }
 
-  addHeaders(lastColLetter, selectedMonth, year) {
+  addHeaders(lastColLetter, selectedMonth, year, reportType) {
     // Title
     this.worksheet.mergeCells(`A1:${lastColLetter}1`);
     this.worksheet.getCell("A1").value = "BAN KIỂM SOÁT NỘI BỘ";
@@ -147,7 +156,7 @@ export class ExcelExportService {
     this.worksheet.mergeCells(`A2:${lastColLetter}2`);
     this.worksheet.getCell(
       "A2"
-    ).value = `BẢNG TỔNG HỢP ĐIỂM KSNB CỦA CÁC BỘ PHẬN - THÁNG ${selectedMonth}/${year}`;
+    ).value = `BẢNG TỔNG HỢP ĐIỂM KSNB CỦA CÁC BỘ PHẬN ${reportType} - THÁNG ${selectedMonth}/${year}`;
     this.worksheet.getCell("A2").style = {
       ...EXCEL_STYLES.header,
       font: { bold: true, size: 14 },

@@ -21,7 +21,6 @@ import {
   Button,
   Tooltip,
   Switch,
-  FormControlLabel,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import ScorePercentageChart from "../components/ScorePercentageChart";
@@ -34,6 +33,8 @@ import ExcelExportService from "../components/ExportToExcel";
 import ExportToPDF from "../components/ExportToPDF";
 import BackupTableIcon from "@mui/icons-material/BackupTable";
 import AssessmentIcon from "@mui/icons-material/Assessment";
+import logoVLH from "../assets/logo_vlh.jpg";
+import logoSIGP from "../assets/logo_sigp.jpg";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   border: "1px solid rgba(240, 240, 240, 1)",
@@ -167,6 +168,14 @@ const inactiveCellStyle = {
     zIndex: 1,
   },
 };
+
+const Logo = styled("img")(({ isActive }) => ({
+  width: "50px",
+  height: "50px",
+  objectFit: "contain",
+  transition: "filter 0.3s",
+  filter: isActive ? "none" : "grayscale(1) opacity(0.6)",
+}));
 
 export default function MonthlyReportPage() {
   const [reportData, setReportData] = useState(null);
@@ -473,8 +482,15 @@ export default function MonthlyReportPage() {
       isLatestPhaseGreen,
     };
 
+    const exportData = {
+      ...reportData,
+      workshops: showOnlySIGP
+        ? reportData.workshops.filter((w) => w.workshopName === "SIGP")
+        : reportData.workshops.filter((w) => w.workshopName !== "SIGP"),
+    };
+
     try {
-      const excelService = new ExcelExportService(reportData, calculations);
+      const excelService = new ExcelExportService(exportData, calculations);
       await excelService.exportToExcel(selectedMonth, year);
     } catch (error) {
       console.error("Error exporting Excel:", error);
@@ -583,26 +599,75 @@ export default function MonthlyReportPage() {
                 </Button>
               </span>
             </Tooltip>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={showOnlySIGP}
-                  onChange={handleSwitchChange}
-                  color="primary"
-                />
-              }
-              label={
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                bgcolor: "background.paper",
+                padding: "8px 12px",
+                borderRadius: "24px",
+                border: "1px solid #e0e0e0",
+              }}
+            >
+              {/* VLH Label và Logo bên trái */}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  color: !showOnlySIGP ? "primary.main" : "text.secondary",
+                  transition: "color 0.3s",
+                }}
+              >
+                <Logo src={logoVLH} alt="VLH" isActive={!showOnlySIGP} />
                 <Typography
                   sx={{
                     fontWeight: "bold",
-                    fontSize: "0.9rem",
-                    color: showOnlySIGP ? "primary.main" : "text.secondary",
+                    fontSize: "1rem",
                   }}
                 >
-                  {showOnlySIGP ? "SIGP" : "VLH"}
+                  VLH
                 </Typography>
-              }
-            />
+              </Box>
+
+              {/* Switch */}
+              <Switch
+                checked={showOnlySIGP}
+                onChange={handleSwitchChange}
+                color="primary"
+                sx={{
+                  "& .MuiSwitch-switchBase.Mui-checked": {
+                    color: "#1976d2",
+                  },
+                  "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                    backgroundColor: "#1976d2",
+                  },
+                  mx: 1,
+                }}
+              />
+
+              {/* SIGP Label và Logo bên phải */}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  color: showOnlySIGP ? "primary.main" : "text.secondary",
+                  transition: "color 0.3s",
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontWeight: "bold",
+                    fontSize: "1rem",
+                  }}
+                >
+                  SIGP
+                </Typography>
+                <Logo src={logoSIGP} alt="SIGP" isActive={showOnlySIGP} />
+              </Box>
+            </Box>
           </Box>
         </Box>
 
