@@ -93,6 +93,11 @@ export default class ExportToPDF {
     // Log ID để debug
     console.log("Processing chart ID:", elementId);
 
+    // Kiểm tra xem có phải chế độ SIGP không (có thể truyền qua constructor)
+    const isSIGPOnly = this.charts?.some((chart) =>
+      chart.dataset.chartId?.includes("sigp")
+    );
+
     // Map chart IDs
     const titles = {
       // Main workshop score charts
@@ -109,10 +114,15 @@ export default class ExportToPDF {
       "knockout-chart-xuong2": "HẠNG MỤC ĐIỂM LIỆT XƯỞNG 2",
       "knockout-chart-xuong3": "HẠNG MỤC ĐIỂM LIỆT XƯỞNG 3",
       "knockout-chart-xuong4": "HẠNG MỤC ĐIỂM LIỆT XƯỞNG 4",
+      "knockout-chart-sigp": "HẠNG MỤC ĐIỂM LIỆT SIGP",
 
       // Workshop stats
-      "green-star-chart": "CHUYỀN ĐẠT SAO XANH / 4 XƯỞNG",
-      "error-stats-chart": "% HẠNG MỤC ĐIỂM LIỆT / 4 XƯỞNG",
+      "green-star-chart": isSIGPOnly
+        ? "BỘ PHẬN ĐẠT SAO XANH SIGP"
+        : "BỘ PHẬN ĐẠT SAO XANH / 4 XƯỞNG",
+      "error-stats-chart": isSIGPOnly
+        ? "% HẠNG MỤC ĐIỂM LIỆT CÁC BỘ PHẬN SIGP"
+        : "% HẠNG MỤC ĐIỂM LIỆT CÁC BỘ PHẬN / 4 XƯỞNG",
     };
 
     return titles[elementId] || elementId;
@@ -155,6 +165,15 @@ export default class ExportToPDF {
     const container = document.createElement("div");
     container.id = "print-container";
     container.style.display = "none";
+
+    // Lưu tất cả charts để kiểm tra mode
+    this.charts = [
+      ...refs.scoreChartRef.current.querySelectorAll(".MuiCard-root"),
+      ...refs.knockoutChartRef.current.querySelectorAll(".MuiCard-root"),
+      ...refs.workshopStatsRef.current.querySelectorAll(
+        ".MuiCard-root, .MuiPaper-root"
+      ),
+    ];
 
     // Capture Score Charts (6 charts)
     const scoreCharts =
@@ -211,7 +230,14 @@ export default class ExportToPDF {
           };
           window.addEventListener("afterprint", handleAfterPrint);
 
-          document.title = `Bao_cao_bieu_do_KSNB_Thang_${this.month}_${this.year}`;
+          // Đổi tên file theo chế độ
+          const isSIGPOnly = this.charts?.some((chart) =>
+            chart.dataset.chartId?.includes("sigp")
+          );
+          const filePrefix = isSIGPOnly
+            ? "Bao_cao_bieu_do_KSNB_SIGP"
+            : "Bao_cao_bieu_do_KSNB";
+          document.title = `${filePrefix}_Thang_${this.month}_${this.year}`;
 
           setTimeout(() => {
             window.print();

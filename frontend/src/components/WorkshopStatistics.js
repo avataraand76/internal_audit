@@ -24,7 +24,15 @@ ChartJS.register(
 );
 
 const WorkshopStatistics = ({ reportData }) => {
-  const workshops = ["XƯỞNG 1", "XƯỞNG 2", "XƯỞNG 3", "XƯỞNG 4"];
+  // Kiểm tra xem đang ở chế độ SIGP
+  const isSIGPOnly = reportData.workshops.every(
+    (w) => w.workshopName === "SIGP"
+  );
+
+  // Điều chỉnh danh sách workshops dựa trên chế độ
+  const workshops = isSIGPOnly
+    ? ["SIGP"]
+    : ["XƯỞNG 1", "XƯỞNG 2", "XƯỞNG 3", "XƯỞNG 4"];
 
   const isLatestPhaseGreen = (dept) => {
     // Lặp từ đợt gần nhất về đợt cũ nhất
@@ -473,7 +481,9 @@ const WorkshopStatistics = ({ reportData }) => {
         align="center"
         sx={{ fontWeight: "bold", mb: 2, mt: 4 }}
       >
-        THỐNG KÊ SAO XANH VÀ % ĐIỂM LIỆT / 4 XƯỞNG
+        {isSIGPOnly
+          ? "THỐNG KÊ SAO XANH VÀ % ĐIỂM LIỆT CÁC BỘ PHẬN SIGP"
+          : "THỐNG KÊ SAO XANH VÀ % ĐIỂM LIỆT CÁC BỘ PHẬN / 4 XƯỞNG"}
       </Typography>
 
       {/* Green Star Statistics */}
@@ -490,7 +500,9 @@ const WorkshopStatistics = ({ reportData }) => {
             mb: 3,
           }}
         >
-          CHUYỀN ĐẠT SAO XANH / 4 XƯỞNG
+          {isSIGPOnly
+            ? "BỘ PHẬN ĐẠT SAO XANH SIGP"
+            : "BỘ PHẬN ĐẠT SAO XANH / 4 XƯỞNG"}
         </Typography>
         <Box
           sx={{
@@ -523,7 +535,9 @@ const WorkshopStatistics = ({ reportData }) => {
             mb: 3,
           }}
         >
-          % HẠNG MỤC ĐIỂM LIỆT / 4 XƯỞNG
+          {isSIGPOnly
+            ? "% HẠNG MỤC ĐIỂM LIỆT CÁC BỘ PHẬN SIGP"
+            : "% HẠNG MỤC ĐIỂM LIỆT CÁC BỘ PHẬN / 4 XƯỞNG"}
         </Typography>
         <Box sx={{ height: 400 }}>
           <Bar data={errorChartData} options={errorOptions} />

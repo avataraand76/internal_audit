@@ -116,6 +116,11 @@ const ViolationImages = ({ reportData, month, year }) => {
   const [selectedPhase, setSelectedPhase] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
 
+  // Thêm kiểm tra chế độ SIGP
+  const isSIGPOnly = reportData.workshops.every(
+    (w) => w.workshopName === "SIGP"
+  );
+
   // Hàm chuyển đổi URL cho iframe
   const convertToIframeSrc = (url) => {
     if (!url) return null;
@@ -167,11 +172,13 @@ const ViolationImages = ({ reportData, month, year }) => {
       printContainer.id = "print-container-phase-images";
       document.body.appendChild(printContainer);
 
+      const pdfTitle = isSIGPOnly
+        ? `BÁO CÁO HÌNH ẢNH VI PHẠM SIGP<br/>${month}/${year} ĐỢT ${selectedPhase}`
+        : `BÁO CÁO HÌNH ẢNH VI PHẠM<br/>${month}/${year} ĐỢT ${selectedPhase}`;
+
       // Add header
       const header = document.createElement("div");
-      header.innerHTML = `
-        <h1>BÁO CÁO HÌNH ẢNH VI PHẠM<br/>${month}/${year} ĐỢT ${selectedPhase}</h1>
-      `;
+      header.innerHTML = `<h1>${pdfTitle}</h1>`;
       printContainer.appendChild(header);
 
       // Add content
@@ -311,7 +318,6 @@ const ViolationImages = ({ reportData, month, year }) => {
             left: 0;
             top: 0;
             background: white !important;
-            padding: 20mm !important;
           }
 
           /* Headers */
@@ -385,22 +391,22 @@ const ViolationImages = ({ reportData, month, year }) => {
           .image-wrapper {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
-            width: 60mm !important;
-            max-width: 60mm !important;
+            width: auto !important;
+            max-width: auto !important;
             margin-bottom: 5mm !important;
           }
 
           .image-wrapper img {
-            width: 60mm !important;
-            height: 60mm !important;
+            width: 80mm !important;
+            height: auto !important;
             object-fit: contain !important;
             border: 1px solid #ddd !important;
             background-color: white !important;
           }
 
           .no-image {
-            width: 60mm !important;
-            height: 60mm !important;
+            width: 80mm !important;
+            height: 50mm !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -422,7 +428,10 @@ const ViolationImages = ({ reportData, month, year }) => {
       document.head.appendChild(style);
 
       // Set filename
-      document.title = `Bao_cao_hinh_anh_vi_pham_Thang_${month}_${year}_Dot_${selectedPhase.replace(
+      const filePrefix = isSIGPOnly
+        ? "Bao_cao_hinh_anh_vi_pham_SIGP"
+        : "Bao_cao_hinh_anh_vi_pham";
+      document.title = `${filePrefix}_Thang_${month}_${year}_Dot_${selectedPhase.replace(
         /\s+/g,
         "_"
       )}`;
@@ -445,7 +454,14 @@ const ViolationImages = ({ reportData, month, year }) => {
     const fetchViolationImages = async () => {
       const imagesData = {};
 
-      for (const workshop of reportData.workshops) {
+      // Lọc chỉ các workshop cần hiển thị
+      const workshopsToProcess = reportData.workshops.filter((workshop) => {
+        return isSIGPOnly
+          ? workshop.workshopName === "SIGP"
+          : workshop.workshopName !== "SIGP";
+      });
+
+      for (const workshop of workshopsToProcess) {
         imagesData[workshop.workshopName] = {};
 
         for (const dept of workshop.departments) {
@@ -494,7 +510,7 @@ const ViolationImages = ({ reportData, month, year }) => {
     if (reportData?.workshops && reportData?.inactiveDepartments) {
       fetchViolationImages();
     }
-  }, [reportData]);
+  }, [reportData, isSIGPOnly]);
 
   // Lọc workshops theo phase đã chọn
   const getFilteredWorkshops = () => {
@@ -545,26 +561,6 @@ const ViolationImages = ({ reportData, month, year }) => {
     ));
   };
 
-  // Render khi không có dữ liệu
-  if (Object.keys(violationImages).length === 0) {
-    return (
-      <Box sx={{ width: "100%", mt: 4, mb: 4 }}>
-        <Typography
-          variant="h5"
-          align="center"
-          sx={{ fontWeight: "bold", mb: 2, mt: 4 }}
-        >
-          HÌNH ẢNH VI PHẠM TIÊU CHÍ
-        </Typography>
-        <Paper elevation={3} sx={{ p: 3 }}>
-          <Typography variant="body1" align="center" color="text.secondary">
-            Không có hình ảnh vi phạm nào
-          </Typography>
-        </Paper>
-      </Box>
-    );
-  }
-
   const filteredWorkshops = getFilteredWorkshops();
 
   // Return main component UI
@@ -578,194 +574,207 @@ const ViolationImages = ({ reportData, month, year }) => {
         HÌNH ẢNH VI PHẠM TIÊU CHÍ
       </Typography>
 
-      <Paper elevation={3} sx={{ p: 3 }}>
-        {/* Phase Selection Buttons */}
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 3,
-          }}
-        >
-          <ButtonGroup variant="contained" color="primary">
-            {reportData.phases.map((phase) => (
-              <Button
-                key={phase.id_phase}
-                onClick={() => {
-                  setSelectedPhase(phase.name_phase);
-                  setExpandedWorkshop(false);
-                  setExpandedDepartment(false);
-                }}
-                variant={
-                  selectedPhase === phase.name_phase ? "contained" : "outlined"
-                }
-                sx={{
-                  backgroundColor:
+      {Object.keys(violationImages).length === 0 ? (
+        <Paper elevation={3} sx={{ p: 3 }}>
+          <Typography variant="body1" align="center" color="text.secondary">
+            {isSIGPOnly
+              ? "Không có hình ảnh vi phạm nào của SIGP"
+              : "Không có hình ảnh vi phạm nào"}
+          </Typography>
+        </Paper>
+      ) : (
+        <Paper elevation={3} sx={{ p: 3 }}>
+          {/* Phase Selection Buttons */}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 3,
+            }}
+          >
+            <ButtonGroup variant="contained" color="primary">
+              {reportData.phases.map((phase) => (
+                <Button
+                  key={phase.id_phase}
+                  onClick={() => {
+                    setSelectedPhase(phase.name_phase);
+                    setExpandedWorkshop(false);
+                    setExpandedDepartment(false);
+                  }}
+                  variant={
                     selectedPhase === phase.name_phase
-                      ? "primary.main"
-                      : "transparent",
-                  "&:hover": {
+                      ? "contained"
+                      : "outlined"
+                  }
+                  sx={{
                     backgroundColor:
                       selectedPhase === phase.name_phase
-                        ? "primary.dark"
-                        : "primary.light",
-                  },
-                }}
-              >
-                {phase.name_phase}
-              </Button>
-            ))}
-          </ButtonGroup>
+                        ? "primary.main"
+                        : "transparent",
+                    "&:hover": {
+                      backgroundColor:
+                        selectedPhase === phase.name_phase
+                          ? "primary.dark"
+                          : "primary.light",
+                    },
+                  }}
+                >
+                  {phase.name_phase}
+                </Button>
+              ))}
+            </ButtonGroup>
 
-          <Tooltip title={`Xuất PDF đợt ${selectedPhase}`} placement="top">
-            <span>
-              <Button
-                variant="contained"
-                color="secondary"
-                onClick={handleExportPDF}
-                disabled={!selectedPhase || isExporting}
-                startIcon={<CollectionsIcon />}
-                sx={{
-                  backgroundColor: "#1E90FF",
-                  "&:hover": {
-                    backgroundColor: "#1A78D6",
-                  },
-                  "&.Mui-disabled": {
+            <Tooltip title={`Xuất PDF đợt ${selectedPhase}`} placement="top">
+              <span>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  onClick={handleExportPDF}
+                  disabled={!selectedPhase || isExporting}
+                  startIcon={<CollectionsIcon />}
+                  sx={{
                     backgroundColor: "#1E90FF",
-                    opacity: 0.7,
-                  },
-                }}
-              >
-                {isExporting ? "Đang xuất PDF..." : "Xuất PDF"}
-              </Button>
-            </span>
-          </Tooltip>
-        </Box>
+                    "&:hover": {
+                      backgroundColor: "#1A78D6",
+                    },
+                    "&.Mui-disabled": {
+                      backgroundColor: "#1E90FF",
+                      opacity: 0.7,
+                    },
+                  }}
+                >
+                  {isExporting ? "Đang xuất PDF..." : "Xuất PDF"}
+                </Button>
+              </span>
+            </Tooltip>
+          </Box>
 
-        {/* Render Workshops */}
-        {Object.entries(filteredWorkshops).map(
-          ([workshopName, departments], workshopIndex) => (
-            <Accordion
-              key={workshopName}
-              expanded={expandedWorkshop === workshopIndex}
-              onChange={() =>
-                setExpandedWorkshop(
-                  expandedWorkshop === workshopIndex ? false : workshopIndex
-                )
-              }
-              sx={{ mb: 2 }}
-            >
-              <AccordionSummary
-                expandIcon={<ExpandMoreIcon />}
-                sx={{
-                  backgroundColor: "primary.light",
-                  "&:hover": {
-                    backgroundColor: "primary.main",
-                    color: "white",
-                  },
-                }}
-              >
-                <Typography sx={{ fontWeight: "bold" }}>
-                  {workshopName}
-                </Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                {Object.entries(departments).map(
-                  ([deptName, phases], deptIndex) => (
-                    <Accordion
-                      key={deptName}
-                      expanded={
-                        expandedDepartment === `${workshopIndex}-${deptIndex}`
-                      }
-                      onChange={() =>
-                        setExpandedDepartment(
-                          expandedDepartment === `${workshopIndex}-${deptIndex}`
-                            ? false
-                            : `${workshopIndex}-${deptIndex}`
-                        )
-                      }
-                      sx={{ ml: 2, mb: 2 }}
-                    >
-                      <AccordionSummary
-                        expandIcon={<ExpandMoreIcon />}
-                        sx={{
-                          backgroundColor: "secondary.light",
-                          "&:hover": {
-                            backgroundColor: "secondary.main",
-                            color: "white",
-                          },
-                        }}
-                      >
-                        <Typography sx={{ fontWeight: "bold" }}>
-                          {deptName}
-                        </Typography>
-                      </AccordionSummary>
-                      <AccordionDetails>
-                        {phases[selectedPhase] && (
-                          <Box sx={{ ml: 2 }}>
-                            {Object.entries(phases[selectedPhase]).map(
-                              ([criteriaId, images]) => (
-                                <Box key={criteriaId} sx={{ mb: 4 }}>
-                                  <Typography
-                                    sx={{
-                                      backgroundColor: "grey.100",
-                                      p: 2,
-                                      borderRadius: 1,
-                                      fontWeight: "bold",
-                                      mb: 2,
-                                    }}
-                                  >
-                                    {images.codename} - {images.criterionName}
-                                  </Typography>
-
-                                  <Box sx={{ mb: 3 }}>
-                                    <Typography
-                                      variant="subtitle2"
-                                      sx={{
-                                        fontWeight: "bold",
-                                        color: "error.main",
-                                        fontSize: 20,
-                                        mb: 2,
-                                      }}
-                                    >
-                                      Ảnh vi phạm:
-                                    </Typography>
-                                    <Grid container spacing={3}>
-                                      {renderImages(images.before, "before")}
-                                    </Grid>
-                                  </Box>
-
-                                  <Box>
-                                    <Typography
-                                      variant="subtitle2"
-                                      sx={{
-                                        fontWeight: "bold",
-                                        color: "success.main",
-                                        fontSize: 20,
-                                        mb: 2,
-                                      }}
-                                    >
-                                      Ảnh sau khắc phục:
-                                    </Typography>
-                                    <Grid container spacing={3}>
-                                      {renderImages(images.after, "after")}
-                                    </Grid>
-                                  </Box>
-                                </Box>
-                              )
-                            )}
-                          </Box>
-                        )}
-                      </AccordionDetails>
-                    </Accordion>
+          {/* Render Workshops */}
+          {Object.entries(filteredWorkshops).map(
+            ([workshopName, departments], workshopIndex) => (
+              <Accordion
+                key={workshopName}
+                expanded={expandedWorkshop === workshopIndex}
+                onChange={() =>
+                  setExpandedWorkshop(
+                    expandedWorkshop === workshopIndex ? false : workshopIndex
                   )
-                )}
-              </AccordionDetails>
-            </Accordion>
-          )
-        )}
-      </Paper>
+                }
+                sx={{ mb: 2 }}
+              >
+                <AccordionSummary
+                  expandIcon={<ExpandMoreIcon />}
+                  sx={{
+                    backgroundColor: "primary.light",
+                    "&:hover": {
+                      backgroundColor: "primary.main",
+                      color: "white",
+                    },
+                  }}
+                >
+                  <Typography sx={{ fontWeight: "bold" }}>
+                    {workshopName}
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  {Object.entries(departments).map(
+                    ([deptName, phases], deptIndex) => (
+                      <Accordion
+                        key={deptName}
+                        expanded={
+                          expandedDepartment === `${workshopIndex}-${deptIndex}`
+                        }
+                        onChange={() =>
+                          setExpandedDepartment(
+                            expandedDepartment ===
+                              `${workshopIndex}-${deptIndex}`
+                              ? false
+                              : `${workshopIndex}-${deptIndex}`
+                          )
+                        }
+                        sx={{ ml: 2, mb: 2 }}
+                      >
+                        <AccordionSummary
+                          expandIcon={<ExpandMoreIcon />}
+                          sx={{
+                            backgroundColor: "secondary.light",
+                            "&:hover": {
+                              backgroundColor: "secondary.main",
+                              color: "white",
+                            },
+                          }}
+                        >
+                          <Typography sx={{ fontWeight: "bold" }}>
+                            {deptName}
+                          </Typography>
+                        </AccordionSummary>
+                        <AccordionDetails>
+                          {phases[selectedPhase] && (
+                            <Box sx={{ ml: 2 }}>
+                              {Object.entries(phases[selectedPhase]).map(
+                                ([criteriaId, images]) => (
+                                  <Box key={criteriaId} sx={{ mb: 4 }}>
+                                    <Typography
+                                      sx={{
+                                        backgroundColor: "grey.100",
+                                        p: 2,
+                                        borderRadius: 1,
+                                        fontWeight: "bold",
+                                        mb: 2,
+                                      }}
+                                    >
+                                      {images.codename} - {images.criterionName}
+                                    </Typography>
+
+                                    <Box sx={{ mb: 3 }}>
+                                      <Typography
+                                        variant="subtitle2"
+                                        sx={{
+                                          fontWeight: "bold",
+                                          color: "error.main",
+                                          fontSize: 20,
+                                          mb: 2,
+                                        }}
+                                      >
+                                        Ảnh vi phạm:
+                                      </Typography>
+                                      <Grid container spacing={3}>
+                                        {renderImages(images.before, "before")}
+                                      </Grid>
+                                    </Box>
+
+                                    <Box>
+                                      <Typography
+                                        variant="subtitle2"
+                                        sx={{
+                                          fontWeight: "bold",
+                                          color: "success.main",
+                                          fontSize: 20,
+                                          mb: 2,
+                                        }}
+                                      >
+                                        Ảnh sau khắc phục:
+                                      </Typography>
+                                      <Grid container spacing={3}>
+                                        {renderImages(images.after, "after")}
+                                      </Grid>
+                                    </Box>
+                                  </Box>
+                                )
+                              )}
+                            </Box>
+                          )}
+                        </AccordionDetails>
+                      </Accordion>
+                    )
+                  )}
+                </AccordionDetails>
+              </Accordion>
+            )
+          )}
+        </Paper>
+      )}
     </Box>
   );
 };

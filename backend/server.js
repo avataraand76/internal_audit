@@ -31,9 +31,9 @@ const pool = mysql.createPool({
 });
 
 // Log mỗi khi có connection mới
-pool.on("connection", (connection) => {
-  console.log("Connected to MySQL database");
-});
+// pool.on("connection", (connection) => {
+//   console.log("Connected to MySQL database");
+// });
 
 // Log khi có lỗi
 pool.on("error", (err) => {

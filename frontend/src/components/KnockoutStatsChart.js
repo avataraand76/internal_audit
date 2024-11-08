@@ -125,8 +125,23 @@ const KnockoutStatsChart = ({ reportData }) => {
     );
   };
 
+  // Kiểm tra nếu đang ở chế độ chỉ hiện SIGP
+  const isSIGPOnly = reportData.workshops.every(
+    (w) => w.workshopName === "SIGP"
+  );
+
   // Tạo dữ liệu cho các xưởng
-  const workshops = ["XƯỞNG 1", "XƯỞNG 2", "XƯỞNG 3", "XƯỞNG 4"];
+  const workshops = isSIGPOnly
+    ? ["SIGP"]
+    : ["XƯỞNG 1", "XƯỞNG 2", "XƯỞNG 3", "XƯỞNG 4"];
+
+  // Thêm ID chart cho SIGP
+  const getChartId = (workshop) => {
+    if (workshop === "SIGP") return "knockout-chart-sigp";
+    const num = workshop.match(/\d+/)?.[0];
+    return num ? `knockout-chart-xuong${num}` : workshop.toLowerCase();
+  };
+
   const workshopStats = workshops
     .map((name) => ({
       name,
@@ -184,7 +199,7 @@ const KnockoutStatsChart = ({ reportData }) => {
           },
           title: {
             display: true,
-            text: "Số lượng điểm liệt",
+            text: "Số lượng bộ phận bị điểm liệt",
             color: "#000",
             font: { size: 14 },
           },
@@ -256,13 +271,12 @@ const KnockoutStatsChart = ({ reportData }) => {
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
+          gridTemplateColumns: isSIGPOnly ? "1fr" : "repeat(2, 1fr)",
           gap: 2,
         }}
       >
         {workshopStats.map((workshop) => {
-          const num = workshop.name.match(/\d+/)[0];
-          const chartId = `knockout-chart-xuong${num}`;
+          const chartId = getChartId(workshop.name);
 
           return (
             <Card key={workshop.name} data-chart-id={chartId}>
