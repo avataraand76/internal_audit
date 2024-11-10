@@ -335,6 +335,12 @@ const DetailedPhasePage = () => {
       return;
     }
 
+    // Close dialog immediately
+    setShowTimeLimitDialog(false);
+
+    // Set loading state
+    setIsUploading(true);
+
     try {
       // Standardize time to 07:00:00
       const standardizeDate = (dateString) => {
@@ -357,7 +363,7 @@ const DetailedPhasePage = () => {
         end: new Date(standardizeDate(newEndDate)),
       });
 
-      // Tiếp tục chấm điểm
+      // Process pending score if exists
       if (pendingScore) {
         const scoreData = {
           id_department: selectedDepartment.id,
@@ -370,14 +376,10 @@ const DetailedPhasePage = () => {
             pendingScore === "không đạt" ? "CHƯA KHẮC PHỤC" : null,
         };
 
-        setIsUploading(
-          pendingScore === "không đạt" && selectedImages.length > 0
-        );
-
-        // Lưu điểm
+        // Save the score
         await axios.post(`${API_URL}/phase-details`, scoreData);
 
-        // Xử lý upload ảnh nếu cần
+        // Handle image upload if needed
         if (pendingScore === "không đạt" && selectedImages.length > 0) {
           const formData = new FormData();
           for (const image of selectedImages) {
@@ -419,7 +421,7 @@ const DetailedPhasePage = () => {
           }
         }
 
-        // Cập nhật failed criteria state
+        // Update failed criteria state
         setFailedCriteria((prev) => {
           const newFailedCriteria = { ...prev };
           if (!newFailedCriteria[selectedDepartment.id]) {
@@ -438,7 +440,7 @@ const DetailedPhasePage = () => {
         await updateInfoCard();
       }
 
-      setShowTimeLimitDialog(false);
+      // Reset all states
       setPendingScore(null);
       setNewStartDate("");
       setNewEndDate("");
@@ -447,6 +449,8 @@ const DetailedPhasePage = () => {
     } catch (error) {
       console.error("Error updating time limits:", error);
       alert("Có lỗi xảy ra khi cập nhật thời hạn. Vui lòng thử lại.");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -894,7 +898,7 @@ const DetailedPhasePage = () => {
               variant="body2"
               sx={{ color: "text.secondary", minWidth: "140px" }}
             >
-              Tiêu chí điểm liệt:
+              Tiêu chí điểm liệt TTNV:
             </Typography>
             <Typography variant="body2" color="error.light">
               {redStarCriteria?.length > 0

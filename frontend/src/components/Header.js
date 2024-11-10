@@ -1,5 +1,5 @@
 // frontend/src/components/Header.js
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AppBar,
   Toolbar,
@@ -27,7 +27,6 @@ import AssessmentIcon from "@mui/icons-material/Assessment";
 import LogoutIcon from "@mui/icons-material/Logout";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import logo from "../assets/logo_cty.png";
-import API_URL from "../data/api";
 
 const CustomAppBar = styled(AppBar)(({ theme }) => ({
   backgroundColor: "white",
@@ -92,26 +91,14 @@ const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const isLoginPage = location.pathname === "/login";
   const [displayName, setDisplayName] = useState("");
-  const [isSupervisor, setIsSupervisor] = useState(false);
-
-  const checkUserRole = useCallback(async (userId) => {
-    try {
-      const response = await fetch(`${API_URL}/check-supervisor/${userId}`);
-      const data = await response.json();
-      setIsSupervisor(data.isSupervisor);
-    } catch (error) {
-      console.error("Error checking user role:", error);
-    }
-  }, []);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (user) {
       // Use ten_nv if available, otherwise fall back to name_user
       setDisplayName(user.ten_nv || user.name_user);
-      checkUserRole(user.id_user);
     }
-  }, [checkUserRole]);
+  }, []);
 
   // Check if current path is a report detail page
   const isReportDetailPage = /^\/report\/\d{1,2}\/\d{4}$/.test(
@@ -129,7 +116,7 @@ const Header = () => {
     ];
 
     // Thêm nút báo cáo cho cả supervisor và supervised users
-    if ((isSupervisor || !isSupervisor) && !isReportDetailPage) {
+    if (!isReportDetailPage) {
       baseItems.push({
         text: "Báo cáo",
         path: "/report",

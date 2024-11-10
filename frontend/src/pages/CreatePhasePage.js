@@ -80,6 +80,7 @@ const DepartmentSelectionDialog = memo(
     onSave,
     isMobile,
     selectedPhase,
+    formatDate,
   }) => {
     const [menuPortalTarget, setMenuPortalTarget] = useState(null);
     const contentRef = useRef(null);
@@ -90,13 +91,6 @@ const DepartmentSelectionDialog = memo(
         return () => setMenuPortalTarget(null);
       }
     }, [open]);
-
-    // Utility functions remain the same
-    const formatDate = (dateString) => {
-      if (!dateString) return "";
-      const date = new Date(dateString);
-      return date.toLocaleDateString("vi-VN");
-    };
 
     // Hàm chuyển đổi tiếng Việt có dấu thành không dấu
     const removeVietnameseAccents = (str) => {
@@ -617,8 +611,7 @@ const CreatePhasePage = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return "";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("vi-VN");
+    return moment(dateString).format("DD/MM/YYYY");
   };
 
   // JSX
@@ -970,6 +963,7 @@ const CreatePhasePage = () => {
           onSave={handleSaveInactiveDepartments}
           isMobile={isMobile}
           selectedPhase={selectedPhase}
+          formatDate={formatDate}
         />
       </Container>
     </>

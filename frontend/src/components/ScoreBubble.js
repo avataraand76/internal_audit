@@ -194,7 +194,7 @@ const ScoreBubble = ({
                   variant="body2"
                   sx={{ color: "text.secondary", fontWeight: "medium" }}
                 >
-                  Tiêu chí điểm liệt:
+                  Tiêu chí điểm liệt TTNV:
                 </Typography>
                 <Typography variant="body2" color="error.light">
                   {redStarCriteria.length > 0

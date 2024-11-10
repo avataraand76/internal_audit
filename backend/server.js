@@ -25,9 +25,12 @@ const pool = mysql.createPool({
   connectionLimit: 10, // Số lượng connection tối đa
   waitForConnections: true, // Queue queries when no connections available
   queueLimit: 0, // Unlimited queue size
-  connectTimeout: 10000, // 10 seconds
-  acquireTimeout: 10000, // 10 seconds
+  connectTimeout: 60000, // 60 seconds
+  acquireTimeout: 60000, // 60 seconds
   timeout: 60000, // 60 seconds
+  enableKeepAlive: true, // Thêm keepAlive
+  keepAliveInitialDelay: 0, // Bắt đầu keepAlive ngay lập tức
+  multipleStatements: true, // Cho phép nhiều câu lệnh SQL
 });
 
 // Log mỗi khi có connection mới
@@ -2057,28 +2060,130 @@ async function initGoogleSheet() {
   }
 }
 
-// Hàm format dữ liệu báo cáo cho Google Sheets
-async function formatReportDataForSheet(month, year) {
+// Hàm tính điểm trung bình
+function calculateAverageScore(phases) {
+  const validScores = Object.values(phases)
+    .map((p) => p.scorePercentage)
+    .filter((score) => score !== "" && score !== null && score !== undefined);
+
+  return validScores.length > 0
+    ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length)
+    : "";
+}
+
+// Hàm xác định màu sao
+function determineStarColor(dept, phases) {
+  // Kiểm tra xem department có hoạt động không
+  const hasAnyActivity = Object.values(dept.phases).length > 0;
+  if (!hasAnyActivity) return ""; // Return rỗng nếu không hoạt động
+
+  // 1. Lấy phase gần nhất
+  const latestPhase = phases[phases.length - 1];
+  if (!latestPhase) return "Sao đỏ";
+
+  // 2. Lấy dữ liệu của phase gần nhất
+  const latestPhaseData = dept.phases[latestPhase.name_phase];
+  if (!latestPhaseData) return "Sao đỏ";
+
+  // 3. Kiểm tra 3 điều kiện cho sao xanh:
+  const conditions = {
+    // Điều kiện 1: Tổng điểm đạt >= 80%
+    totalScoreCondition: () => {
+      const avgScore = calculateAverageScore(dept.phases);
+      return avgScore >= 80;
+    },
+
+    // Điều kiện 2: Không có điểm liệt trong đợt gần nhất
+    noKnockoutCondition: () => {
+      return (
+        !latestPhaseData.knockoutTypes ||
+        latestPhaseData.knockoutTypes.length === 0
+      );
+    },
+
+    // Điều kiện 3: % Điểm đạt của đợt gần nhất >= 80%
+    latestScoreCondition: () => {
+      return latestPhaseData.scorePercentage >= 80;
+    },
+  };
+
+  // Kiểm tra tất cả điều kiện
+  const isGreenStar =
+    conditions.totalScoreCondition() &&
+    conditions.noKnockoutCondition() &&
+    conditions.latestScoreCondition();
+
+  return isGreenStar ? "Sao xanh" : "Sao đỏ";
+}
+
+// Hàm lấy danh sách tất cả các tháng và năm có trong database
+async function getAllAvailableMonthsAndYears() {
   try {
-    // 1. Lấy danh sách phases trong tháng
-    const phasesQuery = `
-      SELECT id_phase, name_phase 
-      FROM tb_phase 
-      WHERE MONTH(date_recorded) = ? AND YEAR(date_recorded) = ?
-      ORDER BY date_recorded ASC
+    const query = `
+      SELECT DISTINCT 
+        MONTH(date_recorded) as month,
+        YEAR(date_recorded) as year
+      FROM tb_phase
+      ORDER BY year DESC, month DESC
     `;
 
-    const [phases] = await new Promise((resolve, reject) => {
-      pool.query(phasesQuery, [month, year], (err, results) => {
+    const [results] = await new Promise((resolve, reject) => {
+      pool.query(query, [], (err, results) => {
         if (err) reject(err);
         else resolve([results]);
       });
     });
 
-    if (!phases || phases.length === 0) {
-      console.log("No phases found for this month");
-      return [];
+    return results;
+  } catch (error) {
+    console.error("Error getting available months and years:", error);
+    throw error;
+  }
+}
+
+// Hàm để lấy tất cả phases từ tất cả tháng năm
+async function getAllPhases() {
+  try {
+    const query = `
+      SELECT DISTINCT 
+        id_phase, 
+        name_phase,
+        MONTH(date_recorded) as phase_month,
+        ROW_NUMBER() OVER (PARTITION BY MONTH(date_recorded) ORDER BY date_recorded ASC) as phase_order
+      FROM tb_phase 
+      ORDER BY MONTH(date_recorded), date_recorded ASC
+    `;
+
+    const [phases] = await new Promise((resolve, reject) => {
+      pool.query(query, [], (err, results) => {
+        if (err) reject(err);
+        else resolve([results]);
+      });
+    });
+
+    return phases;
+  } catch (error) {
+    console.error("Error getting all phases:", error);
+    throw error;
+  }
+}
+
+// Hàm format dữ liệu báo cáo cho Google Sheets
+async function formatReportDataForSheet(month, year, allPhases) {
+  try {
+    // 1. Kiểm tra phases
+    if (!allPhases || allPhases.length === 0) {
+      console.log("No phases provided");
+      return {
+        headers: [],
+        data: [],
+      };
     }
+
+    // Lọc phases cho tháng hiện tại ngay từ đầu
+    const monthPhases = allPhases
+      .filter((phase) => phase.phase_month === month)
+      .sort((a, b) => a.phase_order - b.phase_order);
 
     // 2. Lấy dữ liệu báo cáo
     const reportQuery = `
@@ -2096,7 +2201,7 @@ async function formatReportDataForSheet(month, year) {
         COALESCE(SUM(pd.is_fail), 0) as failed_count,
         COALESCE(tp.total_point, 100) as score_percentage,
         (
-          SELECT GROUP_CONCAT(DISTINCT cat.name_category SEPARATOR ', ')
+          SELECT GROUP_CONCAT(DISTINCT cat.name_category SEPARATOR '||')
           FROM tb_phase_details pd2
           JOIN tb_criteria c ON pd2.id_criteria = c.id_criteria
           JOIN tb_category cat ON c.id_category = cat.id_category
@@ -2158,64 +2263,143 @@ async function formatReportDataForSheet(month, year) {
         departmentData[deptKey].phases[row.name_phase] = {
           failedCount: row.failed_count,
           scorePercentage: row.score_percentage,
-          knockoutTypes: row.knockout_types || "",
+          knockoutTypes: row.knockout_types
+            ? row.knockout_types.split("||")
+            : [],
         };
       }
     });
 
     // 4. Format dữ liệu cho Google Sheet
-    const sheetData = Object.values(departmentData).map((dept) => {
-      // Thông tin cơ bản
-      let row = [
-        dept.month,
-        dept.year,
-        dept.workshop,
-        dept.department,
-        dept.max_points,
-      ];
+    const sheetData = [];
+    let totalDepartments = 0;
+    let greenStarCount = 0;
+    let redStarCount = 0;
 
-      // Thêm dữ liệu cho từng phase
-      phases.forEach((phase) => {
-        const phaseData = dept.phases[phase.name_phase] || {
-          failedCount: "",
-          scorePercentage: "",
-          knockoutTypes: "",
-        };
-
-        row.push(
-          phaseData.failedCount,
-          // Add % symbol for score percentage if it's not empty
-          phaseData.scorePercentage !== ""
-            ? `${phaseData.scorePercentage}%`
-            : "",
-          phaseData.knockoutTypes
-        );
-      });
-
-      // Tính điểm trung bình
-      const validScores = Object.values(dept.phases)
-        .map((p) => p.scorePercentage)
-        .filter(
-          (score) => score !== "" && score !== null && score !== undefined
-        );
-
-      const avgScore =
-        validScores.length > 0
-          ? Math.round(
-              validScores.reduce((a, b) => a + b, 0) / validScores.length
-            )
-          : "";
-
-      // Add % symbol to average score if it's not empty
-      row.push(avgScore !== "" ? `${avgScore}%` : "");
-      return row;
+    // Đếm trước số lượng sao xanh/đỏ
+    Object.values(departmentData).forEach((dept) => {
+      const hasAnyActivity = Object.values(dept.phases).length > 0;
+      if (hasAnyActivity) {
+        totalDepartments++;
+        const starColor = determineStarColor(dept, monthPhases);
+        if (starColor === "Sao xanh") greenStarCount++;
+        if (starColor === "Sao đỏ") redStarCount++;
+      }
     });
 
-    // 5. Tạo headers với định dạng mới
-    const headers = ["Tháng", "Năm", "Phòng ban", "Bộ phận", "Điểm tối đa"];
+    // Tính tỉ lệ
+    const greenStarRatio =
+      totalDepartments > 0
+        ? Math.round((greenStarCount / totalDepartments) * 100)
+        : 0;
+    const redStarRatio =
+      totalDepartments > 0
+        ? Math.round((redStarCount / totalDepartments) * 100)
+        : 0;
 
-    // Thêm headers cho từng lần với số thứ tự
-    phases.forEach((phase, index) => {
+    // Format dữ liệu cho từng department
+    Object.values(departmentData).forEach((dept) => {
+      let maxKnockoutTypes = 0;
+      Object.values(dept.phases).forEach((phase) => {
+        if (phase.knockoutTypes.length > maxKnockoutTypes) {
+          maxKnockoutTypes = phase.knockoutTypes.length;
+        }
+      });
+
+      const starColor = determineStarColor(dept, monthPhases);
+      const avgScore = calculateAverageScore(dept.phases);
+
+      if (maxKnockoutTypes === 0) {
+        const row = [
+          // 1. Thông tin cơ bản
+          dept.month,
+          dept.year,
+          dept.workshop,
+          dept.department,
+          dept.max_points,
+          // 2. Thông tin tổng kết
+          avgScore !== "" ? `${avgScore}%` : "",
+          starColor,
+          `${greenStarRatio}%`,
+          `${redStarRatio}%`,
+        ];
+
+        // 3. Thông tin từng phase
+        monthPhases.forEach((phase) => {
+          const phaseData = dept.phases[phase.name_phase] || {
+            failedCount: "",
+            scorePercentage: "",
+            knockoutTypes: [],
+          };
+
+          row.push(
+            phaseData.failedCount.toString(),
+            phaseData.scorePercentage !== ""
+              ? `${phaseData.scorePercentage}%`
+              : "",
+            ""
+          );
+        });
+
+        sheetData.push(row);
+      } else {
+        // Xử lý các hàng có knockout types
+        for (let i = 0; i < maxKnockoutTypes; i++) {
+          const row = [
+            // 1. Thông tin cơ bản
+            dept.month,
+            dept.year,
+            dept.workshop,
+            dept.department,
+            dept.max_points,
+            // 2. Thông tin tổng kết - chỉ hiển thị ở hàng đầu
+            i === 0 ? (avgScore !== "" ? `${avgScore}%` : "") : "",
+            i === 0 ? starColor : "",
+            i === 0 ? `${greenStarRatio}%` : "",
+            i === 0 ? `${redStarRatio}%` : "",
+          ];
+
+          // 3. Thông tin từng phase
+          monthPhases.forEach((phase) => {
+            const phaseData = dept.phases[phase.name_phase] || {
+              failedCount: "",
+              scorePercentage: "",
+              knockoutTypes: [],
+            };
+
+            row.push(
+              i === 0 ? phaseData.failedCount.toString() : "",
+              i === 0
+                ? phaseData.scorePercentage !== ""
+                  ? `${phaseData.scorePercentage}%`
+                  : ""
+                : "",
+              phaseData.knockoutTypes[i] || ""
+            );
+          });
+
+          sheetData.push(row);
+        }
+      }
+    });
+
+    // 5. Tạo headers với cấu trúc mới
+    const headers = [
+      // 1. Thông tin cơ bản
+      "Tháng",
+      "Năm",
+      "Phòng ban",
+      "Bộ phận",
+      "Điểm tối đa",
+      // 2. Thông tin tổng kết
+      "Tổng điểm đạt (%)",
+      "Xếp loại",
+      "Tỉ lệ sao xanh (%)",
+      "Tỉ lệ sao đỏ (%)",
+    ];
+
+    // 3. Headers cho từng phase
+    monthPhases.forEach((phase, index) => {
       headers.push(
         `Tổng điểm trừ L${index + 1}`,
         `% Điểm đạt L${index + 1}`,
@@ -2223,36 +2407,114 @@ async function formatReportDataForSheet(month, year) {
       );
     });
 
-    headers.push("Tổng điểm đạt (%)");
-
     return {
       headers: headers,
       data: sheetData,
     };
   } catch (error) {
-    console.error("Error formatting report data:", error);
-    throw error;
+    console.error(`Error formatting data for month ${month}/${year}:`, error);
+    return {
+      headers: [],
+      data: [],
+    };
   }
 }
 
 // Hàm cập nhật Google Sheet
 async function updateGoogleSheet() {
   try {
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
+    // Lấy tất cả các phases trước
+    const allPhases = await getAllPhases();
 
-    // Format dữ liệu
-    const formattedData = await formatReportDataForSheet(
-      currentMonth,
-      currentYear
+    // Lấy tất cả các tháng và năm có sẵn
+    const availableDates = await getAllAvailableMonthsAndYears();
+
+    if (!availableDates || availableDates.length === 0) {
+      console.log("No dates found in database");
+      return;
+    }
+
+    // Sắp xếp availableDates theo thứ tự cũ đến mới
+    availableDates.sort((a, b) => {
+      if (a.year !== b.year) {
+        return a.year - b.year;
+      }
+      return a.month - b.month;
+    });
+
+    // Tìm tháng có nhiều phases nhất để làm chuẩn cho headers
+    let maxPhaseCount = 0;
+    let maxPhaseMonth = null;
+    let maxPhaseYear = null;
+
+    availableDates.forEach((date) => {
+      const monthPhases = allPhases.filter(
+        (phase) => phase.phase_month === date.month
+      );
+      if (monthPhases.length > maxPhaseCount) {
+        maxPhaseCount = monthPhases.length;
+        maxPhaseMonth = date.month;
+        maxPhaseYear = date.year;
+      }
+    });
+
+    // Lấy dữ liệu cho tháng có nhiều phases nhất đầu tiên để có headers chuẩn
+    const templateData = await formatReportDataForSheet(
+      maxPhaseMonth,
+      maxPhaseYear,
+      allPhases
     );
 
-    if (
-      !formattedData ||
-      !formattedData.data ||
-      formattedData.data.length === 0
-    ) {
+    let allData = [];
+    const headers = templateData.headers;
+
+    // Sau đó lấy dữ liệu cho các tháng còn lại
+    for (const date of availableDates) {
+      const formattedData = await formatReportDataForSheet(
+        date.month,
+        date.year,
+        allPhases
+      );
+
+      if (
+        formattedData &&
+        formattedData.data &&
+        formattedData.data.length > 0
+      ) {
+        // Chuẩn hóa dữ liệu theo template headers
+        const normalizedData = formattedData.data.map((row) => {
+          const newRow = new Array(headers.length).fill("");
+
+          // Copy các cột thông tin cơ bản và tổng kết (9 cột đầu)
+          for (let i = 0; i < 9; i++) {
+            newRow[i] = row[i];
+          }
+
+          // Xác định số phases của tháng hiện tại
+          const currentMonthPhases = allPhases.filter(
+            (phase) => phase.phase_month === date.month
+          ).length;
+
+          // Copy dữ liệu phases - 3 cột cho mỗi phase
+          for (let i = 0; i < currentMonthPhases; i++) {
+            // index bắt đầu từ vị trí sau cột tổng kết
+            const baseIndex = 9; // 5 cột thông tin + 4 cột tổng kết
+            const sourceIndex = 9 + i * 3; // Bắt đầu từ sau các cột tổng kết
+
+            // Copy 3 cột của mỗi phase (điểm trừ, điểm đạt, điểm liệt)
+            newRow[baseIndex + i * 3] = row[sourceIndex];
+            newRow[baseIndex + i * 3 + 1] = row[sourceIndex + 1];
+            newRow[baseIndex + i * 3 + 2] = row[sourceIndex + 2];
+          }
+
+          return newRow;
+        });
+
+        allData = [...allData, ...normalizedData];
+      }
+    }
+
+    if (allData.length === 0) {
       console.log("No data to update");
       return;
     }
@@ -2273,12 +2535,12 @@ async function updateGoogleSheet() {
     await sheet.clear();
 
     // Cập nhật headers
-    await sheet.setHeaderRow(formattedData.headers);
+    await sheet.setHeaderRow(headers);
 
     // Convert data theo định dạng của headers
-    const rows = formattedData.data.map((row) => {
+    const rows = allData.map((row) => {
       const obj = {};
-      formattedData.headers.forEach((header, index) => {
+      headers.forEach((header, index) => {
         obj[header] = row[index];
       });
       return obj;
@@ -2287,8 +2549,11 @@ async function updateGoogleSheet() {
     // Thêm rows vào sheet
     await sheet.addRows(rows);
 
+    const totalRows = rows.length;
     console.log(
-      `Sheet updated successfully at ${moment().format("HH:mm:ss DD/MM/YYYY")}`
+      `Sheet updated successfully with ${totalRows} rows at ${moment().format(
+        "HH:mm:ss DD/MM/YYYY"
+      )}`
     );
   } catch (error) {
     console.error("Error updating Google Sheet:", error);

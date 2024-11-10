@@ -341,8 +341,8 @@ const WorkshopStatistics = ({ reportData }) => {
             if (context.dataIndex === greenStarDepts.length) {
               return [
                 `Tổng tỷ lệ: ${context.parsed.y}%`,
-                `Số chuyền đạt: ${totalStats.totalGreenStarDepts}`,
-                `Tổng số chuyền: ${totalStats.totalActiveDepts}`,
+                `Số bộ phận đạt: ${totalStats.totalGreenStarDepts}`,
+                `Tổng số bộ phận: ${totalStats.totalActiveDepts}`,
               ];
             }
             return `Điểm đạt: ${context.parsed.y}%`;
@@ -418,9 +418,11 @@ const WorkshopStatistics = ({ reportData }) => {
             };
             const type = typeMap[context.dataIndex];
             labels.push(`Tỷ lệ: ${context.parsed.y}%`);
-            labels.push(`Số chuyền không đạt: ${errorStats.totalCounts[type]}`);
             labels.push(
-              `Tổng số chuyền hoạt động: ${errorStats.totalActiveDepartments}`
+              `Số bộ phận không đạt: ${errorStats.totalCounts[type]}`
+            );
+            labels.push(
+              `Tổng số bộ phận hoạt động: ${errorStats.totalActiveDepartments}`
             );
             return labels;
           },
