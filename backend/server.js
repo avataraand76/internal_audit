@@ -2144,24 +2144,44 @@ async function getAllAvailableMonthsAndYears() {
 // Hàm để lấy tất cả phases từ tất cả tháng năm
 async function getAllPhases() {
   try {
+    // Modified query to properly handle DISTINCT with ORDER BY
     const query = `
-      SELECT DISTINCT 
-        id_phase, 
-        name_phase,
-        MONTH(date_recorded) as phase_month,
-        ROW_NUMBER() OVER (PARTITION BY MONTH(date_recorded) ORDER BY date_recorded ASC) as phase_order
-      FROM tb_phase 
-      ORDER BY MONTH(date_recorded), date_recorded ASC
+      SELECT 
+        p.id_phase, 
+        p.name_phase,
+        p.date_recorded,
+        MONTH(p.date_recorded) as phase_month,
+        ROW_NUMBER() OVER (
+          PARTITION BY MONTH(p.date_recorded) 
+          ORDER BY p.date_recorded ASC
+        ) as phase_order
+      FROM tb_phase p
+      ORDER BY 
+        MONTH(p.date_recorded), 
+        p.date_recorded ASC
     `;
 
     const [phases] = await new Promise((resolve, reject) => {
       pool.query(query, [], (err, results) => {
-        if (err) reject(err);
-        else resolve([results]);
+        if (err) {
+          console.error("Error in getAllPhases query:", err);
+          reject(err);
+        } else {
+          resolve([results]);
+        }
       });
     });
 
-    return phases;
+    // Transform the results to remove the date_recorded from the final output
+    // while still maintaining the correct ordering
+    const transformedPhases = phases.map((phase) => ({
+      id_phase: phase.id_phase,
+      name_phase: phase.name_phase,
+      phase_month: phase.phase_month,
+      phase_order: phase.phase_order,
+    }));
+
+    return transformedPhases;
   } catch (error) {
     console.error("Error getting all phases:", error);
     throw error;
@@ -2276,7 +2296,7 @@ async function formatReportDataForSheet(month, year, allPhases) {
     let greenStarCount = 0;
     let redStarCount = 0;
 
-    // Đếm trước số lượng sao xanh/đỏ
+    // Đếm trước số lượng sao xanh/đỏ chỉ cho các department đang hoạt động
     Object.values(departmentData).forEach((dept) => {
       const hasAnyActivity = Object.values(dept.phases).length > 0;
       if (hasAnyActivity) {
@@ -2306,6 +2326,7 @@ async function formatReportDataForSheet(month, year, allPhases) {
         }
       });
 
+      const hasAnyActivity = Object.values(dept.phases).length > 0;
       const starColor = determineStarColor(dept, monthPhases);
       const avgScore = calculateAverageScore(dept.phases);
 
@@ -2320,8 +2341,9 @@ async function formatReportDataForSheet(month, year, allPhases) {
           // 2. Thông tin tổng kết
           avgScore !== "" ? `${avgScore}%` : "",
           starColor,
-          `${greenStarRatio}%`,
-          `${redStarRatio}%`,
+          // Chỉ hiển thị tỉ lệ sao cho department đang hoạt động
+          hasAnyActivity ? `${greenStarRatio}%` : "",
+          hasAnyActivity ? `${redStarRatio}%` : "",
         ];
 
         // 3. Thông tin từng phase
@@ -2355,8 +2377,9 @@ async function formatReportDataForSheet(month, year, allPhases) {
             // 2. Thông tin tổng kết - chỉ hiển thị ở hàng đầu
             i === 0 ? (avgScore !== "" ? `${avgScore}%` : "") : "",
             i === 0 ? starColor : "",
-            i === 0 ? `${greenStarRatio}%` : "",
-            i === 0 ? `${redStarRatio}%` : "",
+            // Chỉ hiển thị tỉ lệ sao ở hàng đầu và khi department đang hoạt động
+            i === 0 && hasAnyActivity ? `${greenStarRatio}%` : "",
+            i === 0 && hasAnyActivity ? `${redStarRatio}%` : "",
           ];
 
           // 3. Thông tin từng phase
