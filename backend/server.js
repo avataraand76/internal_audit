@@ -2310,11 +2310,11 @@ async function formatReportDataForSheet(month, year, allPhases) {
     // Tính tỉ lệ
     const greenStarRatio =
       totalDepartments > 0
-        ? Math.round((greenStarCount / totalDepartments) * 100)
+        ? Number(((1 / totalDepartments) * 100).toFixed(2))
         : 0;
     const redStarRatio =
       totalDepartments > 0
-        ? Math.round((redStarCount / totalDepartments) * 100)
+        ? Number(((1 / totalDepartments) * 100).toFixed(2))
         : 0;
 
     // Format dữ liệu cho từng department
@@ -2341,9 +2341,12 @@ async function formatReportDataForSheet(month, year, allPhases) {
           // 2. Thông tin tổng kết
           avgScore !== "" ? `${avgScore}%` : "",
           starColor,
-          // Chỉ hiển thị tỉ lệ sao cho department đang hoạt động
-          hasAnyActivity ? `${greenStarRatio}%` : "",
-          hasAnyActivity ? `${redStarRatio}%` : "",
+          // Cột "Tỉ lệ sao xanh (%)" - chỉ hiển thị greenStarRatio cho Sao xanh
+          hasAnyActivity && starColor === "Sao xanh"
+            ? `${greenStarRatio}%`
+            : "",
+          // Cột "Tỉ lệ sao đỏ (%)" - chỉ hiển thị redStarRatio cho Sao đỏ
+          hasAnyActivity && starColor === "Sao đỏ" ? `${redStarRatio}%` : "",
         ];
 
         // 3. Thông tin từng phase
@@ -2377,9 +2380,14 @@ async function formatReportDataForSheet(month, year, allPhases) {
             // 2. Thông tin tổng kết - chỉ hiển thị ở hàng đầu
             i === 0 ? (avgScore !== "" ? `${avgScore}%` : "") : "",
             i === 0 ? starColor : "",
-            // Chỉ hiển thị tỉ lệ sao ở hàng đầu và khi department đang hoạt động
-            i === 0 && hasAnyActivity ? `${greenStarRatio}%` : "",
-            i === 0 && hasAnyActivity ? `${redStarRatio}%` : "",
+            // Cột "Tỉ lệ sao xanh (%)" - chỉ hiển thị khi là Sao xanh và ở hàng đầu tiên
+            i === 0 && hasAnyActivity && starColor === "Sao xanh"
+              ? `${greenStarRatio}%`
+              : "",
+            // Cột "Tỉ lệ sao đỏ (%)" - chỉ hiển thị khi là Sao đỏ và ở hàng đầu tiên
+            i === 0 && hasAnyActivity && starColor === "Sao đỏ"
+              ? `${redStarRatio}%`
+              : "",
           ];
 
           // 3. Thông tin từng phase
