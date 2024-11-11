@@ -358,14 +358,26 @@ export default function MonthlyReportPage() {
   const calculateOverallAverage = () => {
     if (!reportData || !reportData.workshops) return "NaN";
 
-    const workshopAverages = filteredWorkshops
-      .map(calculateWorkshopTotalAverage)
-      .filter((avg) => avg !== "NaN" && typeof avg === "number");
+    // Lấy tất cả departments từ các workshops đã được lọc
+    const allDepartments = filteredWorkshops.flatMap((w) => w.departments);
 
-    if (workshopAverages.length === 0) return "NaN";
+    // Lọc ra các department còn active trong phase cuối cùng
+    const lastPhaseIndex = reportData.phases.length - 1;
+    const activeDepartments = allDepartments.filter((dept) => {
+      return !reportData.phases[lastPhaseIndex]?.inactiveDepartments?.includes(
+        dept.id_department
+      );
+    });
 
-    const sum = workshopAverages.reduce((acc, avg) => acc + avg, 0);
-    return Math.round(sum / workshopAverages.length);
+    if (activeDepartments.length === 0) return "NaN";
+
+    // Tính tổng % điểm của các department active trong phase cuối cùng
+    const sum = activeDepartments.reduce((acc, dept) => {
+      return acc + (dept.phases[lastPhaseIndex]?.scorePercentage || 0);
+    }, 0);
+
+    // Chia trung bình và làm tròn
+    return Math.round(sum / activeDepartments.length);
   };
 
   const isLatestPhaseGreen = (dept) => {

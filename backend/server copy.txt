@@ -1,0 +1,374 @@
+///////////upload ảnh gg drive////////////
+const FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
+const TINIFY_API_KEY = process.env.TINIFY_API_KEY;
+// Multer config
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+});
+
+// Google OAuth2 config
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  process.env.GOOGLE_REDIRECT_URI
+);
+
+// Token management
+let cachedAccessToken = null;
+let tokenExpirationTime = 0;
+
+oauth2Client.setCredentials({
+  refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+});
+
+// Get fresh access token with caching
+async function getAccessToken() {
+  try {
+    const currentTime = Date.now();
+    if (cachedAccessToken && currentTime < tokenExpirationTime - 60000) {
+      // 1 minute buffer
+      return cachedAccessToken;
+    }
+
+    const { token, expiry_date } = await oauth2Client.getAccessToken();
+    cachedAccessToken = token;
+    tokenExpirationTime = expiry_date;
+    return token;
+  } catch (error) {
+    console.error("Error getting access token:", error);
+    throw new Error("Failed to get access token");
+  }
+}
+
+/////////không xóa hàm này, hàm này để refresh token/////////
+// Retry mechanism for API calls
+async function retryWithBackoff(fn, maxRetries = 5, initialDelay = 1000) {
+  let lastError = null;
+  let delay = initialDelay;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+
+      // Check if error is retryable
+      if (
+        error.response &&
+        (error.response.status === 429 || error.response.status >= 500)
+      ) {
+        if (attempt === maxRetries) break;
+
+        console.log(
+          `Attempt ${attempt}/${maxRetries} failed. Retrying in ${delay}ms...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff
+      } else {
+        // Non-retryable error
+        throw error;
+      }
+    }
+  }
+
+  throw lastError;
+}
+/////////không xóa hàm này, hàm này để refresh token/////////
+
+// Create and configure Drive instance with fresh token
+async function getDriveInstance() {
+  const accessToken = await getAccessToken();
+  return google.drive({
+    version: "v3",
+    auth: oauth2Client,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+// Khởi tạo Tinify với API key
+tinify.key = TINIFY_API_KEY;
+
+// Hàm nén ảnh qua TinyPNG
+async function compressImage(buffer) {
+  try {
+    const source = tinify.fromBuffer(buffer);
+    const compressedBuffer = await source.toBuffer();
+    return compressedBuffer;
+  } catch (error) {
+    console.error("Error compressing image:", error);
+    throw new Error(`Compression failed: ${error.message}`);
+  }
+}
+
+// Main upload function với nén ảnh
+async function uploadToDrive(fileBuffer, fileName, folderId) {
+  try {
+    const drive = await getDriveInstance();
+
+    // Validate inputs
+    if (!fileBuffer || fileBuffer.length === 0) {
+      throw new Error("Empty file buffer");
+    }
+
+    if (!fileName) {
+      throw new Error("File name is required");
+    }
+
+    // Tạo metadata với mime type tự động
+    const fileMetadata = {
+      name: fileName,
+      parents: [folderId],
+      description: "Upload from KSNB App - Compressed with TinyPNG",
+    };
+
+    // Tạo media object với stream
+    const stream = Readable.from(fileBuffer);
+    const media = {
+      mimeType: "application/octet-stream",
+      body: stream,
+    };
+
+    // Upload file
+    const response = await drive.files.create({
+      requestBody: fileMetadata,
+      media: media,
+      fields: "id, name, webViewLink, description",
+    });
+
+    // Get updated file info
+    const file = await drive.files.get({
+      fileId: response.data.id,
+      fields: "id, name, webViewLink, description",
+    });
+
+    return {
+      id: file.data.id,
+      name: file.data.name,
+      webViewLink: file.data.webViewLink,
+      description: file.data.description,
+      directLink: `https://drive.google.com/uc?export=view&id=${file.data.id}`,
+    };
+  } catch (error) {
+    console.error("Upload error details:", error);
+
+    // Detailed error logging
+    if (error.response) {
+      console.error("Error response:", {
+        status: error.response.status,
+        data: error.response.data,
+        headers: error.response.headers,
+      });
+    }
+
+    // Specific error handling
+    if (error.code === 403) {
+      throw new Error(
+        "Permission denied - check your Google Drive API credentials"
+      );
+    } else if (error.code === 404) {
+      throw new Error("Folder not found - check your folder ID");
+    } else if (error.message.includes("quota")) {
+      throw new Error("Google Drive quota exceeded");
+    } else {
+      throw new Error(`Upload failed: ${error.message}`);
+    }
+  }
+}
+
+// Hàm để xử lý upload song song với giới hạn và nén ảnh
+async function uploadFilesInParallel(files, maxConcurrent = 20) {
+  const uploadedFiles = [];
+  const errors = [];
+  const chunks = [];
+  const batchSize = maxConcurrent;
+
+  // Chia files thành các nhóm nhỏ để xử lý
+  for (let i = 0; i < files.length; i += batchSize) {
+    chunks.push(files.slice(i, i + batchSize));
+  }
+
+  // Xử lý từng nhóm song song
+  for (const chunk of chunks) {
+    const uploadPromises = chunk.map(async (file) => {
+      const fileStartTime = Date.now();
+      try {
+        // Validate file
+        if (file.size > 10 * 1024 * 1024) {
+          throw new Error("File size exceeds 10MB limit");
+        }
+
+        if (!file.mimetype.startsWith("image/")) {
+          throw new Error("Only image files are allowed");
+        }
+
+        // Nén ảnh trước khi upload
+        console.log(`Compressing ${file.originalname}...`);
+        const compressedBuffer = await compressImage(file.buffer);
+
+        // Upload file đã nén
+        const uploadedFile = await uploadToDrive(
+          compressedBuffer,
+          file.originalname,
+          FOLDER_ID
+        );
+
+        const fileEndTime = Date.now();
+        const fileUploadTime = (fileEndTime - fileStartTime) / 1000;
+
+        uploadedFiles.push({
+          ...uploadedFile,
+          originalName: file.originalname,
+          originalSize: file.size,
+          compressedSize: compressedBuffer.length,
+          compressionRatio: (
+            ((file.size - compressedBuffer.length) / file.size) *
+            100
+          ).toFixed(2),
+          mimeType: file.mimetype,
+          uploadTime: fileUploadTime,
+        });
+
+        console.log(
+          `\nSuccessfully compressed and uploaded: ${file.originalname}`,
+          `\nOriginal size: ${(file.size / 1024).toFixed(2)}KB`,
+          `\nCompressed size: ${(compressedBuffer.length / 1024).toFixed(2)}KB`,
+          `\nCompression ratio: ${(
+            ((file.size - compressedBuffer.length) / file.size) *
+            100
+          ).toFixed(2)}%`,
+          `\nUpload time: ${fileUploadTime.toFixed(2)}s`
+        );
+      } catch (error) {
+        console.error(`Error processing ${file.originalname}:`, error);
+        errors.push({
+          filename: file.originalname,
+          error: error.message,
+        });
+      }
+    });
+
+    // Đợi tất cả file trong chunk hoàn thành trước khi chuyển sang chunk tiếp theo
+    await Promise.all(uploadPromises);
+  }
+
+  return { uploadedFiles, errors };
+}
+
+// Upload endpoint
+app.post("/upload", upload.array("photos", 20), async (req, res) => {
+  const startTime = Date.now();
+  console.log(
+    `\nStarting compression and upload of ${req.files?.length || 0} files`
+  );
+
+  try {
+    // Validate request
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Không có file được tải lên",
+      });
+    }
+
+    if (!FOLDER_ID) {
+      return res.status(500).json({
+        success: false,
+        error: "Folder ID không được cấu hình",
+      });
+    }
+
+    if (!TINIFY_API_KEY) {
+      return res.status(500).json({
+        success: false,
+        error: "TinyPNG API key không được cấu hình",
+      });
+    }
+
+    const { uploadedFiles, errors } = await uploadFilesInParallel(req.files);
+
+    const totalTime = (Date.now() - startTime) / 1000;
+    console.log(
+      `\nTOTAL UPLOAD PROCESS COMPLETED IN ${totalTime.toFixed(2)} SECONDS`
+    );
+
+    const totalOriginalSize = uploadedFiles.reduce(
+      (acc, file) => acc + file.originalSize,
+      0
+    );
+    const totalCompressedSize = uploadedFiles.reduce(
+      (acc, file) => acc + file.compressedSize,
+      0
+    );
+    const overallCompressionRatio = (
+      ((totalOriginalSize - totalCompressedSize) / totalOriginalSize) *
+      100
+    ).toFixed(2);
+
+    res.json({
+      success: uploadedFiles.length > 0,
+      folderId: FOLDER_ID,
+      uploadedFiles,
+      errors,
+      stats: {
+        totalFiles: req.files.length,
+        successfulUploads: uploadedFiles.length,
+        failedUploads: errors.length,
+        totalOriginalSize: totalOriginalSize,
+        totalCompressedSize: totalCompressedSize,
+        overallCompressionRatio: overallCompressionRatio,
+        processingTimeSeconds: totalTime,
+        averageUploadTimeSeconds:
+          uploadedFiles.length > 0
+            ? (
+                uploadedFiles.reduce((acc, file) => acc + file.uploadTime, 0) /
+                uploadedFiles.length
+              ).toFixed(2)
+            : 0,
+      },
+    });
+  } catch (error) {
+    const totalTime = (Date.now() - startTime) / 1000;
+    console.error(
+      `Process failed after ${totalTime.toFixed(2)} seconds:`,
+      error
+    );
+    res.status(500).json({
+      success: false,
+      error: "Không thể xử lý và tải ảnh lên",
+      details: error.message,
+      processingTimeSeconds: totalTime,
+    });
+  }
+});
+
+// Save image URLs to database
+app.post("/save-image-urls", async (req, res) => {
+  const { id_department, id_criteria, id_phase, imageUrls } = req.body;
+  const imgURL_before = imageUrls.join("; ");
+
+  const query = `
+    UPDATE tb_phase_details 
+    SET imgURL_before = ?
+    WHERE id_department = ? AND id_criteria = ? AND id_phase = ?
+  `;
+
+  pool.query(
+    query,
+    [imgURL_before, id_department, id_criteria, id_phase],
+    (err, result) => {
+      if (err) {
+        console.error("Error saving image URLs:", err);
+        res.status(500).json({ error: "Error saving image URLs" });
+        return;
+      }
+      res.status(200).json({
+        success: true,
+        message: "Image URLs saved successfully",
+      });
+    }
+  );
+});
+///////////upload ảnh gg drive////////////
