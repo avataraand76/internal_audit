@@ -10,8 +10,27 @@ const { google } = require("googleapis");
 const fs = require("fs");
 const compression = require("compression");
 const axios = require("axios");
+const axiosRetry = require("axios-retry").default;
 const { Readable } = require("stream");
 const { GoogleSpreadsheet } = require("google-spreadsheet");
+
+// Configure axios retry
+axiosRetry(axios, {
+  retries: 3,
+  retryDelay: axiosRetry.exponentialDelay,
+  retryCondition: (error) => {
+    return (
+      axiosRetry.isNetworkOrIdempotentRequestError(error) ||
+      error.code === "EAI_AGAIN"
+    );
+  },
+});
+
+// Configure axios defaults
+axios.defaults.timeout = 30000; // 30 seconds
+axios.defaults.headers = {
+  "Keep-Alive": "timeout=5, max=100",
+};
 
 const app = express();
 app.use(cors());
@@ -1571,6 +1590,8 @@ dns.setServers([
   "8.8.4.4", // Google DNS alternate
   "1.1.1.1", // Cloudflare DNS
   "1.0.0.1", // Cloudflare DNS alternate
+  "208.67.222.222", // OpenDNS
+  "208.67.220.220", // OpenDNS alternate
 ]);
 
 // Retry configuration
@@ -2117,8 +2138,13 @@ async function initGoogleSheet() {
 
     return doc;
   } catch (error) {
-    console.error("Error initializing Google Sheet:", error);
-    throw error;
+    console.error(`Attempt ${i + 1}/${retries} failed:`, error.message);
+    if (i < retries - 1) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      delay *= 2; // Exponential backoff
+    } else {
+      throw error;
+    }
   }
 }
 
@@ -2516,6 +2542,19 @@ async function formatReportDataForSheet(month, year, allPhases) {
 // Hàm cập nhật Google Sheet
 async function updateGoogleSheet() {
   try {
+    // Check DNS resolution before proceeding
+    const canResolve = await new Promise((resolve) => {
+      dns.resolve("sheets.googleapis.com", (err) => {
+        resolve(!err);
+      });
+    });
+
+    if (!canResolve) {
+      console.error("DNS resolution failed, retrying in 30 seconds...");
+      setTimeout(updateGoogleSheet, 30000);
+      return;
+    }
+
     // Lấy tất cả các phases trước
     const allPhases = await getAllPhases();
 
@@ -2650,6 +2689,11 @@ async function updateGoogleSheet() {
     );
   } catch (error) {
     console.error("Error updating Google Sheet:", error);
+    // Retry after 1 minute if it's a network error
+    if (error.code === "EAI_AGAIN" || error.code === "ENOTFOUND") {
+      console.log("Network error occurred, retrying in 1 minute...");
+      setTimeout(updateGoogleSheet, 60000);
+    }
   }
 }
 
