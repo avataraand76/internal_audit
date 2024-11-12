@@ -580,6 +580,11 @@ const DetailedPhasePage = () => {
         }
       }
 
+      // Add phase, department and criteria info
+      formData.append("phase", phase?.name_phase || "");
+      formData.append("department", selectedDepartment?.name || "");
+      formData.append("criteria", selectedCriterion?.codename || "");
+
       // Upload images to Google Drive
       const uploadResponse = await axios.post(`${API_URL}/upload`, formData, {
         headers: {
@@ -1261,6 +1266,11 @@ const DetailedPhasePage = () => {
             formData.append("photos", file);
           }
         }
+
+        // Add phase, department and criteria info
+        formData.append("phase", phase?.name_phase || "");
+        formData.append("department", selectedDepartment?.name || "");
+        formData.append("criteria", selectedCriterion?.codename || "");
 
         // Upload images to Google Drive
         const uploadResponse = await axios.post(`${API_URL}/upload`, formData, {

@@ -1554,135 +1554,182 @@ async function getDriveInstance() {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
+    timeout: RETRY_CONFIG.timeoutMs,
+    retry: true,
+    retryConfig: {
+      retry: RETRY_CONFIG.maxRetries,
+      retryDelay: RETRY_CONFIG.initialDelay,
+      statusCodesToRetry: [[500, 599]],
+      httpMethodsToRetry: ["POST", "GET"],
+    },
   });
 }
 
-// Main upload function
-async function uploadToDrive(fileBuffer, fileName, folderId) {
+const dns = require("dns");
+dns.setServers([
+  "8.8.8.8", // Google DNS
+  "8.8.4.4", // Google DNS alternate
+  "1.1.1.1", // Cloudflare DNS
+  "1.0.0.1", // Cloudflare DNS alternate
+]);
+
+// Retry configuration
+const RETRY_CONFIG = {
+  maxRetries: 5,
+  initialDelay: 2000,
+  maxDelay: 30000,
+  timeoutMs: 30000,
+  maxParallelUploads: 20,
+};
+
+// Sleep utility
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// DNS resolution check
+async function checkDNSResolution() {
   try {
-    const drive = await getDriveInstance();
-
-    // Validate inputs
-    if (!fileBuffer || fileBuffer.length === 0) {
-      throw new Error("Empty file buffer");
-    }
-
-    if (!fileName) {
-      throw new Error("File name is required");
-    }
-
-    // Tạo metadata với mime type tự động
-    const fileMetadata = {
-      name: fileName,
-      parents: [folderId],
-      description: "Upload from KSNB App",
-    };
-
-    // Tạo media object với stream
-    const stream = Readable.from(fileBuffer);
-    const media = {
-      mimeType: "application/octet-stream",
-      body: stream,
-    };
-
-    // Upload file
-    // console.log("Starting file upload...");
-    const response = await drive.files.create({
-      requestBody: fileMetadata,
-      media: media,
-      fields: "id, name, webViewLink, description",
-    });
-
-    // console.log("File uploaded successfully...");
-
-    // Get updated file info
-    const file = await drive.files.get({
-      fileId: response.data.id,
-      fields: "id, name, webViewLink, description",
-    });
-
-    return {
-      id: file.data.id,
-      name: file.data.name,
-      webViewLink: file.data.webViewLink,
-      description: file.data.description,
-      directLink: `https://drive.google.com/uc?export=view&id=${file.data.id}`,
-    };
+    const addresses = await dns.promises.resolve4("www.googleapis.com");
+    return addresses.length > 0;
   } catch (error) {
-    console.error("Upload error details:", error);
+    console.error("DNS resolution failed:", error);
+    return false;
+  }
+}
 
-    // Detailed error logging
-    if (error.response) {
-      console.error("Error response:", {
-        status: error.response.status,
-        data: error.response.data,
-        headers: error.response.headers,
+// Main upload function
+async function uploadToDrive(fileBuffer, fileName, folderId, phaseInfo = {}) {
+  let currentDelay = RETRY_CONFIG.initialDelay;
+
+  for (let attempt = 1; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+    try {
+      // Check DNS resolution before attempt
+      const isDNSWorking = await checkDNSResolution();
+      if (!isDNSWorking) {
+        console.warn(
+          `DNS resolution failed on attempt ${attempt}, waiting before retry...`
+        );
+        await sleep(currentDelay);
+        currentDelay = Math.min(currentDelay * 2, RETRY_CONFIG.maxDelay);
+        continue;
+      }
+
+      const drive = await getDriveInstance();
+
+      // Validate inputs
+      if (!fileBuffer || fileBuffer.length === 0) {
+        throw new Error("Empty file buffer");
+      }
+      if (!fileName) {
+        throw new Error("File name is required");
+      }
+
+      // Create upload promise with timeout
+      const uploadPromise = new Promise(async (resolve, reject) => {
+        try {
+          const description =
+            phaseInfo.phase && phaseInfo.department && phaseInfo.criteria
+              ? `Upload from KSNB App - Đợt ${phaseInfo.phase} - ${phaseInfo.department} - ${phaseInfo.criteria}`
+              : "Upload from KSNB App";
+
+          const fileMetadata = {
+            name: fileName,
+            parents: [folderId],
+            description: description,
+          };
+
+          const stream = Readable.from(fileBuffer);
+          const media = {
+            mimeType: "application/octet-stream",
+            body: stream,
+          };
+
+          const response = await drive.files.create({
+            requestBody: fileMetadata,
+            media: media,
+            fields: "id, name, webViewLink, description",
+          });
+
+          const file = await drive.files.get({
+            fileId: response.data.id,
+            fields: "id, name, webViewLink, description",
+          });
+
+          resolve({
+            id: file.data.id,
+            name: file.data.name,
+            webViewLink: file.data.webViewLink,
+            description: file.data.description,
+            directLink: `https://drive.google.com/uc?export=view&id=${file.data.id}`,
+          });
+        } catch (error) {
+          reject(error);
+        }
       });
-    }
 
-    // Specific error handling
-    if (error.code === 403) {
-      throw new Error(
-        "Permission denied - check your Google Drive API credentials"
-      );
-    } else if (error.code === 404) {
-      throw new Error("Folder not found - check your folder ID");
-    } else if (error.message.includes("quota")) {
-      throw new Error("Google Drive quota exceeded");
-    } else {
-      throw new Error(`Upload failed: ${error.message}`);
+      // Add timeout
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(
+          () => reject(new Error("Upload timeout")),
+          RETRY_CONFIG.timeoutMs
+        );
+      });
+
+      // Return successful upload
+      return await Promise.race([uploadPromise, timeoutPromise]);
+    } catch (error) {
+      console.error(`Upload attempt ${attempt} failed:`, error.message);
+
+      // Check if this is the last attempt
+      if (attempt === RETRY_CONFIG.maxRetries) {
+        throw new Error(
+          `Upload failed after ${RETRY_CONFIG.maxRetries} attempts: ${error.message}`
+        );
+      }
+
+      // Calculate next delay with exponential backoff
+      currentDelay = Math.min(currentDelay * 2, RETRY_CONFIG.maxDelay);
+      console.log(`Waiting ${currentDelay}ms before next attempt...`);
+      await sleep(currentDelay);
     }
   }
 }
 
 // Hàm để xử lý upload song song với giới hạn
-async function uploadFilesInParallel(files, maxConcurrent = 20) {
+async function uploadFilesInParallel(files, phaseInfo = {}) {
   const uploadedFiles = [];
   const errors = [];
   const chunks = [];
-  const batchSize = maxConcurrent;
 
-  // Chia files thành các nhóm nhỏ để xử lý
-  for (let i = 0; i < files.length; i += batchSize) {
-    chunks.push(files.slice(i, i + batchSize));
+  // Split files into chunks based on maxParallelUploads
+  for (let i = 0; i < files.length; i += RETRY_CONFIG.maxParallelUploads) {
+    chunks.push(files.slice(i, i + RETRY_CONFIG.maxParallelUploads));
   }
 
-  // Xử lý từng nhóm song song
+  // Process chunks sequentially, but files within chunk in parallel
   for (const chunk of chunks) {
     const uploadPromises = chunk.map(async (file) => {
       const fileStartTime = Date.now();
       try {
-        // Validate file
-        if (file.size > 10 * 1024 * 1024) {
-          throw new Error("File size exceeds 10MB limit");
-        }
-
-        if (!file.mimetype.startsWith("image/")) {
-          throw new Error("Only image files are allowed");
-        }
-
-        // Upload file
         const uploadedFile = await uploadToDrive(
           file.buffer,
           file.originalname,
-          FOLDER_ID
+          FOLDER_ID,
+          phaseInfo
         );
 
-        const fileEndTime = Date.now();
-        const fileUploadTime = (fileEndTime - fileStartTime) / 1000;
-
+        const uploadTime = (Date.now() - fileStartTime) / 1000;
         uploadedFiles.push({
           ...uploadedFile,
           originalName: file.originalname,
           size: file.size,
           mimeType: file.mimetype,
-          uploadTime: fileUploadTime,
+          uploadTime: uploadTime,
         });
 
         console.log(
-          `\nSuccessfully uploaded: ${
-            file.originalname
-          } in ${fileUploadTime.toFixed(2)}s`
+          `Successfully uploaded: ${file.originalname} in ${uploadTime.toFixed(
+            2
+          )}s`
         );
       } catch (error) {
         console.error(`Error uploading ${file.originalname}:`, error);
@@ -1693,8 +1740,13 @@ async function uploadFilesInParallel(files, maxConcurrent = 20) {
       }
     });
 
-    // Đợi tất cả file trong chunk hoàn thành trước khi chuyển sang chunk tiếp theo
+    // Wait for current chunk to complete before processing next chunk
     await Promise.all(uploadPromises);
+
+    // Add delay between chunks if there are more chunks to process
+    if (chunks.indexOf(chunk) < chunks.length - 1) {
+      await sleep(1000); // 1 second delay between chunks
+    }
   }
 
   return { uploadedFiles, errors };
@@ -1721,8 +1773,18 @@ app.post("/upload", upload.array("photos", 20), async (req, res) => {
       });
     }
 
+    // Lấy thông tin từ body request
+    const phaseInfo = {
+      phase: req.body.phase || "", // Tên đợt
+      department: req.body.department || "", // Tên bộ phận
+      criteria: req.body.criteria || "", // Tên tiêu chí
+    };
+
     // Upload files song song
-    const { uploadedFiles, errors } = await uploadFilesInParallel(req.files);
+    const { uploadedFiles, errors } = await uploadFilesInParallel(
+      req.files,
+      phaseInfo
+    );
 
     const totalTime = (Date.now() - startTime) / 1000;
     console.log(
