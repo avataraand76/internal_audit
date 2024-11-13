@@ -2120,30 +2120,35 @@ app.get("/get-phase-details-images/:phaseId/:departmentId", (req, res) => {
 //////////upload to gg sheet to power bi//////////
 // Khởi tạo và xác thực Google Sheets
 async function initGoogleSheet() {
-  try {
-    // Create new document instance
-    const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID);
+  const retries = 5; // Số lần thử lại tối đa
+  const initialDelay = 1000; // Độ trễ ban đầu (1 giây)
+  let delay = initialDelay;
 
-    // Parse credentials from environment variable
-    const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
+  for (let i = 0; i < retries; i++) {
+    try {
+      // Create new document instance
+      const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID);
+      // Parse credentials from environment variable
+      const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
 
-    // Initialize service account auth
-    await doc.useServiceAccountAuth({
-      client_email: credentials.client_email,
-      private_key: credentials.private_key.replace(/\\n/g, "\n"),
-    });
+      // Initialize service account auth
+      await doc.useServiceAccountAuth({
+        client_email: credentials.client_email,
+        private_key: credentials.private_key.replace(/\\n/g, "\n"),
+      });
 
-    // Load document properties and worksheets
-    await doc.loadInfo();
+      // Load document properties and worksheets
+      await doc.loadInfo();
+      return doc;
+    } catch (error) {
+      console.error(`Attempt ${i + 1}/${retries} failed:`, error.message);
 
-    return doc;
-  } catch (error) {
-    console.error(`Attempt ${i + 1}/${retries} failed:`, error.message);
-    if (i < retries - 1) {
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      delay *= 2; // Exponential backoff
-    } else {
-      throw error;
+      if (i < retries - 1) {
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2; // Tăng độ trễ theo cấp số nhân
+      } else {
+        throw error; // Ném lỗi nếu đã hết số lần thử
+      }
     }
   }
 }
