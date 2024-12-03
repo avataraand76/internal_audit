@@ -210,24 +210,6 @@ const WorkshopScoreChart = ({ reportData }) => {
     return Math.round(sum / activeDepartments.length);
   };
 
-  const isLatestPhaseGreen = (dept) => {
-    for (let i = dept.phases.length - 1; i >= 0; i--) {
-      const phase = dept.phases[i];
-      const isPhaseInactive = reportData.phases[
-        i
-      ]?.inactiveDepartments?.includes(dept.id_department);
-
-      if (!isPhaseInactive && phase) {
-        return !(
-          phase.knockoutTypes ||
-          phase.has_knockout ||
-          phase.scorePercentage < 80
-        );
-      }
-    }
-    return false;
-  };
-
   const isOfficeType = (deptName) => {
     // Danh sách các phòng ban (để dễ bảo trì và kiểm tra)
     const officeDepartments = [
@@ -381,7 +363,21 @@ const WorkshopScoreChart = ({ reportData }) => {
 
       activeDepartments.forEach((dept) => {
         const average = calculateDepartmentAverage(dept);
-        const isGreen = average >= 80 && isLatestPhaseGreen(dept);
+
+        // Tính số đợt màu xanh (chỉ tính các đợt đang hoạt động)
+        const greenPhaseCount = dept.phases.filter((phase, index) => {
+          const isInactive = reportData.phases[
+            index
+          ]?.inactiveDepartments?.includes(dept.id_department);
+          // Chỉ đếm các đợt đang hoạt động và đạt điều kiện màu xanh
+          return (
+            !isInactive && !phase.has_red_star && phase.scorePercentage >= 80
+          );
+        }).length;
+
+        // Điều kiện tô màu giống bảng điểm
+        const isGreen = greenPhaseCount >= 3 && average >= 80;
+
         allData.push({
           name: dept.name_department,
           percentage: average,
@@ -394,7 +390,7 @@ const WorkshopScoreChart = ({ reportData }) => {
         const workshopAverage = calculateWorkshopAverage(workshop.departments);
         if (workshopAverage !== null) {
           allData.push({
-            name: `TỔNG ${workshop.workshopName}`,
+            name: `TỔNG`,
             percentage: workshopAverage,
             color: "#FFD700",
             isTotal: true,

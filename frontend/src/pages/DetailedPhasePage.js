@@ -117,13 +117,15 @@ const DetailedPhasePage = () => {
   const [newStartDate, setNewStartDate] = useState("");
   const [newEndDate, setNewEndDate] = useState("");
   const [timeLimitError, setTimeLimitError] = useState("");
-  const [QMSAtldCriteria, setQMSAtldCriteria] = useState([]);
+  const [typeTwoCriteria, setTypeTwoCriteria] = useState([]);
   const [hasTypeTwoQMS, setHasTypeTwoQMS] = useState(false);
   const [hasTypeTwoATLD, setHasTypeTwoATLD] = useState(false);
+  const [hasTypeTwoTTNV, setHasTypeTwoTTNV] = useState(false);
   const [criteriaFilter, setCriteriaFilter] = useState("all");
   const [failingTypeTwoCounts, setFailingTypeTwoCounts] = useState({
     atld: 0,
     qms: 0,
+    ttnv: 0,
   });
   const [showImageLimitWarning, setShowImageLimitWarning] = useState(false);
 
@@ -243,10 +245,12 @@ const DetailedPhasePage = () => {
           setHasRedStar(response.data.has_red_star);
           setHasTypeTwoQMS(response.data.has_type_two_qms);
           setHasTypeTwoATLD(response.data.has_type_two_atld);
+          setHasTypeTwoTTNV(response.data.has_type_two_ttnv);
           setHasAbsoluteKnockout(response.data.has_type_three);
           setFailingTypeTwoCounts({
             atld: response.data.failing_type2_counts?.[1] || 0,
             qms: response.data.failing_type2_counts?.[5] || 0,
+            ttnv: response.data.failing_type2_counts?.[6] || 0,
           });
         } catch (error) {
           console.error("Error fetching total point:", error);
@@ -284,7 +288,7 @@ const DetailedPhasePage = () => {
             `${API_URL}/knockout-criteria/${phaseId}/${selectedDepartment.id}`
           );
           setRedStarCriteria(response.data.redStar);
-          setQMSAtldCriteria(response.data.QMSAtld);
+          setTypeTwoCriteria(response.data.typeTwo);
           setAbsoluteKnockoutCriteria(response.data.PNKL);
         } catch (error) {
           console.error("Error fetching knockout criteria:", error);
@@ -396,6 +400,15 @@ const DetailedPhasePage = () => {
               formData.append("photos", file);
             }
           }
+
+          formData.append("phase", phase?.name_phase || "");
+          formData.append("department", selectedDepartment?.name || "");
+          formData.append("criteria", selectedCriterion?.codename || "");
+          formData.append("isRemediation", "false");
+          // Add IDs for counting existing images
+          formData.append("phaseId", phaseId);
+          formData.append("departmentId", selectedDepartment.id);
+          formData.append("criterionId", selectedCriterion.id);
 
           const uploadResponse = await axios.post(
             `${API_URL}/upload`,
@@ -580,10 +593,15 @@ const DetailedPhasePage = () => {
         }
       }
 
-      // Add phase, department and criteria info
+      // Add all required info
       formData.append("phase", phase?.name_phase || "");
       formData.append("department", selectedDepartment?.name || "");
       formData.append("criteria", selectedCriterion?.codename || "");
+      formData.append("isRemediation", "true");
+      // Add IDs for counting existing images
+      formData.append("phaseId", phaseId);
+      formData.append("departmentId", selectedDepartment.id);
+      formData.append("criterionId", selectedCriterion.id);
 
       // Upload images to Google Drive
       const uploadResponse = await axios.post(`${API_URL}/upload`, formData, {
@@ -644,62 +662,108 @@ const DetailedPhasePage = () => {
     ? "Tìm kiếm theo mã tiêu chí, tên tiêu chí hoặc nội dung..."
     : "Tìm kiếm trong các tiêu chí không đạt...";
 
-  const renderDepartmentMenuContent = () => (
-    <List component="nav" dense>
-      {workshops.map((workshop) => (
-        <React.Fragment key={workshop.id}>
-          <ListItemButton onClick={() => handleWorkshopClick(workshop.id)}>
-            <WorkshopText>{workshop.name}</WorkshopText>
-            {openWorkshops[workshop.id] ? <ExpandLess /> : <ExpandMore />}
-          </ListItemButton>
-          <Collapse
-            in={openWorkshops[workshop.id]}
-            timeout="auto"
-            unmountOnExit
-          >
-            <List component="div" disablePadding>
-              {workshop.departments.map((dept) => (
-                <ListItemButton
-                  key={dept.id}
-                  sx={{
-                    pl: 4,
-                    backgroundColor:
-                      selectedDepartment && selectedDepartment.id === dept.id
-                        ? theme.palette.action.selected
-                        : "inherit",
-                  }}
-                  onClick={() => handleDepartmentSelect(dept)}
-                >
-                  <DepartmentText
+  const renderDepartmentMenuContent = () => {
+    const sortDepartments = (departments) => {
+      return [...departments].sort((a, b) => {
+        // Helper function to extract number from CHUYỀN
+        const getChuyenInfo = (name) => {
+          const match = name.match(/CHUYỀN\s+(.+)/i);
+          if (!match) return null;
+
+          // Kiểm tra xem phần sau CHUYỀN có phải là số không
+          const value = match[1];
+          const numericValue = parseInt(value);
+          return {
+            isNumeric: !isNaN(numericValue),
+            value: isNaN(numericValue) ? value : numericValue,
+          };
+        };
+
+        const aInfo = getChuyenInfo(a.name);
+        const bInfo = getChuyenInfo(b.name);
+
+        // Nếu cả hai đều là CHUYỀN
+        if (aInfo && bInfo) {
+          // Nếu một cái là số và cái kia là chữ
+          if (aInfo.isNumeric !== bInfo.isNumeric) {
+            return aInfo.isNumeric ? -1 : 1; // Số đứng trước chữ
+          }
+
+          // Nếu cả hai đều là số hoặc cả hai đều là chữ
+          if (aInfo.isNumeric) {
+            return aInfo.value - bInfo.value; // So sánh số
+          } else {
+            return aInfo.value.localeCompare(bInfo.value); // So sánh chữ
+          }
+        }
+
+        // Nếu chỉ một trong hai là CHUYỀN
+        if (aInfo) return -1;
+        if (bInfo) return 1;
+
+        // Nếu không phải CHUYỀN thì sắp xếp theo alphabet
+        return a.name.localeCompare(b.name);
+      });
+    };
+
+    return (
+      <List component="nav" dense>
+        {workshops.map((workshop) => (
+          <React.Fragment key={workshop.id}>
+            <ListItemButton onClick={() => handleWorkshopClick(workshop.id)}>
+              <WorkshopText>{workshop.name}</WorkshopText>
+              {openWorkshops[workshop.id] ? <ExpandLess /> : <ExpandMore />}
+            </ListItemButton>
+            <Collapse
+              in={openWorkshops[workshop.id]}
+              timeout="auto"
+              unmountOnExit
+            >
+              <List component="div" disablePadding>
+                {sortDepartments(workshop.departments).map((dept) => (
+                  <ListItemButton
+                    key={dept.id}
                     sx={{
-                      fontWeight:
+                      pl: 4,
+                      backgroundColor:
                         selectedDepartment && selectedDepartment.id === dept.id
-                          ? "bold"
-                          : "normal",
-                      // textDecoration:
-                      //   selectedDepartment && selectedDepartment.id === dept.id
-                      //     ? "underline"
-                      //     : "none",
-                      // color:
-                      //   selectedDepartment && selectedDepartment.id === dept.id
-                      //     ? "#000000"
-                      //     : "inherit",
-                      // border:
-                      //   selectedDepartment && selectedDepartment.id === dept.id
-                      //     ? "2px solid #1976d2"
-                      //     : "2px solid transparent",
+                          ? theme.palette.action.selected
+                          : "inherit",
                     }}
+                    onClick={() => handleDepartmentSelect(dept)}
                   >
-                    {dept.name}
-                  </DepartmentText>
-                </ListItemButton>
-              ))}
-            </List>
-          </Collapse>
-        </React.Fragment>
-      ))}
-    </List>
-  );
+                    <DepartmentText
+                      sx={{
+                        fontWeight:
+                          selectedDepartment &&
+                          selectedDepartment.id === dept.id
+                            ? "bold"
+                            : "normal",
+                        // textDecoration:
+                        //   selectedDepartment && selectedDepartment.id === dept.id
+                        //     ? "underline"
+                        //     : "none",
+                        // color:
+                        //   selectedDepartment && selectedDepartment.id === dept.id
+                        //     ? "#000000"
+                        //     : "inherit",
+                        // border:
+                        //   selectedDepartment && selectedDepartment.id === dept.id
+                        //     ? "2px solid #1976d2"
+                        //     : "2px solid transparent",
+                      }}
+                    >
+                      {dept.name}
+                    </DepartmentText>
+                  </ListItemButton>
+                ))}
+              </List>
+            </Collapse>
+          </React.Fragment>
+        ))}
+      </List>
+    );
+  };
 
   const ScrollToTop = () => {
     const trigger = useScrollTrigger({
@@ -842,10 +906,11 @@ const DetailedPhasePage = () => {
               variant={isMobile ? "h4" : "h3"}
               sx={{
                 fontWeight: "bold",
-                color:
-                  hasAbsoluteKnockout || hasTypeTwoATLD || hasTypeTwoQMS
-                    ? "#FF0000"
-                    : "inherit",
+                color: hasRedStar
+                  ? "#FF0000"
+                  : totalPoint >= 80
+                  ? "#inherit"
+                  : "#FF0000",
                 lineHeight: 1,
               }}
             >
@@ -854,15 +919,11 @@ const DetailedPhasePage = () => {
             <StarIcon
               sx={{
                 fontSize: isMobile ? 40 : 48,
-                color:
-                  hasRedStar ||
-                  hasAbsoluteKnockout ||
-                  hasTypeTwoATLD ||
-                  hasTypeTwoQMS
-                    ? "#FF0000"
-                    : totalPoint >= 80
-                    ? "#4CAF50"
-                    : "#FF0000",
+                color: hasRedStar
+                  ? "#FF0000"
+                  : totalPoint >= 80
+                  ? "#4CAF50"
+                  : "#FF0000",
                 ml: 1,
               }}
             />
@@ -888,7 +949,7 @@ const DetailedPhasePage = () => {
           )}
         </Typography>
 
-        {/* Tách phần hiển thị tiêu chí thành một box riêng */}
+        {/* Box chứa danh sách tiêu chí điểm liệt */}
         <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 1 }}>
           <Typography
             variant="subtitle2"
@@ -897,22 +958,22 @@ const DetailedPhasePage = () => {
             Danh sách các tiêu chí điểm liệt:
           </Typography>
 
-          {/* Tiêu chí điểm liệt */}
-          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+          {/* Tiêu chí điểm liệt loại 1 không còn dùng nữa*/}
+          {/* <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
             <Typography
               variant="body2"
               sx={{ color: "text.secondary", minWidth: "140px" }}
             >
-              Tiêu chí điểm liệt TTNV:
+              Tiêu chí điểm liệt sao đỏ:
             </Typography>
             <Typography variant="body2" color="error.light">
               {redStarCriteria?.length > 0
                 ? redStarCriteria.map((c) => c.codename).join(", ")
                 : "Không có"}
             </Typography>
-          </Box>
+          </Box> */}
 
-          {/* Tiêu chí ATLĐ */}
+          {/* Tiêu chí ATLĐ loại 2 */}
           <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
             <Typography
               variant="body2"
@@ -921,15 +982,16 @@ const DetailedPhasePage = () => {
               Tiêu chí điểm liệt ATLĐ:
             </Typography>
             <Typography variant="body2" color="warning.main">
-              {QMSAtldCriteria?.filter((c) => c.id_category === 1)?.length > 0
-                ? QMSAtldCriteria.filter((c) => c.id_category === 1)
+              {typeTwoCriteria?.filter((c) => c.id_category === 1)?.length > 0
+                ? typeTwoCriteria
+                    .filter((c) => c.id_category === 1)
                     .map((c) => c.codename)
                     .join(", ")
                 : "Không có"}
             </Typography>
           </Box>
 
-          {/* Tiêu chí QMS */}
+          {/* Tiêu chí QMS loại 2 */}
           <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
             <Typography
               variant="body2"
@@ -938,15 +1000,34 @@ const DetailedPhasePage = () => {
               Tiêu chí điểm liệt QMS:
             </Typography>
             <Typography variant="body2" color="warning.main">
-              {QMSAtldCriteria?.filter((c) => c.id_category === 5)?.length > 0
-                ? QMSAtldCriteria.filter((c) => c.id_category === 5)
+              {typeTwoCriteria?.filter((c) => c.id_category === 5)?.length > 0
+                ? typeTwoCriteria
+                    .filter((c) => c.id_category === 5)
                     .map((c) => c.codename)
                     .join(", ")
                 : "Không có"}
             </Typography>
           </Box>
 
-          {/* Tiêu chí PNKL */}
+          {/* Tiêu chí TTNV loại 2 */}
+          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{ color: "text.secondary", minWidth: "140px" }}
+            >
+              Tiêu chí điểm liệt TTNV:
+            </Typography>
+            <Typography variant="body2" color="warning.main">
+              {typeTwoCriteria?.filter((c) => c.id_category === 6)?.length > 0
+                ? typeTwoCriteria
+                    .filter((c) => c.id_category === 6)
+                    .map((c) => c.codename)
+                    .join(", ")
+                : "Không có"}
+            </Typography>
+          </Box>
+
+          {/* Tiêu chí PNKL loại 3 */}
           <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
             <Typography
               variant="body2"
@@ -995,6 +1076,23 @@ const DetailedPhasePage = () => {
             >
               Phát hiện vi phạm QMS - Trừ {failingTypeTwoCounts.qms} điểm (tổng
               số tiêu chí điểm liệt QMS)
+            </Typography>
+          )}
+
+          {/* TTNV violation message */}
+          {hasTypeTwoTTNV && (
+            <Typography
+              variant="body2"
+              sx={{
+                p: 1,
+                bgcolor: "warning.main",
+                color: "white",
+                borderRadius: 1,
+                fontWeight: "medium",
+              }}
+            >
+              Phát hiện vi phạm TTNV - Trừ {failingTypeTwoCounts.ttnv} điểm
+              (tổng số tiêu chí điểm liệt TTNV)
             </Typography>
           )}
 
@@ -1267,10 +1365,15 @@ const DetailedPhasePage = () => {
           }
         }
 
-        // Add phase, department and criteria info
+        // Add phase, department, criteria info
         formData.append("phase", phase?.name_phase || "");
         formData.append("department", selectedDepartment?.name || "");
         formData.append("criteria", selectedCriterion?.codename || "");
+        formData.append("isRemediation", "false");
+        // Add IDs for counting existing images
+        formData.append("phaseId", phaseId);
+        formData.append("departmentId", selectedDepartment.id);
+        formData.append("criterionId", selectedCriterion.id);
 
         // Upload images to Google Drive
         const uploadResponse = await axios.post(`${API_URL}/upload`, formData, {
@@ -1302,10 +1405,12 @@ const DetailedPhasePage = () => {
           setHasRedStar(totalPointResponse.data.has_red_star);
           setHasTypeTwoATLD(totalPointResponse.data.has_type_two_atld);
           setHasTypeTwoQMS(totalPointResponse.data.has_type_two_qms);
+          setHasTypeTwoTTNV(totalPointResponse.data.has_type_two_ttnv);
           setHasAbsoluteKnockout(totalPointResponse.data.has_type_three);
           setFailingTypeTwoCounts({
             atld: totalPointResponse.data.failing_type2_counts?.[1] || 0,
             qms: totalPointResponse.data.failing_type2_counts?.[5] || 0,
+            ttnv: totalPointResponse.data.failing_type2_counts?.[6] || 0,
           });
 
           // Fetch updated knockout criteria
@@ -1314,7 +1419,7 @@ const DetailedPhasePage = () => {
           );
 
           setRedStarCriteria(knockoutResponse.data.redStar);
-          setQMSAtldCriteria(knockoutResponse.data.QMSAtld);
+          setTypeTwoCriteria(knockoutResponse.data.typeTwo);
           setAbsoluteKnockoutCriteria(knockoutResponse.data.PNKL);
 
           // Update failed criteria state
@@ -1396,6 +1501,15 @@ const DetailedPhasePage = () => {
           formData.append("photos", file);
         }
       }
+
+      formData.append("phase", phase?.name_phase || "");
+      formData.append("department", selectedDepartment?.name || "");
+      formData.append("criteria", selectedCriterion?.codename || "");
+      formData.append("isRemediation", "false");
+      // Add IDs for counting existing images
+      formData.append("phaseId", phaseId);
+      formData.append("departmentId", selectedDepartment.id);
+      formData.append("criterionId", selectedCriterion.id);
 
       // Upload images to Google Drive
       const uploadResponse = await axios.post(`${API_URL}/upload`, formData, {
@@ -1863,19 +1977,24 @@ const DetailedPhasePage = () => {
         hasRedStar={hasRedStar}
         hasTypeTwoATLD={hasTypeTwoATLD}
         hasTypeTwoQMS={hasTypeTwoQMS}
+        hasTypeTwoTTNV={hasTypeTwoTTNV}
         hasAbsoluteKnockout={hasAbsoluteKnockout}
         departmentName={selectedDepartment?.name || ""}
         failedCount={totalCriteria[selectedDepartment?.id] || 0}
         totalCriteria={totalCriteria.total || 0}
         redStarCriteria={redStarCriteria?.map((c) => c.codename) || []}
-        qmsAtldCriteria={
-          QMSAtldCriteria?.map((c) => ({
+        typeTwoCriteria={
+          typeTwoCriteria?.map((c) => ({
             code: c.codename,
             category: c.id_category,
             count:
               c.id_category === 1
-                ? QMSAtldCriteria.filter((x) => x.id_category === 1).length
-                : QMSAtldCriteria.filter((x) => x.id_category === 5).length,
+                ? typeTwoCriteria.filter((x) => x.id_category === 1).length
+                : c.id_category === 5
+                ? typeTwoCriteria.filter((x) => x.id_category === 5).length
+                : c.id_category === 6
+                ? typeTwoCriteria.filter((x) => x.id_category === 6).length
+                : 0,
           })) || []
         }
         pnklCriteria={absoluteKnockoutCriteria?.map((c) => c.codename) || []}
@@ -2155,12 +2274,16 @@ const DetailedPhasePage = () => {
                 p: 2,
               }}
             >
-              {/* Nút bổ sung ảnh - chỉ hiển thị cho supervisor khi tiêu chí không đạt và chưa khắc phục */}
+              {/* Bổ sung ảnh button - chỉ hiển thị cho supervisor khi:
+                  1. Tiêu chí không đạt 
+                  2. Chưa khắc phục
+                  3. Còn trong thời hạn khắc phục */}
               {isSupervisor &&
                 failedCriteria[selectedDepartment?.id]?.has(
                   selectedCriterion?.id
                 ) &&
-                criterionStatus !== "ĐÃ KHẮC PHỤC" && (
+                criterionStatus !== "ĐÃ KHẮC PHỤC" &&
+                isWithinTimeLimit() && (
                   <Button
                     onClick={() => handleAdditionalImages()}
                     variant="outlined"

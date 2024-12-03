@@ -85,6 +85,7 @@ CREATE TABLE tb_criteria
 	name_criteria TEXT,
 	description TEXT,
 	failing_point_type INT CHECK (failing_point_type IN (0, 1, 2, 3)), -- (0:safe, 1:liệt, 2:QMS/ATLĐ, 3:PNKL)
+	red_star BIT, -- (0: không đánh sao đỏ, 1: đánh sao đỏ)
 	PRIMARY KEY (id_criteria),
 	FOREIGN KEY (id_category) REFERENCES tb_category(id_category)
 );

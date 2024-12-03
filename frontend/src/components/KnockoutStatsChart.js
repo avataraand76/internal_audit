@@ -72,18 +72,11 @@ const KnockoutStatsChart = ({ reportData }) => {
               .map((type) => type.trim());
 
             knockoutList.forEach((type) => {
-              if (type.includes("An toàn lao động")) {
-                deptKnockouts.add("ATLĐ");
-              }
-              if (type.includes("Phòng ngừa kim loại")) {
+              if (type.includes("An toàn lao động")) deptKnockouts.add("ATLĐ");
+              if (type.includes("Phòng ngừa kim loại"))
                 deptKnockouts.add("PNKL");
-              }
-              if (type.includes("QMS")) {
-                deptKnockouts.add("QMS");
-              }
-              if (type.includes("Trật tự nội vụ")) {
-                deptKnockouts.add("TTNV");
-              }
+              if (type.includes("QMS")) deptKnockouts.add("QMS");
+              if (type.includes("Trật tự nội vụ")) deptKnockouts.add("TTNV");
             });
           }
         });

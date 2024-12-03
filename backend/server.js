@@ -1,6 +1,6 @@
 // backend/server.js
 const express = require("express");
-const mysql = require("mysql");
+const mysql = require("mysql2");
 const cors = require("cors");
 const moment = require("moment-timezone");
 const bcrypt = require("bcryptjs");
@@ -45,8 +45,6 @@ const pool = mysql.createPool({
   waitForConnections: true, // Queue queries when no connections available
   queueLimit: 0, // Unlimited queue size
   connectTimeout: 60000, // 60 seconds
-  acquireTimeout: 60000, // 60 seconds
-  timeout: 60000, // 60 seconds
   enableKeepAlive: true, // Thêm keepAlive
   keepAliveInitialDelay: 0, // Bắt đầu keepAlive ngay lập tức
   multipleStatements: true, // Cho phép nhiều câu lệnh SQL
@@ -1137,7 +1135,8 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
       SELECT 
         c.id_criteria,
         c.failing_point_type,
-        c.id_category
+        c.id_category,
+        CAST(c.red_star AS UNSIGNED) as red_star
       FROM tb_phase_details pd
       JOIN tb_criteria c ON pd.id_criteria = c.id_criteria
       WHERE pd.id_phase = ? 
@@ -1155,7 +1154,7 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
       );
     });
 
-    // Get total criteria count for the department
+    // Get total criteria count
     const totalCriteriaQuery = `
       SELECT COUNT(*) as total
       FROM tb_department_criteria
@@ -1217,9 +1216,10 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
 
     const totalCriteria = totalResult[0].total;
     let deductPoints = 0;
-    let hasRedStar = false;
+    let hasRedStar = false; // Chỉ set true khi có tiêu chí red_star = 1
     let hasTypeTwoQMS = false;
     let hasTypeTwoATLD = false;
+    let hasTypeTwoTTNV = false;
     let hasTypeThree = false;
 
     // Track which categories have already been deducted for type 2 failures
@@ -1232,47 +1232,45 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
 
     // Calculate point deductions and set flags
     failedCriteria.forEach((criteria) => {
+      // Kiểm tra red_star
+      if (criteria.red_star === 1) {
+        hasRedStar = true;
+      }
+
       switch (criteria.failing_point_type) {
         case 0: // Normal criteria
-          // Only deduct point if it's not a PNKL criterion or if there's no PNKL knockout
           if (criteria.id_category !== 4 || !hasPNKLKnockout) {
             deductPoints += 1;
           }
           break;
 
-        case 1: // Red star criteria
+        case 1: // Old Red star criteria dont use this anymore
           deductPoints += 1;
-          hasRedStar = true;
           break;
 
         case 2: // QMS or ATLĐ knockout
-          // Individual point deduction for type 2
           if (!deductedCategories.has(criteria.id_category)) {
-            // Deduct all failing type 2 criteria points for this category
             const failingType2Count =
               failingType2Map[criteria.id_category] || 0;
             deductPoints += failingType2Count;
             deductedCategories.add(criteria.id_category);
           }
-
-          // Set flags for type 2 separately (maintained for red star status)
-          if (criteria.id_category === 5) {
-            hasTypeTwoQMS = true;
-            hasRedStar = true; // Maintain red star for QMS type 2
-          }
           if (criteria.id_category === 1) {
             hasTypeTwoATLD = true;
-            hasRedStar = true; // Maintain red star for ATLĐ type 2
+          }
+          if (criteria.id_category === 5) {
+            hasTypeTwoQMS = true;
+          }
+          if (criteria.id_category === 6) {
+            hasTypeTwoTTNV = true;
           }
           break;
 
         case 3: // PNKL knockout
           if (!hasTypeThree) {
-            // Deduct all PNKL points
             const pnklPoints = categoryCounts[4] || 0;
             deductPoints += pnklPoints;
             hasTypeThree = true;
-            hasRedStar = true;
           }
           break;
       }
@@ -1300,9 +1298,10 @@ app.get("/total-point/:phaseId/:departmentId", async (req, res) => {
 
     res.json({
       total_point: totalPoint,
-      has_red_star: hasRedStar,
+      has_red_star: hasRedStar, // Chỉ true khi có tiêu chí red_star = 1
       has_type_two_qms: hasTypeTwoQMS,
       has_type_two_atld: hasTypeTwoATLD,
+      has_type_two_ttnv: hasTypeTwoTTNV,
       has_type_three: hasTypeThree,
       deducted_points: deductPoints,
       total_criteria: totalCriteria,
@@ -1346,7 +1345,7 @@ app.get("/knockout-criteria", (req, res) => {
     // Categorize results
     const categorizedResults = {
       redStar: results.filter((r) => r.failing_point_type === 1),
-      QMSAtld: results.filter((r) => r.failing_point_type === 2),
+      typeTwo: results.filter((r) => r.failing_point_type === 2),
       PNKL: results.filter((r) => r.failing_point_type === 3),
     };
 
@@ -1387,7 +1386,7 @@ app.get("/knockout-criteria/:phaseId/:departmentId", (req, res) => {
     // Categorize results
     const categorizedResults = {
       redStar: results.filter((r) => r.failing_point_type === 1),
-      QMSAtld: results.filter((r) => r.failing_point_type === 2),
+      typeTwo: results.filter((r) => r.failing_point_type === 2),
       PNKL: results.filter((r) => r.failing_point_type === 3),
     };
 
@@ -1403,7 +1402,7 @@ app.get("/inactive-departments/:phaseId", (req, res) => {
       d.id_department,
       d.name_department,
       w.name_workshop,
-      COALESCE(id.is_inactive, 0) as is_inactive
+      CAST(COALESCE(id.is_inactive, 0) AS UNSIGNED) as is_inactive
     FROM tb_department d
     JOIN tb_workshop w ON d.id_workshop = w.id_workshop
     LEFT JOIN tb_inactive_department id 
@@ -1596,11 +1595,16 @@ dns.setServers([
 
 // Retry configuration
 const RETRY_CONFIG = {
-  maxRetries: 5,
-  initialDelay: 2000,
-  maxDelay: 30000,
-  timeoutMs: 30000,
-  maxParallelUploads: 20,
+  maxRetries: 3, // Giảm số lần retry
+  initialDelay: 1000, // Giảm delay ban đầu
+  maxDelay: 15000, // Giảm max delay
+  timeoutMs: 20000, // Giảm timeout
+  maxParallelUploads: 20, // Giảm số lượng upload parallel
+
+  // Thêm các cấu hình mới
+  chunkSize: 10, // Số file trong mỗi chunk
+  retryMultiplier: 1.5, // Hệ số tăng delay (thay vì 2)
+  minRetryDelay: 500, // Delay tối thiểu
 };
 
 // Sleep utility
@@ -1619,97 +1623,76 @@ async function checkDNSResolution() {
 
 // Main upload function
 async function uploadToDrive(fileBuffer, fileName, folderId, phaseInfo = {}) {
-  let currentDelay = RETRY_CONFIG.initialDelay;
+  let currentDelay = RETRY_CONFIG.minRetryDelay;
 
   for (let attempt = 1; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
     try {
-      // Check DNS resolution before attempt
-      const isDNSWorking = await checkDNSResolution();
-      if (!isDNSWorking) {
-        console.warn(
-          `DNS resolution failed on attempt ${attempt}, waiting before retry...`
-        );
-        await sleep(currentDelay);
-        currentDelay = Math.min(currentDelay * 2, RETRY_CONFIG.maxDelay);
-        continue;
+      // Fast fail check for DNS và token
+      const [isDNSWorking, hasValidToken] = await Promise.all([
+        checkDNSResolution(),
+        checkTokenValidity(),
+      ]);
+
+      if (!isDNSWorking || !hasValidToken) {
+        throw new Error("Network or token validation failed");
       }
 
       const drive = await getDriveInstance();
 
-      // Validate inputs
-      if (!fileBuffer || fileBuffer.length === 0) {
-        throw new Error("Empty file buffer");
-      }
-      if (!fileName) {
-        throw new Error("File name is required");
-      }
-
-      // Create upload promise with timeout
+      // Tối ưu promise racing
       const uploadPromise = new Promise(async (resolve, reject) => {
         try {
-          const description =
-            phaseInfo.phase && phaseInfo.department && phaseInfo.criteria
-              ? `Upload from KSNB App - Đợt ${phaseInfo.phase} - ${phaseInfo.department} - ${phaseInfo.criteria}`
-              : "Upload from KSNB App";
-
           const fileMetadata = {
             name: fileName,
             parents: [folderId],
-            description: description,
+            description: getDescription(phaseInfo),
           };
 
-          const stream = Readable.from(fileBuffer);
-          const media = {
-            mimeType: "application/octet-stream",
-            body: stream,
-          };
+          // Sử dụng streaming tối ưu
+          const stream = Readable.from(fileBuffer, {
+            highWaterMark: 64 * 1024, // 64KB chunks
+          });
 
           const response = await drive.files.create({
             requestBody: fileMetadata,
-            media: media,
+            media: {
+              mimeType: "application/octet-stream",
+              body: stream,
+            },
             fields: "id, name, webViewLink, description",
           });
 
-          const file = await drive.files.get({
-            fileId: response.data.id,
-            fields: "id, name, webViewLink, description",
-          });
-
+          // Fast resolve ngay khi có ID
           resolve({
-            id: file.data.id,
-            name: file.data.name,
-            webViewLink: file.data.webViewLink,
-            description: file.data.description,
-            directLink: `https://drive.google.com/uc?export=view&id=${file.data.id}`,
+            id: response.data.id,
+            name: response.data.name,
+            webViewLink: response.data.webViewLink,
+            description: response.data.description,
+            directLink: `https://drive.google.com/uc?export=view&id=${response.data.id}`,
           });
         } catch (error) {
           reject(error);
         }
       });
 
-      // Add timeout
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(
-          () => reject(new Error("Upload timeout")),
-          RETRY_CONFIG.timeoutMs
-        );
-      });
+      // Dynamic timeout dựa trên kích thước file
+      const timeoutMs = Math.min(
+        RETRY_CONFIG.timeoutMs,
+        (fileBuffer.length / 1024) * 2 + 5000 // 2ms/KB + 5s base
+      );
 
-      // Return successful upload
-      return await Promise.race([uploadPromise, timeoutPromise]);
+      return await Promise.race([uploadPromise, createTimeout(timeoutMs)]);
     } catch (error) {
-      console.error(`Upload attempt ${attempt} failed:`, error.message);
-
-      // Check if this is the last attempt
       if (attempt === RETRY_CONFIG.maxRetries) {
-        throw new Error(
-          `Upload failed after ${RETRY_CONFIG.maxRetries} attempts: ${error.message}`
-        );
+        throw error;
       }
 
-      // Calculate next delay with exponential backoff
-      currentDelay = Math.min(currentDelay * 2, RETRY_CONFIG.maxDelay);
-      console.log(`Waiting ${currentDelay}ms before next attempt...`);
+      // Tối ưu delay giữa các lần retry
+      currentDelay = Math.min(
+        currentDelay * RETRY_CONFIG.retryMultiplier,
+        RETRY_CONFIG.maxDelay
+      );
+
       await sleep(currentDelay);
     }
   }
@@ -1717,61 +1700,160 @@ async function uploadToDrive(fileBuffer, fileName, folderId, phaseInfo = {}) {
 
 // Hàm để xử lý upload song song với giới hạn
 async function uploadFilesInParallel(files, phaseInfo = {}) {
-  const uploadedFiles = [];
-  const errors = [];
-  const chunks = [];
+  const results = {
+    uploadedFiles: [],
+    errors: [],
+  };
 
-  // Split files into chunks based on maxParallelUploads
-  for (let i = 0; i < files.length; i += RETRY_CONFIG.maxParallelUploads) {
-    chunks.push(files.slice(i, i + RETRY_CONFIG.maxParallelUploads));
-  }
+  // Chia files thành chunks nhỏ hơn
+  const chunks = chunkArray(files, RETRY_CONFIG.chunkSize);
 
-  // Process chunks sequentially, but files within chunk in parallel
   for (const chunk of chunks) {
-    const uploadPromises = chunk.map(async (file) => {
-      const fileStartTime = Date.now();
-      try {
-        const uploadedFile = await uploadToDrive(
-          file.buffer,
-          file.originalname,
-          FOLDER_ID,
-          phaseInfo
-        );
+    // Upload song song trong chunk
+    const promises = chunk.map((file) => {
+      const fileStartTime = Date.now(); // Thêm tracking thời gian
 
-        const uploadTime = (Date.now() - fileStartTime) / 1000;
-        uploadedFiles.push({
-          ...uploadedFile,
-          originalName: file.originalname,
-          size: file.size,
-          mimeType: file.mimetype,
-          uploadTime: uploadTime,
-        });
+      return uploadToDrive(file.buffer, file.originalname, FOLDER_ID, phaseInfo)
+        .then((result) => {
+          const uploadTime = (Date.now() - fileStartTime) / 1000; // Tính thời gian
 
-        console.log(
-          `Successfully uploaded: ${file.originalname} in ${uploadTime.toFixed(
-            2
-          )}s`
-        );
-      } catch (error) {
-        console.error(`Error uploading ${file.originalname}:`, error);
-        errors.push({
-          filename: file.originalname,
-          error: error.message,
+          // Log thành công
+          console.log(
+            `Successfully uploaded: ${
+              file.originalname
+            } in ${uploadTime.toFixed(2)}s`
+          );
+
+          results.uploadedFiles.push({
+            ...result,
+            originalName: file.originalname,
+            size: file.size,
+            uploadTime: uploadTime, // Thêm thời gian vào kết quả
+          });
+        })
+        .catch((error) => {
+          const uploadTime = (Date.now() - fileStartTime) / 1000;
+
+          // Log lỗi với thời gian
+          console.error(
+            `Error uploading ${file.originalname} after ${uploadTime.toFixed(
+              2
+            )}s:`,
+            error.message
+          );
+
+          results.errors.push({
+            filename: file.originalname,
+            error: error.message,
+            uploadTime: uploadTime, // Thêm thời gian vào error log
+          });
         });
-      }
     });
 
-    // Wait for current chunk to complete before processing next chunk
-    await Promise.all(uploadPromises);
+    // Xử lý từng chunk
+    await Promise.all(promises);
 
-    // Add delay between chunks if there are more chunks to process
+    // Nghỉ ngắn giữa các chunks
     if (chunks.indexOf(chunk) < chunks.length - 1) {
-      await sleep(1000); // 1 second delay between chunks
+      await sleep(500);
     }
   }
 
-  return { uploadedFiles, errors };
+  return results;
 }
+
+// Utility functions
+function chunkArray(array, size) {
+  const chunks = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + Math.min(size, array.length - i)));
+  }
+  return chunks;
+}
+
+function createTimeout(ms) {
+  return new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("Upload timeout")), ms)
+  );
+}
+
+function getDescription(phaseInfo) {
+  return phaseInfo.phase && phaseInfo.department && phaseInfo.criteria
+    ? `Upload from KSNB App - Đợt ${phaseInfo.phase} - ${phaseInfo.department} - ${phaseInfo.criteria}`
+    : "Upload from KSNB App";
+}
+
+async function checkTokenValidity() {
+  try {
+    return (await getAccessToken()) != null;
+  } catch {
+    return false;
+  }
+}
+
+// Function to get existing image count with proper type filtering
+async function getExistingImageCount(
+  phaseId,
+  departmentId,
+  criterionId,
+  isRemediation
+) {
+  try {
+    const [imagesResponse] = await new Promise((resolve, reject) => {
+      pool.query(
+        `SELECT 
+          COALESCE(
+            CASE 
+              WHEN ? = true THEN 
+                NULLIF(LENGTH(imgURL_after) - LENGTH(REPLACE(imgURL_after, ';', '')) + 1, 1)
+              ELSE 
+                NULLIF(LENGTH(imgURL_before) - LENGTH(REPLACE(imgURL_before, ';', '')) + 1, 1)
+            END,
+            0
+          ) as count
+        FROM tb_phase_details 
+        WHERE id_phase = ? 
+        AND id_department = ? 
+        AND id_criteria = ?`,
+        [isRemediation, phaseId, departmentId, criterionId],
+        (err, results) => {
+          if (err) reject(err);
+          else resolve([results]);
+        }
+      );
+    });
+
+    return imagesResponse[0]?.count || 0;
+  } catch (error) {
+    console.error("Error getting existing image count:", error);
+    return 0;
+  }
+}
+
+// Updated generateFileName function
+const generateFileName = async (
+  originalName,
+  index,
+  isRemediation,
+  phaseInfo,
+  phaseId,
+  departmentId,
+  criterionId
+) => {
+  const ext = originalName.split(".").pop();
+  const prefix = isRemediation ? "Hình ảnh khắc phục" : "Hình ảnh vi phạm";
+
+  // Get existing count based on type
+  const existingCount = await getExistingImageCount(
+    phaseId,
+    departmentId,
+    criterionId,
+    isRemediation
+  );
+  const imageNumber = existingCount + index + 1;
+
+  return `${prefix} ${imageNumber} - Đợt ${phaseInfo.phase} - ${phaseInfo.department} - ${phaseInfo.criteria}.${ext}`;
+};
 
 // Upload endpoint
 app.post("/upload", upload.array("photos", 20), async (req, res) => {
@@ -1801,9 +1883,32 @@ app.post("/upload", upload.array("photos", 20), async (req, res) => {
       criteria: req.body.criteria || "", // Tên tiêu chí
     };
 
+    // Lấy số ảnh hiện có của tiêu chí này
+    const isRemediation = req.body.isRemediation === "true";
+    const { phaseId, departmentId, criterionId } = req.body;
+
+    // Create modified files array with proper naming
+    const modifiedFiles = await Promise.all(
+      req.files.map(async (file, index) => {
+        const newFileName = await generateFileName(
+          file.originalname,
+          index,
+          isRemediation,
+          phaseInfo,
+          phaseId,
+          departmentId,
+          criterionId
+        );
+        return {
+          ...file,
+          originalname: newFileName,
+        };
+      })
+    );
+
     // Upload files song song
     const { uploadedFiles, errors } = await uploadFilesInParallel(
-      req.files,
+      modifiedFiles,
       phaseInfo
     );
 
@@ -1948,6 +2053,15 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
               SELECT 
                 COALESCE(SUM(pd.is_fail), 0) as failed_count,
                 COALESCE(tp.total_point, 100) as score_percentage,
+                EXISTS (
+                  SELECT 1 
+                  FROM tb_phase_details pd2
+                  JOIN tb_criteria c ON pd2.id_criteria = c.id_criteria
+                  WHERE pd2.id_phase = ?
+                    AND pd2.id_department = ?
+                    AND pd2.is_fail = 1
+                    AND c.red_star = 1
+                ) as has_red_star,
                 (
                   SELECT GROUP_CONCAT(DISTINCT cat.name_category SEPARATOR ', ')
                   FROM tb_phase_details pd2
@@ -1972,7 +2086,7 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
                 LEFT JOIN tb_total_point tp ON tp.id_phase = pd.id_phase 
                   AND tp.id_department = pd.id_department
               WHERE 
-                pd.id_phase = ? 
+                pd.id_phase = ?
                 AND pd.id_department = ?
               GROUP BY 
                 pd.id_phase, pd.id_department
@@ -1983,11 +2097,13 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
                 detailsQuery,
                 [
                   phase.id_phase,
-                  dept.id_department,
+                  dept.id_department, // Cho EXISTS has_red_star
                   phase.id_phase,
-                  dept.id_department,
+                  dept.id_department, // Cho GROUP_CONCAT knockout_types
                   phase.id_phase,
-                  dept.id_department,
+                  dept.id_department, // Cho EXISTS has_knockout
+                  phase.id_phase,
+                  dept.id_department, // Cho điều kiện WHERE chính
                 ],
                 (err, results) => {
                   if (err) reject(err);
@@ -2002,6 +2118,7 @@ app.get("/monthly-report/:month/:year", async (req, res) => {
               phaseName: phase.name_phase,
               failedCount: details.failed_count || 0,
               scorePercentage: details.score_percentage || 100,
+              has_red_star: details.has_red_star === 1,
               knockoutTypes: details.knockout_types || "",
               hasKnockout: details.has_knockout || false,
               needsHighlight:
@@ -2170,43 +2287,26 @@ function determineStarColor(dept, phases) {
   const hasAnyActivity = Object.values(dept.phases).length > 0;
   if (!hasAnyActivity) return ""; // Return rỗng nếu không hoạt động
 
-  // 1. Lấy phase gần nhất
-  const latestPhase = phases[phases.length - 1];
-  if (!latestPhase) return "Sao đỏ";
+  // Đếm số đợt xanh (chỉ tính các đợt đang hoạt động VÀ không có red star)
+  const greenPhaseCount = Object.entries(dept.phases).filter(
+    ([phaseName, phase]) => {
+      const phaseIndex = phases.findIndex((p) => p.name_phase === phaseName);
+      // Kiểm tra xem đợt có inactive không
+      const isInactive =
+        phaseIndex !== -1 && dept.phases[phaseName] === undefined;
+      // Chỉ đếm các đợt:
+      // - Đang hoạt động
+      // - KHÔNG có red star
+      // - Đạt điểm >= 80%
+      return !isInactive && !phase.has_red_star && phase.scorePercentage >= 80;
+    }
+  ).length;
 
-  // 2. Lấy dữ liệu của phase gần nhất
-  const latestPhaseData = dept.phases[latestPhase.name_phase];
-  if (!latestPhaseData) return "Sao đỏ";
+  // Tính điểm trung bình
+  const avgScore = calculateAverageScore(dept.phases);
 
-  // 3. Kiểm tra 3 điều kiện cho sao xanh:
-  const conditions = {
-    // Điều kiện 1: Tổng điểm đạt >= 80%
-    totalScoreCondition: () => {
-      const avgScore = calculateAverageScore(dept.phases);
-      return avgScore >= 80;
-    },
-
-    // Điều kiện 2: Không có điểm liệt trong đợt gần nhất
-    noKnockoutCondition: () => {
-      return (
-        !latestPhaseData.knockoutTypes ||
-        latestPhaseData.knockoutTypes.length === 0
-      );
-    },
-
-    // Điều kiện 3: % Điểm đạt của đợt gần nhất >= 80%
-    latestScoreCondition: () => {
-      return latestPhaseData.scorePercentage >= 80;
-    },
-  };
-
-  // Kiểm tra tất cả điều kiện
-  const isGreenStar =
-    conditions.totalScoreCondition() &&
-    conditions.noKnockoutCondition() &&
-    conditions.latestScoreCondition();
-
-  return isGreenStar ? "Sao xanh" : "Sao đỏ";
+  // Điều kiện cho sao xanh: có từ 3 đợt xanh trở lên VÀ trung bình >= 80%
+  return greenPhaseCount >= 3 && avgScore >= 80 ? "Sao xanh" : "Sao đỏ";
 }
 
 // Hàm lấy danh sách tất cả các tháng và năm có trong database
@@ -2313,6 +2413,15 @@ async function formatReportDataForSheet(month, year, allPhases) {
         ) as max_points,
         COALESCE(SUM(pd.is_fail), 0) as failed_count,
         COALESCE(tp.total_point, 100) as score_percentage,
+        EXISTS (
+          SELECT 1 
+          FROM tb_phase_details pd2
+          JOIN tb_criteria c ON pd2.id_criteria = c.id_criteria
+          WHERE pd2.id_phase = p.id_phase
+            AND pd2.id_department = d.id_department
+            AND pd2.is_fail = 1
+            AND c.red_star = 1
+        ) as has_red_star,
         (
           SELECT GROUP_CONCAT(DISTINCT cat.name_category SEPARATOR '||')
           FROM tb_phase_details pd2
@@ -2376,6 +2485,7 @@ async function formatReportDataForSheet(month, year, allPhases) {
         departmentData[deptKey].phases[row.name_phase] = {
           failedCount: row.failed_count,
           scorePercentage: row.score_percentage,
+          has_red_star: row.has_red_star === 1,
           knockoutTypes: row.knockout_types
             ? row.knockout_types.split("||")
             : [],
@@ -2512,7 +2622,7 @@ async function formatReportDataForSheet(month, year, allPhases) {
       // 1. Thông tin cơ bản
       "Tháng",
       "Năm",
-      "Phòng ban",
+      "Xưởng/Phòng ban",
       "Bộ phận",
       "Điểm tối đa",
       // 2. Thông tin tổng kết

@@ -18,12 +18,13 @@ const ScoreBubble = ({
   hasRedStar,
   hasTypeTwoATLD,
   hasTypeTwoQMS,
+  hasTypeTwoTTNV,
   hasAbsoluteKnockout,
   departmentName = "",
   failedCount = 0,
   totalCriteria = 0,
   redStarCriteria = [],
-  qmsAtldCriteria = [],
+  typeTwoCriteria = [],
   pnklCriteria = [],
 }) => {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -81,10 +82,7 @@ const ScoreBubble = ({
               alignItems: "center",
               justifyContent: "center",
               boxShadow: 3,
-              border:
-                hasAbsoluteKnockout || hasTypeTwoATLD || hasTypeTwoQMS
-                  ? "2px solid #FF0000"
-                  : "1px solid #1976d2",
+              border: hasRedStar ? "2px solid #FF0000" : "1px solid #1976d2",
               zIndex: 1000,
               cursor: "pointer",
               "&:hover": {
@@ -97,10 +95,11 @@ const ScoreBubble = ({
               component="div"
               sx={{
                 fontWeight: "bold",
-                color:
-                  hasAbsoluteKnockout || hasTypeTwoATLD || hasTypeTwoQMS
-                    ? "#FF0000"
-                    : "inherit",
+                color: hasRedStar
+                  ? "#FF0000"
+                  : score >= 80
+                  ? "#inherit"
+                  : "#FF0000",
                 lineHeight: 1,
               }}
             >
@@ -109,15 +108,11 @@ const ScoreBubble = ({
             <StarIcon
               sx={{
                 fontSize: isMobile ? 16 : 20,
-                color:
-                  hasRedStar ||
-                  hasAbsoluteKnockout ||
-                  hasTypeTwoATLD ||
-                  hasTypeTwoQMS
-                    ? "#FF0000"
-                    : score >= 80
-                    ? "#4CAF50"
-                    : "#FF0000",
+                color: hasRedStar
+                  ? "#FF0000"
+                  : score >= 80
+                  ? "#4CAF50"
+                  : "#FF0000",
               }}
             />
           </Box>
@@ -188,21 +183,22 @@ const ScoreBubble = ({
             </Typography>
 
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-              {/* Giữ nguyên các Box cho các loại tiêu chí */}
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+              {/* Tiêu chí điểm liệt sao đỏ không còn dùng nữa */}
+              {/* <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                 <Typography
                   variant="body2"
                   sx={{ color: "text.secondary", fontWeight: "medium" }}
                 >
-                  Tiêu chí điểm liệt TTNV:
+                  Tiêu chí điểm liệt sao đỏ:
                 </Typography>
                 <Typography variant="body2" color="error.light">
                   {redStarCriteria.length > 0
                     ? redStarCriteria.join(", ")
                     : "Không có"}
                 </Typography>
-              </Box>
+              </Box> */}
 
+              {/* Tiêu chí ATLĐ */}
               <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                 <Typography
                   variant="body2"
@@ -211,8 +207,8 @@ const ScoreBubble = ({
                   Tiêu chí điểm liệt ATLĐ:
                 </Typography>
                 <Typography variant="body2" color="warning.main">
-                  {qmsAtldCriteria.filter((c) => c.category === 1).length > 0
-                    ? qmsAtldCriteria
+                  {typeTwoCriteria.filter((c) => c.category === 1).length > 0
+                    ? typeTwoCriteria
                         .filter((c) => c.category === 1)
                         .map((c) => c.code)
                         .join(", ")
@@ -220,6 +216,7 @@ const ScoreBubble = ({
                 </Typography>
               </Box>
 
+              {/* Tiêu chí QMS */}
               <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                 <Typography
                   variant="body2"
@@ -228,8 +225,8 @@ const ScoreBubble = ({
                   Tiêu chí điểm liệt QMS:
                 </Typography>
                 <Typography variant="body2" color="warning.main">
-                  {qmsAtldCriteria.filter((c) => c.category === 5).length > 0
-                    ? qmsAtldCriteria
+                  {typeTwoCriteria.filter((c) => c.category === 5).length > 0
+                    ? typeTwoCriteria
                         .filter((c) => c.category === 5)
                         .map((c) => c.code)
                         .join(", ")
@@ -237,6 +234,25 @@ const ScoreBubble = ({
                 </Typography>
               </Box>
 
+              {/* Tiêu chí TTNV */}
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                <Typography
+                  variant="body2"
+                  sx={{ color: "text.secondary", fontWeight: "medium" }}
+                >
+                  Tiêu chí điểm liệt TTNV:
+                </Typography>
+                <Typography variant="body2" color="warning.main">
+                  {typeTwoCriteria.filter((c) => c.category === 6).length > 0
+                    ? typeTwoCriteria
+                        .filter((c) => c.category === 6)
+                        .map((c) => c.code)
+                        .join(", ")
+                    : "Không có"}
+                </Typography>
+              </Box>
+
+              {/* Tiêu chí PNKL */}
               <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                 <Typography
                   variant="body2"

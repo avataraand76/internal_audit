@@ -326,6 +326,15 @@ export class ExcelExportService {
     });
   }
 
+  // Thêm hàm helper mới để xử lý việc rút gọn text
+  shortenKnockoutText(text) {
+    if (!text) return "";
+    return text
+      .replace(/An toàn lao động/g, "ATLĐ")
+      .replace(/Phòng ngừa kim loại/g, "PNKL")
+      .replace(/Trật tự nội vụ/g, "TTNV");
+  }
+
   prepareDepartmentData(dept, stt) {
     const deptData = [stt, dept.name_department, dept.max_points];
 
@@ -340,7 +349,7 @@ export class ExcelExportService {
         deptData.push(
           phase.failedCount,
           `${phase.scorePercentage}%`,
-          phase.knockoutTypes || ""
+          this.shortenKnockoutText(phase.knockoutTypes || "") // Sử dụng hàm helper mới
         );
       }
     });
@@ -393,8 +402,8 @@ export class ExcelExportService {
     const phaseIndex = Math.floor((colNumber - 4) / 3);
     const phase = dept.phases[phaseIndex];
     if (phase) {
-      const isRed =
-        phase.knockoutTypes || phase.has_knockout || phase.scorePercentage < 80;
+      // Tô màu đỏ khi có red_star hoặc điểm < 80%
+      const isRed = phase.has_red_star || phase.scorePercentage < 80;
       cell.style = isRed ? EXCEL_STYLES.badScore : EXCEL_STYLES.goodScore;
     }
   }
@@ -402,8 +411,19 @@ export class ExcelExportService {
   applyTotalScoreStyle(cell, dept) {
     const deptAvg = this.calculations.calculateDepartmentAverage(dept);
     if (typeof deptAvg === "number") {
-      const isGreen =
-        deptAvg >= 80 && this.calculations.isLatestPhaseGreen(dept);
+      // Tính số đợt xanh (chỉ tính các đợt đang hoạt động)
+      const greenPhaseCount = dept.phases.filter((phase, index) => {
+        const isInactive = this.reportData.phases[
+          index
+        ]?.inactiveDepartments?.includes(dept.id_department);
+        // Chỉ đếm các đợt đang hoạt động và đạt điều kiện màu xanh
+        return (
+          !isInactive && !phase.has_red_star && phase.scorePercentage >= 80
+        );
+      }).length;
+
+      // Tô màu xanh khi có >= 3 đợt xanh và điểm trung bình >= 80%
+      const isGreen = greenPhaseCount >= 3 && deptAvg >= 80;
       cell.style = isGreen ? EXCEL_STYLES.goodScore : EXCEL_STYLES.badScore;
     }
   }

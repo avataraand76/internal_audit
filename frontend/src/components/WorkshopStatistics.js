@@ -33,27 +33,6 @@ const WorkshopStatistics = ({ reportData }) => {
   const workshops = isSIGPOnly
     ? ["SIGP"]
     : ["XƯỞNG 1", "XƯỞNG 2", "XƯỞNG 3", "XƯỞNG 4"];
-
-  const isLatestPhaseGreen = (dept) => {
-    // Lặp từ đợt gần nhất về đợt cũ nhất
-    for (let i = dept.phases.length - 1; i >= 0; i--) {
-      const phase = dept.phases[i];
-      const isPhaseInactive = reportData.phases[
-        i
-      ]?.inactiveDepartments?.includes(dept.id_department);
-
-      // Nếu tìm thấy đợt hoạt động, kiểm tra điều kiện màu xanh
-      if (!isPhaseInactive && phase) {
-        return !(
-          phase.knockoutTypes ||
-          phase.has_knockout ||
-          phase.scorePercentage < 80
-        );
-      }
-    }
-    return false;
-  };
-
   // Calculate total active departments and green star departments
   const calculateTotalStats = () => {
     let totalActiveDepts = 0;
@@ -66,6 +45,7 @@ const WorkshopStatistics = ({ reportData }) => {
       if (!workshop) return;
 
       workshop.departments.forEach((dept) => {
+        // Kiểm tra xem bộ phận có hoạt động không
         const isActive = dept.phases.some((phase, phaseIndex) => {
           return !reportData.phases[phaseIndex]?.inactiveDepartments?.includes(
             dept.id_department
@@ -74,18 +54,40 @@ const WorkshopStatistics = ({ reportData }) => {
 
         if (isActive) {
           totalActiveDepts++;
-          const latestPhase = dept.phases[dept.phases.length - 1];
-          const isLatestPhaseActive = !reportData.phases[
-            dept.phases.length - 1
-          ]?.inactiveDepartments?.includes(dept.id_department);
 
-          if (
-            isLatestPhaseActive &&
-            latestPhase &&
-            !latestPhase.knockoutTypes &&
-            latestPhase.scorePercentage >= 80
-          ) {
-            totalGreenStarDepts++;
+          // Đếm số đợt đạt màu xanh (điểm >= 80% và không có điểm liệt)
+          const greenPhaseCount = dept.phases.filter((phase, index) => {
+            const isPhaseActive = !reportData.phases[
+              index
+            ]?.inactiveDepartments?.includes(dept.id_department);
+            return (
+              isPhaseActive &&
+              !phase.knockoutTypes &&
+              !phase.has_knockout &&
+              phase.scorePercentage >= 80
+            );
+          }).length;
+
+          // Tính điểm trung bình của các đợt hoạt động
+          const activePhases = dept.phases.filter((phase, index) => {
+            return !reportData.phases[index]?.inactiveDepartments?.includes(
+              dept.id_department
+            );
+          });
+
+          if (activePhases.length > 0) {
+            const avgScore = Math.round(
+              activePhases.reduce((acc, phase) => {
+                return acc + (phase.scorePercentage || 0);
+              }, 0) / activePhases.length
+            );
+
+            // Bộ phận đạt sao xanh khi:
+            // 1. Có ít nhất 3 đợt đạt màu xanh
+            // 2. Điểm trung bình >= 80%
+            if (greenPhaseCount >= 3 && avgScore >= 80) {
+              totalGreenStarDepts++;
+            }
           }
         }
       });
@@ -109,6 +111,7 @@ const WorkshopStatistics = ({ reportData }) => {
       if (!workshop) return;
 
       workshop.departments.forEach((dept) => {
+        // Kiểm tra xem bộ phận có hoạt động không
         const isActive = dept.phases.some((phase, phaseIndex) => {
           return !reportData.phases[phaseIndex]?.inactiveDepartments?.includes(
             dept.id_department
@@ -116,38 +119,44 @@ const WorkshopStatistics = ({ reportData }) => {
         });
 
         if (isActive) {
-          const latestPhase = dept.phases[dept.phases.length - 1];
-          const isLatestPhaseActive = !reportData.phases[
-            dept.phases.length - 1
-          ]?.inactiveDepartments?.includes(dept.id_department);
+          // Đếm số đợt đạt màu xanh (điểm >= 80% và không có điểm liệt)
+          const greenPhaseCount = dept.phases.filter((phase, index) => {
+            const isPhaseActive = !reportData.phases[
+              index
+            ]?.inactiveDepartments?.includes(dept.id_department);
+            return (
+              isPhaseActive &&
+              !phase.knockoutTypes &&
+              !phase.has_knockout &&
+              phase.scorePercentage >= 80
+            );
+          }).length;
 
-          // Tính trung bình điểm của các phase hoạt động
+          // Tính điểm trung bình của các đợt hoạt động
           const activePhases = dept.phases.filter((phase, index) => {
             return !reportData.phases[index]?.inactiveDepartments?.includes(
               dept.id_department
             );
           });
 
-          if (activePhases.length === 0) return;
+          if (activePhases.length > 0) {
+            const avgScore = Math.round(
+              activePhases.reduce((acc, phase) => {
+                return acc + (phase.scorePercentage || 0);
+              }, 0) / activePhases.length
+            );
 
-          const avgScore = Math.round(
-            activePhases.reduce((acc, phase) => {
-              return acc + (phase.scorePercentage || 0);
-            }, 0) / activePhases.length
-          );
-
-          if (
-            isLatestPhaseActive &&
-            latestPhase &&
-            !latestPhase.knockoutTypes &&
-            avgScore >= 80 &&
-            isLatestPhaseGreen(dept)
-          ) {
-            greenStarDepts.push({
-              workshopName: workshopName,
-              deptName: dept.name_department,
-              score: avgScore,
-            });
+            // Bộ phận đạt sao xanh khi:
+            // 1. Có ít nhất 3 đợt đạt màu xanh
+            // 2. Điểm trung bình >= 80%
+            if (greenPhaseCount >= 3 && avgScore >= 80) {
+              greenStarDepts.push({
+                workshopName: workshopName,
+                deptName: dept.name_department,
+                score: avgScore,
+                greenPhases: greenPhaseCount,
+              });
+            }
           }
         }
       });

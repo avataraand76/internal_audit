@@ -69,6 +69,50 @@ const ResizeObserverWrapper = memo(({ children }) => {
   );
 });
 
+// Thêm hàm sortDepartments trước DepartmentSelectionDialog component
+const sortDepartments = (departments) => {
+  return [...departments].sort((a, b) => {
+    // Helper function to extract number from CHUYỀN
+    const getChuyenInfo = (name) => {
+      const match = name.toLowerCase().match(/chuyền\s+(.+)/i);
+      if (!match) return null;
+
+      // Kiểm tra xem phần sau CHUYỀN có phải là số không
+      const value = match[1];
+      const numericValue = parseInt(value);
+      return {
+        isNumeric: !isNaN(numericValue),
+        value: isNaN(numericValue) ? value : numericValue,
+      };
+    };
+
+    const aInfo = getChuyenInfo(a.label);
+    const bInfo = getChuyenInfo(b.label);
+
+    // Nếu cả hai đều là CHUYỀN
+    if (aInfo && bInfo) {
+      // Nếu một cái là số và cái kia là chữ
+      if (aInfo.isNumeric !== bInfo.isNumeric) {
+        return aInfo.isNumeric ? -1 : 1; // Số đứng trước chữ
+      }
+
+      // Nếu cả hai đều là số hoặc cả hai đều là chữ
+      if (aInfo.isNumeric) {
+        return aInfo.value - bInfo.value; // So sánh số
+      } else {
+        return aInfo.value.localeCompare(bInfo.value); // So sánh chữ
+      }
+    }
+
+    // Nếu chỉ một trong hai là CHUYỀN
+    if (aInfo) return -1;
+    if (bInfo) return 1;
+
+    // Nếu không phải CHUYỀN thì sắp xếp theo alphabet
+    return a.label.localeCompare(b.label);
+  });
+};
+
 // DepartmentSelectionDialog component
 const DepartmentSelectionDialog = memo(
   ({
@@ -102,23 +146,28 @@ const DepartmentSelectionDialog = memo(
     };
 
     // Convert departments array to react-select format
-    const options = departments.reduce((acc, dept) => {
-      const workshop = dept.workshopName;
-      if (!acc.find((group) => group.label === workshop)) {
-        acc.push({
-          label: workshop,
-          options: [],
+    const options = departments
+      .reduce((acc, dept) => {
+        const workshop = dept.workshopName;
+        if (!acc.find((group) => group.label === workshop)) {
+          acc.push({
+            label: workshop,
+            options: [],
+          });
+        }
+        const workshopGroup = acc.find((group) => group.label === workshop);
+        workshopGroup.options.push({
+          value: dept.id,
+          label: dept.name,
+          normalizedLabel: removeVietnameseAccents(dept.name.toLowerCase()),
+          workshop: workshop,
         });
-      }
-      const workshopGroup = acc.find((group) => group.label === workshop);
-      workshopGroup.options.push({
-        value: dept.id,
-        label: dept.name,
-        normalizedLabel: removeVietnameseAccents(dept.name.toLowerCase()),
-        workshop: workshop,
-      });
-      return acc;
-    }, []);
+        return acc;
+      }, [])
+      .map((group) => ({
+        ...group,
+        options: sortDepartments(group.options),
+      }));
 
     // Convert selected departments to react-select format
     const selectedOptions = departments
@@ -330,6 +379,25 @@ const DepartmentSelectionDialog = memo(
   }
 );
 
+// Thêm hàm để tạo tên đợt tự động
+const generatePhaseName = (phases) => {
+  const currentMonth = moment().format("M");
+
+  // Đếm số đợt trong tháng hiện tại
+  const currentMonthPhases = phases.filter((phase) => {
+    const phaseDate = moment(phase.date_recorded);
+    return (
+      phaseDate.format("M") === currentMonth &&
+      phaseDate.format("YYYY") === moment().format("YYYY")
+    );
+  });
+
+  // Số thứ tự của đợt mới sẽ là tổng số đợt + 1
+  const nextOrder = currentMonthPhases.length + 1;
+
+  return `THÁNG ${currentMonth} - ĐỢT ${nextOrder}`;
+};
+
 const CreatePhasePage = () => {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -425,8 +493,11 @@ const CreatePhasePage = () => {
       );
       if (response.ok) {
         const data = await response.json();
+        // Chỉ lấy các department thực sự inactive
         setSelectedInactiveDepartments(
-          data.filter((d) => d.is_inactive).map((d) => d.id_department)
+          data
+            .filter((d) => d.is_inactive === 1) // Đảm bảo chỉ lấy các department inactive
+            .map((d) => d.id_department)
         );
       }
     } catch (error) {
@@ -437,17 +508,27 @@ const CreatePhasePage = () => {
   // Filter phases by month
   const filterPhases = useCallback(
     (month) => {
+      const currentMonth = moment().format("M");
+      const currentYear = moment().format("YYYY");
+
       if (month === "all") {
-        const threeMonthsAgo = moment().subtract(3, "months");
-        const filtered = phases.filter((phase) =>
-          moment(phase.date_recorded).isAfter(threeMonthsAgo)
-        );
+        const filtered = phases.filter((phase) => {
+          const phaseDate = moment(phase.date_recorded);
+          return (
+            phaseDate.format("M") === currentMonth &&
+            phaseDate.format("YYYY") === currentYear
+          );
+        });
         setFilteredPhases(filtered);
       } else {
         const filtered = phases.filter((phase) => {
           if (!phase.date_recorded) return false;
           const phaseDate = moment(phase.date_recorded);
-          return phaseDate.isValid() && phaseDate.format("M") === month;
+          return (
+            phaseDate.isValid() &&
+            phaseDate.format("M") === month &&
+            phaseDate.format("YYYY") === currentYear
+          );
         });
 
         const sortedFiltered = [...filtered].sort(
@@ -478,7 +559,9 @@ const CreatePhasePage = () => {
     if (!isSupervisor) return;
     setDialogMode(mode);
     setSelectedPhase(phase);
-    setPhaseName(phase ? phase.name_phase.toUpperCase() : "");
+    setPhaseName(
+      phase ? phase.name_phase.toUpperCase() : generatePhaseName(phases)
+    );
     setStartDate(
       phase?.time_limit_start ? phase.time_limit_start.split("T")[0] : ""
     );
