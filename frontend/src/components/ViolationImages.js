@@ -10,7 +10,9 @@ import {
   Paper,
   Button,
   ButtonGroup,
-  Tooltip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CollectionsIcon from "@mui/icons-material/Collections";
@@ -115,6 +117,7 @@ const ViolationImages = ({ reportData, month, year }) => {
   const [expandedDepartment, setExpandedDepartment] = useState(false);
   const [selectedPhase, setSelectedPhase] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Thêm kiểm tra chế độ SIGP
   const isSIGPOnly = reportData.workshops.every(
@@ -563,6 +566,305 @@ const ViolationImages = ({ reportData, month, year }) => {
 
   const filteredWorkshops = getFilteredWorkshops();
 
+  // Handlers cho menu
+  const handleExportClick = () => {
+    setIsDialogOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    setIsDialogOpen(false);
+  };
+
+  // Thêm hàm xuất PDF cho workshop
+  const handleExportWorkshopPDF = async (workshopName) => {
+    if (isExporting) return;
+
+    try {
+      setIsExporting(true);
+
+      const printContainer = document.createElement("div");
+      printContainer.id = "print-container-workshop-images";
+      document.body.appendChild(printContainer);
+
+      const pdfTitle = `BÁO CÁO HÌNH ẢNH VI PHẠM ${workshopName}<br/>${month}/${year}`;
+
+      // Add header
+      const header = document.createElement("div");
+      header.innerHTML = `<h1>${pdfTitle}</h1>`;
+      printContainer.appendChild(header);
+
+      // Add content
+      const content = document.createElement("div");
+      content.className = "print-content";
+
+      // Đợi tất cả ảnh được tải xong
+      const loadImagePromises = [];
+
+      // Lấy dữ liệu của workshop được chọn
+      const workshopData = filteredWorkshops[workshopName];
+
+      Object.entries(workshopData).forEach(([deptName, phases]) => {
+        const deptSection = document.createElement("div");
+        deptSection.className = "department-section";
+        deptSection.innerHTML = `<div class="department-title">${deptName}</div>`;
+
+        // Lặp qua tất cả các phases của department
+        Object.entries(phases).forEach(([phaseName, criteria]) => {
+          const phaseSection = document.createElement("div");
+          phaseSection.className = "phase-section";
+          phaseSection.innerHTML = `<div class="phase-title">${phaseName}</div>`;
+
+          Object.entries(criteria).forEach(([criteriaId, images]) => {
+            const criteriaSection = document.createElement("div");
+            criteriaSection.className = "criteria-section";
+            const beforeUrls = images.before
+              ? convertToGdriveImageUrl(images.before)
+              : [];
+            const afterUrls = images.after
+              ? convertToGdriveImageUrl(images.after)
+              : [];
+
+            // Preload images
+            [...beforeUrls, ...afterUrls].forEach((url) => {
+              const img = new Image();
+              loadImagePromises.push(
+                new Promise((resolve) => {
+                  img.onload = resolve;
+                  img.onerror = resolve;
+                  img.src = url;
+                })
+              );
+            });
+
+            criteriaSection.innerHTML = `
+              <div class="criteria-title">${images.codename} - ${
+              images.criterionName
+            }</div>
+              <div class="images-content">
+                <div class="violation-content">
+                  <div class="violation-label">Ảnh vi phạm:</div>
+                  <div class="images-grid">
+                    ${
+                      beforeUrls.length > 0
+                        ? beforeUrls
+                            .map(
+                              (url) => `
+                        <div class="image-wrapper">
+                          <img src="${url}" alt="Ảnh vi phạm"/>
+                        </div>`
+                            )
+                            .join("")
+                        : '<div class="no-image">Không có ảnh vi phạm</div>'
+                    }
+                  </div>
+                </div>
+                
+                <div class="remediation-content">
+                  <div class="fix-label">Ảnh sau khắc phục:</div>
+                  <div class="images-grid">
+                    ${
+                      afterUrls.length > 0
+                        ? afterUrls
+                            .map(
+                              (url) => `
+                        <div class="image-wrapper">
+                          <img src="${url}" alt="Ảnh khắc phục"/>
+                        </div>`
+                            )
+                            .join("")
+                        : '<div class="no-image">Không có ảnh khắc phục</div>'
+                    }
+                  </div>
+                </div>
+              </div>
+            `;
+            phaseSection.appendChild(criteriaSection);
+          });
+          deptSection.appendChild(phaseSection);
+        });
+        content.appendChild(deptSection);
+      });
+
+      printContainer.appendChild(content);
+
+      // Wait for all images to load
+      await Promise.all(loadImagePromises);
+
+      // Add print styles (giữ nguyên styles hiện tại và thêm styles cho phase)
+      const style = document.createElement("style");
+      style.id = "print-styles-workshop-images";
+      style.textContent = `
+        @media print {
+          @page {
+            size: portrait;
+            margin: 15mm;
+          }
+
+          /* Reset styles */
+          * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+          }
+
+          /* Hide everything except print container */
+          body * {
+            visibility: hidden;
+          }
+
+          body > *:not(#print-container-workshop-images) {
+            display: none !important;
+          }
+
+          #print-container-workshop-images, 
+          #print-container-workshop-images * {
+            visibility: visible;
+          }
+
+          #print-container-workshop-images {
+            display: block !important;
+            width: 100% !important;
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: white !important;
+          }
+
+          /* Headers */
+          h1 {
+            text-align: center;
+            font-size: 24pt;
+            margin-bottom: 15mm;
+            color: black;
+          }
+
+          .workshop-title {
+            background-color: #1976d2 !important;
+            color: white !important;
+            padding: 3mm !important;
+            margin: 8mm 0 4mm 0 !important;
+            border-radius: 2mm !important;
+            font-size: 16pt !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          .department-title {
+            background-color: #9c27b0 !important;
+            color: white !important;
+            padding: 2mm !important;
+            margin: 6mm 0 3mm 5mm !important;
+            border-radius: 2mm !important;
+            font-size: 14pt !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          .criteria-title {
+            background-color: #f5f5f5 !important;
+            padding: 2mm !important;
+            margin: 4mm 0 2mm 0 !important;
+            border-radius: 2mm !important;
+            font-size: 12pt !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          /* Labels */
+          .violation-label {
+            color: #d32f2f !important;
+            font-size: 12pt !important;
+            font-weight: bold !important;
+            margin: 3mm 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          .fix-label {
+            color: #2e7d32 !important;
+            font-size: 12pt !important;
+            font-weight: bold !important;
+            margin: 3mm 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          /* Images grid */
+          .images-grid {
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 5mm !important;
+            margin: 3mm 0 6mm 0 !important;
+            justify-items: center !important;
+          }
+
+          .image-wrapper {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            width: auto !important;
+            max-width: auto !important;
+            margin-bottom: 5mm !important;
+          }
+
+          .image-wrapper img {
+            width: 80mm !important;
+            height: auto !important;
+            object-fit: contain !important;
+            border: 1px solid #ddd !important;
+            background-color: white !important;
+          }
+
+          .no-image {
+            width: 80mm !important;
+            height: 50mm !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background-color: #f5f5f5 !important;
+            border: 1px dashed #ccc !important;
+            border-radius: 2mm !important;
+            color: #666 !important;
+            font-style: italic !important;
+          }
+
+          /* Page breaks */
+          .criteria-section {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            margin-bottom: 8mm !important;
+          }
+
+          /* Thêm styles cho phase */
+          .phase-title {
+            background-color: #4caf50 !important;
+            color: white !important;
+            padding: 2mm !important;
+            margin: 4mm 0 2mm 10mm !important;
+            border-radius: 2mm !important;
+            font-size: 13pt !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+
+      // Set filename
+      document.title = `Bao_cao_hinh_anh_vi_pham_${workshopName}_Thang_${month}_${year}`;
+
+      // Print
+      window.print();
+
+      // Cleanup
+      document.head.removeChild(style);
+      document.body.removeChild(printContainer);
+    } catch (error) {
+      console.error("Error exporting workshop PDF:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Return main component UI
   return (
     <Box ref={imagesRef} sx={{ width: "100%", mt: 4, mb: 4 }}>
@@ -625,32 +927,25 @@ const ViolationImages = ({ reportData, month, year }) => {
               ))}
             </ButtonGroup>
 
-            <Tooltip
-              title={`Xuất ảnh vi phạm đợt ${selectedPhase}`}
-              placement="top"
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={handleExportClick}
+              disabled={isExporting}
+              startIcon={<CollectionsIcon />}
+              sx={{
+                backgroundColor: "#1E90FF",
+                "&:hover": {
+                  backgroundColor: "#1A78D6",
+                },
+                "&.Mui-disabled": {
+                  backgroundColor: "#1E90FF",
+                  opacity: 0.7,
+                },
+              }}
             >
-              <span>
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  onClick={handleExportPDF}
-                  disabled={!selectedPhase || isExporting}
-                  startIcon={<CollectionsIcon />}
-                  sx={{
-                    backgroundColor: "#1E90FF",
-                    "&:hover": {
-                      backgroundColor: "#1A78D6",
-                    },
-                    "&.Mui-disabled": {
-                      backgroundColor: "#1E90FF",
-                      opacity: 0.7,
-                    },
-                  }}
-                >
-                  {isExporting ? "Đang xuất PDF..." : "Xuất PDF"}
-                </Button>
-              </span>
-            </Tooltip>
+              {isExporting ? "Đang xuất PDF..." : "Xuất PDF"}
+            </Button>
           </Box>
 
           {/* Render Workshops */}
@@ -778,6 +1073,42 @@ const ViolationImages = ({ reportData, month, year }) => {
           )}
         </Paper>
       )}
+
+      <Dialog open={isDialogOpen} onClose={handleDialogClose}>
+        <DialogTitle>Chọn tùy chọn xuất PDF hình ảnh vi phạm</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <Button
+                fullWidth
+                variant="outlined"
+                onClick={handleExportPDF}
+                sx={{
+                  textTransform: "none",
+                  fontWeight: "bold",
+                }}
+              >
+                Xuất PDF hình ảnh vi phạm {selectedPhase}
+              </Button>
+            </Grid>
+            {Object.keys(filteredWorkshops).map((workshopName) => (
+              <Grid item xs={12} key={workshopName}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  onClick={() => handleExportWorkshopPDF(workshopName)}
+                  sx={{
+                    textTransform: "none",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Xuất PDF hình ảnh vi phạm {workshopName} trong tất cả các đợt
+                </Button>
+              </Grid>
+            ))}
+          </Grid>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

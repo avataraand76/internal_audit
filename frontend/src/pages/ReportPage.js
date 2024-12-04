@@ -812,182 +812,197 @@ export default function MonthlyReportPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredWorkshops.map((workshop, wIndex) => (
-                <React.Fragment key={wIndex}>
-                  {/* Workshop header row with average scores */}
-                  <StyledTableRow className="workshop-row">
-                    <StyledTableCell
-                      colSpan={2}
-                      className="sticky-left-0"
-                      sx={{ backgroundColor: "#fff3e0" }}
-                    >
-                      <Typography variant="subtitle1" fontWeight="bold">
-                        {workshop.workshopName}
-                      </Typography>
-                    </StyledTableCell>
-                    <StyledTableCell
-                      className="sticky-left-2"
-                      sx={{ backgroundColor: "#fff3e0" }}
-                    >
-                      {/* Ô trống để giữ alignment*/}
-                    </StyledTableCell>
-                    {reportData.phases.map((phase, phaseIndex) => {
-                      const avgScore = calculateWorkshopAverage(
-                        workshop.departments,
-                        phaseIndex
-                      );
+              {filteredWorkshops.map((workshop, wIndex) => {
+                // Tính STT bắt đầu cho workshop hiện tại
+                const startIndex = filteredWorkshops
+                  .slice(0, wIndex)
+                  .reduce((sum, w) => sum + w.departments.length, 0);
+
+                return (
+                  <React.Fragment key={wIndex}>
+                    {/* Workshop header row with average scores */}
+                    <StyledTableRow className="workshop-row">
+                      <StyledTableCell
+                        colSpan={2}
+                        className="sticky-left-0"
+                        sx={{ backgroundColor: "#fff3e0" }}
+                      >
+                        <Typography variant="subtitle1" fontWeight="bold">
+                          {workshop.workshopName}
+                        </Typography>
+                      </StyledTableCell>
+                      <StyledTableCell
+                        className="sticky-left-2"
+                        sx={{ backgroundColor: "#fff3e0" }}
+                      >
+                        {/* Ô trống để giữ alignment*/}
+                      </StyledTableCell>
+                      {reportData.phases.map((phase, phaseIndex) => {
+                        const avgScore = calculateWorkshopAverage(
+                          workshop.departments,
+                          phaseIndex
+                        );
+
+                        return (
+                          <React.Fragment key={`avg-${phaseIndex}`}>
+                            <StyledTableCell align="center">
+                              {/* Empty cell for total points deducted */}
+                            </StyledTableCell>
+                            <StyledTableCell
+                              align="center"
+                              sx={{
+                                fontWeight: "bold",
+                              }}
+                            >
+                              {typeof avgScore === "number"
+                                ? `${avgScore}%`
+                                : `${avgScore}%`}
+                            </StyledTableCell>
+                            <StyledTableCell align="center">
+                              {/* Empty cell for knockout types */}
+                            </StyledTableCell>
+                          </React.Fragment>
+                        );
+                      })}
+                      <StyledTableCell
+                        align="center"
+                        sx={{ fontWeight: "bold" }}
+                      >
+                        {typeof calculateWorkshopTotalAverage(workshop) ===
+                        "number"
+                          ? `${calculateWorkshopTotalAverage(workshop)}%`
+                          : `${calculateWorkshopTotalAverage(workshop)}%`}
+                      </StyledTableCell>
+                    </StyledTableRow>
+
+                    {/* Department rows */}
+                    {workshop.departments.map((dept, dIndex) => {
+                      // Tính greenPhaseCount ở đây
+                      const greenPhaseCount = dept.phases.filter(
+                        (phase, index) => {
+                          const isInactive = reportData.phases[
+                            index
+                          ]?.inactiveDepartments?.includes(dept.id_department);
+                          // Chỉ đếm các đợt đang hoạt động và đạt điều kiện màu xanh
+                          return (
+                            !isInactive &&
+                            !phase.has_red_star &&
+                            phase.scorePercentage >= 80
+                          );
+                        }
+                      ).length;
 
                       return (
-                        <React.Fragment key={`avg-${phaseIndex}`}>
-                          <StyledTableCell align="center">
-                            {/* Empty cell for total points deducted */}
+                        <StyledTableRow key={`${wIndex}-${dIndex}`}>
+                          <StyledTableCell
+                            align="center"
+                            className="sticky-left-0"
+                          >
+                            {startIndex + dIndex + 1}
                           </StyledTableCell>
+                          <StyledTableCell className="sticky-left-1">
+                            {dept.name_department}
+                          </StyledTableCell>
+                          <StyledTableCell
+                            align="center"
+                            className="sticky-left-2"
+                          >
+                            {dept.max_points}
+                          </StyledTableCell>
+                          {dept.phases.map((phase, pIndex) => {
+                            const isInactive = reportData.phases[
+                              pIndex
+                            ]?.inactiveDepartments?.includes(
+                              dept.id_department
+                            );
+
+                            return (
+                              <React.Fragment key={`${dIndex}-${pIndex}`}>
+                                <StyledTableCell
+                                  align="center"
+                                  sx={isInactive ? inactiveCellStyle : {}}
+                                >
+                                  {isInactive ? "" : phase.failedCount}
+                                </StyledTableCell>
+                                <StyledTableCell
+                                  align="center"
+                                  sx={{
+                                    ...(isInactive
+                                      ? inactiveCellStyle
+                                      : {
+                                          fontWeight: "bold",
+                                          backgroundColor: (theme) => {
+                                            if (
+                                              phase.has_red_star ||
+                                              phase.scorePercentage < 80
+                                            ) {
+                                              return "#ffebee";
+                                            }
+                                            return "#e8f5e9";
+                                          },
+                                          color: (theme) => {
+                                            if (
+                                              phase.has_red_star ||
+                                              phase.scorePercentage < 80
+                                            ) {
+                                              return "#FF0000";
+                                            }
+                                            return "#009900";
+                                          },
+                                        }),
+                                  }}
+                                >
+                                  {isInactive
+                                    ? ""
+                                    : `${phase.scorePercentage}%`}
+                                </StyledTableCell>
+                                <StyledTableCell
+                                  align="center"
+                                  sx={isInactive ? inactiveCellStyle : {}}
+                                >
+                                  {isInactive ? "" : phase.knockoutTypes}
+                                </StyledTableCell>
+                              </React.Fragment>
+                            );
+                          })}
                           <StyledTableCell
                             align="center"
                             sx={{
                               fontWeight: "bold",
+                              ...(typeof calculateDepartmentAverage(dept) ===
+                              "number"
+                                ? {
+                                    backgroundColor: (theme) => {
+                                      const avg =
+                                        calculateDepartmentAverage(dept);
+                                      if (greenPhaseCount >= 3 && avg >= 80) {
+                                        return "#e8f5e9";
+                                      }
+                                      return "#ffebee";
+                                    },
+                                    color: (theme) => {
+                                      const avg =
+                                        calculateDepartmentAverage(dept);
+                                      if (greenPhaseCount >= 3 && avg >= 80) {
+                                        return "#009900";
+                                      }
+                                      return "#FF0000";
+                                    },
+                                  }
+                                : inactiveCellStyle),
                             }}
                           >
-                            {typeof avgScore === "number"
-                              ? `${avgScore}%`
-                              : `${avgScore}%`}
+                            {typeof calculateDepartmentAverage(dept) ===
+                            "number"
+                              ? `${calculateDepartmentAverage(dept)}%`
+                              : calculateDepartmentAverage(dept)}
                           </StyledTableCell>
-                          <StyledTableCell align="center">
-                            {/* Empty cell for knockout types */}
-                          </StyledTableCell>
-                        </React.Fragment>
+                        </StyledTableRow>
                       );
                     })}
-                    <StyledTableCell align="center" sx={{ fontWeight: "bold" }}>
-                      {typeof calculateWorkshopTotalAverage(workshop) ===
-                      "number"
-                        ? `${calculateWorkshopTotalAverage(workshop)}%`
-                        : `${calculateWorkshopTotalAverage(workshop)}%`}
-                    </StyledTableCell>
-                  </StyledTableRow>
-
-                  {/* Department rows */}
-                  {workshop.departments.map((dept, dIndex) => {
-                    // Tính greenPhaseCount ở đây
-                    const greenPhaseCount = dept.phases.filter(
-                      (phase, index) => {
-                        const isInactive = reportData.phases[
-                          index
-                        ]?.inactiveDepartments?.includes(dept.id_department);
-                        // Chỉ đếm các đợt đang hoạt động và đạt điều kiện màu xanh
-                        return (
-                          !isInactive &&
-                          !phase.has_red_star &&
-                          phase.scorePercentage >= 80
-                        );
-                      }
-                    ).length;
-
-                    return (
-                      <StyledTableRow key={`${wIndex}-${dIndex}`}>
-                        <StyledTableCell
-                          align="center"
-                          className="sticky-left-0"
-                        >
-                          {dIndex + 1}
-                        </StyledTableCell>
-                        <StyledTableCell className="sticky-left-1">
-                          {dept.name_department}
-                        </StyledTableCell>
-                        <StyledTableCell
-                          align="center"
-                          className="sticky-left-2"
-                        >
-                          {dept.max_points}
-                        </StyledTableCell>
-                        {dept.phases.map((phase, pIndex) => {
-                          const isInactive = reportData.phases[
-                            pIndex
-                          ]?.inactiveDepartments?.includes(dept.id_department);
-
-                          return (
-                            <React.Fragment key={`${dIndex}-${pIndex}`}>
-                              <StyledTableCell
-                                align="center"
-                                sx={isInactive ? inactiveCellStyle : {}}
-                              >
-                                {isInactive ? "" : phase.failedCount}
-                              </StyledTableCell>
-                              <StyledTableCell
-                                align="center"
-                                sx={{
-                                  ...(isInactive
-                                    ? inactiveCellStyle
-                                    : {
-                                        fontWeight: "bold",
-                                        backgroundColor: (theme) => {
-                                          if (
-                                            phase.has_red_star ||
-                                            phase.scorePercentage < 80
-                                          ) {
-                                            return "#ffebee";
-                                          }
-                                          return "#e8f5e9";
-                                        },
-                                        color: (theme) => {
-                                          if (
-                                            phase.has_red_star ||
-                                            phase.scorePercentage < 80
-                                          ) {
-                                            return "#FF0000";
-                                          }
-                                          return "#009900";
-                                        },
-                                      }),
-                                }}
-                              >
-                                {isInactive ? "" : `${phase.scorePercentage}%`}
-                              </StyledTableCell>
-                              <StyledTableCell
-                                align="center"
-                                sx={isInactive ? inactiveCellStyle : {}}
-                              >
-                                {isInactive ? "" : phase.knockoutTypes}
-                              </StyledTableCell>
-                            </React.Fragment>
-                          );
-                        })}
-                        <StyledTableCell
-                          align="center"
-                          sx={{
-                            fontWeight: "bold",
-                            ...(typeof calculateDepartmentAverage(dept) ===
-                            "number"
-                              ? {
-                                  backgroundColor: (theme) => {
-                                    const avg =
-                                      calculateDepartmentAverage(dept);
-                                    if (greenPhaseCount >= 3 && avg >= 80) {
-                                      return "#e8f5e9";
-                                    }
-                                    return "#ffebee";
-                                  },
-                                  color: (theme) => {
-                                    const avg =
-                                      calculateDepartmentAverage(dept);
-                                    if (greenPhaseCount >= 3 && avg >= 80) {
-                                      return "#009900";
-                                    }
-                                    return "#FF0000";
-                                  },
-                                }
-                              : inactiveCellStyle),
-                          }}
-                        >
-                          {typeof calculateDepartmentAverage(dept) === "number"
-                            ? `${calculateDepartmentAverage(dept)}%`
-                            : calculateDepartmentAverage(dept)}
-                        </StyledTableCell>
-                      </StyledTableRow>
-                    );
-                  })}
-                </React.Fragment>
-              ))}
+                  </React.Fragment>
+                );
+              })}
               {/* Summary Rows */}
               <TableRow
                 className="summary-row"
