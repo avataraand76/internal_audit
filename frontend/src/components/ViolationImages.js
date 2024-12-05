@@ -110,7 +110,7 @@ const ImageFrame = ({ src, title, type }) => {
   );
 };
 
-const ViolationImages = ({ reportData, month, year }) => {
+const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
   const imagesRef = useRef(null);
   const [violationImages, setViolationImages] = useState({});
   const [expandedWorkshop, setExpandedWorkshop] = useState(false);
@@ -864,6 +864,21 @@ const ViolationImages = ({ reportData, month, year }) => {
       setIsExporting(false);
     }
   };
+
+  // Add useEffect to watch selectedPhaseOption changes
+  useEffect(() => {
+    if (selectedPhaseOption && selectedPhaseOption.startsWith("phase-")) {
+      const phaseName = reportData.phases.find(
+        (phase) => `phase-${phase.id_phase}` === selectedPhaseOption
+      )?.name_phase;
+
+      if (phaseName) {
+        setSelectedPhase(phaseName);
+        setExpandedWorkshop(false);
+        setExpandedDepartment(false);
+      }
+    }
+  }, [selectedPhaseOption, reportData.phases]);
 
   // Return main component UI
   return (

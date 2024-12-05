@@ -23,7 +23,7 @@ ChartJS.register(
   ChartDataLabels
 );
 
-const WorkshopStatistics = ({ reportData }) => {
+const WorkshopStatistics = ({ reportData, selectedPhaseOption }) => {
   // Kiểm tra xem đang ở chế độ SIGP
   const isSIGPOnly = reportData.workshops.every(
     (w) => w.workshopName === "SIGP"
@@ -45,48 +45,66 @@ const WorkshopStatistics = ({ reportData }) => {
       if (!workshop) return;
 
       workshop.departments.forEach((dept) => {
-        // Kiểm tra xem bộ phận có hoạt động không
-        const isActive = dept.phases.some((phase, phaseIndex) => {
-          return !reportData.phases[phaseIndex]?.inactiveDepartments?.includes(
-            dept.id_department
-          );
-        });
-
-        if (isActive) {
-          totalActiveDepts++;
-
-          // Đếm số đợt đạt màu xanh (điểm >= 80% và không có điểm liệt)
-          const greenPhaseCount = dept.phases.filter((phase, index) => {
-            const isPhaseActive = !reportData.phases[
-              index
+        if (selectedPhaseOption === "month") {
+          // Logic hiện tại cho toàn bộ tháng
+          const isActive = dept.phases.some((phase, phaseIndex) => {
+            return !reportData.phases[
+              phaseIndex
             ]?.inactiveDepartments?.includes(dept.id_department);
-            return (
-              isPhaseActive &&
-              !phase.knockoutTypes &&
-              !phase.has_knockout &&
-              phase.scorePercentage >= 80
-            );
-          }).length;
-
-          // Tính điểm trung bình của các đợt hoạt động
-          const activePhases = dept.phases.filter((phase, index) => {
-            return !reportData.phases[index]?.inactiveDepartments?.includes(
-              dept.id_department
-            );
           });
 
-          if (activePhases.length > 0) {
-            const avgScore = Math.round(
-              activePhases.reduce((acc, phase) => {
-                return acc + (phase.scorePercentage || 0);
-              }, 0) / activePhases.length
-            );
+          if (isActive) {
+            totalActiveDepts++;
+            const greenPhaseCount = dept.phases.filter((phase, index) => {
+              const isPhaseActive = !reportData.phases[
+                index
+              ]?.inactiveDepartments?.includes(dept.id_department);
+              return (
+                isPhaseActive &&
+                !phase.has_red_star &&
+                phase.scorePercentage >= 80
+              );
+            }).length;
 
-            // Bộ phận đạt sao xanh khi:
-            // 1. Có ít nhất 3 đợt đạt màu xanh
-            // 2. Điểm trung bình >= 80%
-            if (greenPhaseCount >= 3 && avgScore >= 80) {
-              totalGreenStarDepts++;
+            const activePhases = dept.phases.filter((phase, index) => {
+              return !reportData.phases[index]?.inactiveDepartments?.includes(
+                dept.id_department
+              );
+            });
+
+            if (activePhases.length > 0) {
+              const avgScore = Math.round(
+                activePhases.reduce((acc, phase) => {
+                  return acc + (phase.scorePercentage || 0);
+                }, 0) / activePhases.length
+              );
+
+              // Bộ phận đạt sao xanh khi:
+              // 1. Có ít nhất 3 đợt đạt màu xanh
+              // 2. Điểm trung bình >= 80%
+              if (greenPhaseCount >= 3 && avgScore >= 80) {
+                totalGreenStarDepts++;
+              }
+            }
+          }
+        } else {
+          // Logic cho phase cụ thể
+          const phaseId = parseInt(selectedPhaseOption.split("-")[1]);
+          const phaseIndex = dept.phases.findIndex(
+            (p, index) => reportData.phases[index].id_phase === phaseId
+          );
+
+          if (phaseIndex !== -1) {
+            const phase = dept.phases[phaseIndex];
+            const isPhaseActive = !reportData.phases[
+              phaseIndex
+            ]?.inactiveDepartments?.includes(dept.id_department);
+
+            if (isPhaseActive) {
+              totalActiveDepts++;
+              if (!phase.has_red_star && phase.scorePercentage >= 80) {
+                totalGreenStarDepts++;
+              }
             }
           }
         }
@@ -111,51 +129,75 @@ const WorkshopStatistics = ({ reportData }) => {
       if (!workshop) return;
 
       workshop.departments.forEach((dept) => {
-        // Kiểm tra xem bộ phận có hoạt động không
-        const isActive = dept.phases.some((phase, phaseIndex) => {
-          return !reportData.phases[phaseIndex]?.inactiveDepartments?.includes(
-            dept.id_department
-          );
-        });
-
-        if (isActive) {
-          // Đếm số đợt đạt màu xanh (điểm >= 80% và không có điểm liệt)
-          const greenPhaseCount = dept.phases.filter((phase, index) => {
-            const isPhaseActive = !reportData.phases[
-              index
+        if (selectedPhaseOption === "month") {
+          // Logic hiện tại cho toàn bộ tháng
+          const isActive = dept.phases.some((phase, phaseIndex) => {
+            return !reportData.phases[
+              phaseIndex
             ]?.inactiveDepartments?.includes(dept.id_department);
-            return (
-              isPhaseActive &&
-              !phase.knockoutTypes &&
-              !phase.has_knockout &&
-              phase.scorePercentage >= 80
-            );
-          }).length;
-
-          // Tính điểm trung bình của các đợt hoạt động
-          const activePhases = dept.phases.filter((phase, index) => {
-            return !reportData.phases[index]?.inactiveDepartments?.includes(
-              dept.id_department
-            );
           });
 
-          if (activePhases.length > 0) {
-            const avgScore = Math.round(
-              activePhases.reduce((acc, phase) => {
-                return acc + (phase.scorePercentage || 0);
-              }, 0) / activePhases.length
-            );
+          if (isActive) {
+            // Logic cũ cho toàn bộ tháng
+            const greenPhaseCount = dept.phases.filter((phase, index) => {
+              const isPhaseActive = !reportData.phases[
+                index
+              ]?.inactiveDepartments?.includes(dept.id_department);
+              return (
+                isPhaseActive &&
+                !phase.has_red_star &&
+                phase.scorePercentage >= 80
+              );
+            }).length;
 
-            // Bộ phận đạt sao xanh khi:
-            // 1. Có ít nhất 3 đợt đạt màu xanh
-            // 2. Điểm trung bình >= 80%
-            if (greenPhaseCount >= 3 && avgScore >= 80) {
-              greenStarDepts.push({
-                workshopName: workshopName,
-                deptName: dept.name_department,
-                score: avgScore,
-                greenPhases: greenPhaseCount,
-              });
+            const activePhases = dept.phases.filter((phase, index) => {
+              return !reportData.phases[index]?.inactiveDepartments?.includes(
+                dept.id_department
+              );
+            });
+
+            if (activePhases.length > 0) {
+              const avgScore = Math.round(
+                activePhases.reduce((acc, phase) => {
+                  return acc + (phase.scorePercentage || 0);
+                }, 0) / activePhases.length
+              );
+
+              // Bộ phận đạt sao xanh khi:
+              // 1. Có ít nhất 3 đợt đạt màu xanh
+              // 2. Điểm trung bình >= 80%
+              if (greenPhaseCount >= 3 && avgScore >= 80) {
+                greenStarDepts.push({
+                  workshopName: workshopName,
+                  deptName: dept.name_department,
+                  score: avgScore,
+                  greenPhases: greenPhaseCount,
+                });
+              }
+            }
+          }
+        } else {
+          // Logic cho phase cụ thể
+          const phaseId = parseInt(selectedPhaseOption.split("-")[1]);
+          const phaseIndex = dept.phases.findIndex(
+            (p, index) => reportData.phases[index].id_phase === phaseId
+          );
+
+          if (phaseIndex !== -1) {
+            const phase = dept.phases[phaseIndex];
+            const isPhaseActive = !reportData.phases[
+              phaseIndex
+            ]?.inactiveDepartments?.includes(dept.id_department);
+
+            if (isPhaseActive) {
+              if (phase.scorePercentage >= 80 && !phase.has_red_star) {
+                greenStarDepts.push({
+                  workshopName: workshopName,
+                  deptName: dept.name_department,
+                  score: phase.scorePercentage,
+                  greenPhases: 1,
+                });
+              }
             }
           }
         }
@@ -184,56 +226,96 @@ const WorkshopStatistics = ({ reportData }) => {
           TTNV: { deptCount: 0 },
         };
 
-        // Collect all departments that are active
         workshop.departments.forEach((dept) => {
-          const isActive = dept.phases.some((phase, phaseIndex) => {
-            return !reportData.phases[
-              phaseIndex
-            ]?.inactiveDepartments?.includes(dept.id_department);
-          });
+          if (selectedPhaseOption === "month") {
+            // Logic hiện tại cho toàn bộ tháng
+            const isActive = dept.phases.some((phase, phaseIndex) => {
+              return !reportData.phases[
+                phaseIndex
+              ]?.inactiveDepartments?.includes(dept.id_department);
+            });
 
-          if (isActive) {
-            activeDepartments++;
-            const deptKnockouts = new Set();
+            if (isActive) {
+              activeDepartments++;
+              const deptKnockouts = new Set();
 
-            dept.phases.forEach((phase, phaseIndex) => {
+              dept.phases.forEach((phase, phaseIndex) => {
+                const isPhaseActive = !reportData.phases[
+                  phaseIndex
+                ]?.inactiveDepartments?.includes(dept.id_department);
+
+                if (isPhaseActive && phase.knockoutTypes) {
+                  const knockouts = phase.knockoutTypes
+                    .split(",")
+                    .map((k) => k.trim());
+
+                  knockouts.forEach((knockout) => {
+                    if (knockout.includes("An toàn lao động"))
+                      deptKnockouts.add("ATLĐ");
+                    if (knockout.includes("Phòng ngừa kim loại"))
+                      deptKnockouts.add("PNKL");
+                    if (knockout.includes("QMS")) deptKnockouts.add("QMS");
+                    if (knockout.includes("Trật tự nội vụ"))
+                      deptKnockouts.add("TTNV");
+                  });
+
+                  if (deptKnockouts.size > 0) {
+                    knockoutsByDept.set(dept.id_department, deptKnockouts);
+                    deptKnockouts.forEach((type) => {
+                      errorCounts[type].deptCount++;
+                    });
+                  }
+                }
+              });
+
+              return {
+                counts: errorCounts,
+                activeDepartments,
+              };
+            }
+          } else {
+            // Logic cho phase cụ thể
+            const phaseId = parseInt(selectedPhaseOption.split("-")[1]);
+            const phaseIndex = dept.phases.findIndex(
+              (p, index) => reportData.phases[index].id_phase === phaseId
+            );
+
+            if (phaseIndex !== -1) {
+              const phase = dept.phases[phaseIndex];
               const isPhaseActive = !reportData.phases[
                 phaseIndex
               ]?.inactiveDepartments?.includes(dept.id_department);
 
-              if (isPhaseActive && phase.knockoutTypes) {
-                const knockouts = phase.knockoutTypes
-                  .split(",")
-                  .map((k) => k.trim());
+              if (isPhaseActive) {
+                activeDepartments++;
+                const deptKnockouts = new Set();
 
-                knockouts.forEach((knockout) => {
-                  if (knockout.includes("An toàn lao động")) {
-                    deptKnockouts.add("ATLĐ");
+                if (phase.knockoutTypes) {
+                  const knockouts = phase.knockoutTypes
+                    .split(",")
+                    .map((k) => k.trim());
+
+                  knockouts.forEach((knockout) => {
+                    if (knockout.includes("An toàn lao động"))
+                      deptKnockouts.add("ATLĐ");
+                    if (knockout.includes("Phòng ngừa kim loại"))
+                      deptKnockouts.add("PNKL");
+                    if (knockout.includes("QMS")) deptKnockouts.add("QMS");
+                    if (knockout.includes("Trật tự nội vụ"))
+                      deptKnockouts.add("TTNV");
+                  });
+
+                  if (deptKnockouts.size > 0) {
+                    knockoutsByDept.set(dept.id_department, deptKnockouts);
+                    deptKnockouts.forEach((type) => {
+                      errorCounts[type].deptCount++;
+                    });
                   }
-                  if (knockout.includes("Phòng ngừa kim loại")) {
-                    deptKnockouts.add("PNKL");
-                  }
-                  if (knockout.includes("QMS")) {
-                    deptKnockouts.add("QMS");
-                  }
-                  if (knockout.includes("Trật tự nội vụ")) {
-                    deptKnockouts.add("TTNV");
-                  }
-                });
+                }
               }
-            });
-
-            knockoutsByDept.set(dept.id_department, deptKnockouts);
+            }
           }
         });
-
-        // Count departments with knockouts
-        for (const knockouts of knockoutsByDept.values()) {
-          if (knockouts.has("ATLĐ")) errorCounts.ATLĐ.deptCount++;
-          if (knockouts.has("PNKL")) errorCounts.PNKL.deptCount++;
-          if (knockouts.has("QMS")) errorCounts.QMS.deptCount++;
-          if (knockouts.has("TTNV")) errorCounts.TTNV.deptCount++;
-        }
 
         return {
           counts: errorCounts,

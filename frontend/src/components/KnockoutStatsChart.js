@@ -29,7 +29,7 @@ ChartJS.register(
 );
 
 // Chart component cho thống kê điểm liệt
-const KnockoutStatsChart = ({ reportData }) => {
+const KnockoutStatsChart = ({ reportData, selectedPhaseOption }) => {
   // Hàm để tính tổng số điểm liệt theo danh mục cho một xưởng
   const calculateKnockoutStats = (workshopName) => {
     const workshop = reportData.workshops.find(
@@ -50,44 +50,87 @@ const KnockoutStatsChart = ({ reportData }) => {
     let knockoutsByDept = new Map();
 
     workshop.departments.forEach((dept) => {
-      const isActive = dept.phases.some((phase, phaseIndex) => {
-        return !reportData.phases[phaseIndex]?.inactiveDepartments?.includes(
-          dept.id_department
+      if (selectedPhaseOption === "month") {
+        // Logic hiện tại cho toàn bộ tháng
+        const isActive = dept.phases.some((phase, phaseIndex) => {
+          return !reportData.phases[phaseIndex]?.inactiveDepartments?.includes(
+            dept.id_department
+          );
+        });
+
+        if (isActive) {
+          activeDepartments++;
+          // Sử dụng Set để lưu unique knockout types cho mỗi department
+          const deptKnockouts = new Set();
+
+          dept.phases.forEach((phase, phaseIndex) => {
+            const isPhaseActive = !reportData.phases[
+              phaseIndex
+            ]?.inactiveDepartments?.includes(dept.id_department);
+
+            if (isPhaseActive && phase.knockoutTypes) {
+              const knockoutList = phase.knockoutTypes
+                .split(",")
+                .map((type) => type.trim());
+
+              knockoutList.forEach((type) => {
+                if (type.includes("An toàn lao động"))
+                  deptKnockouts.add("ATLĐ");
+                if (type.includes("Phòng ngừa kim loại"))
+                  deptKnockouts.add("PNKL");
+                if (type.includes("QMS")) deptKnockouts.add("QMS");
+                if (type.includes("Trật tự nội vụ")) deptKnockouts.add("TTNV");
+              });
+            }
+          });
+
+          // Lưu các loại knockout unique của department
+          knockoutsByDept.set(dept.id_department, Array.from(deptKnockouts));
+          deptKnockouts.forEach((type) => {
+            stats[type].count++;
+          });
+        }
+      } else {
+        // Logic cho phase cụ thể
+        const phaseId = parseInt(selectedPhaseOption.split("-")[1]);
+        const phaseIndex = dept.phases.findIndex(
+          (p, index) => reportData.phases[index].id_phase === phaseId
         );
-      });
 
-      if (isActive) {
-        activeDepartments++;
-        // Sử dụng Set để lưu unique knockout types cho mỗi department
-        const deptKnockouts = new Set();
-
-        dept.phases.forEach((phase, phaseIndex) => {
+        if (phaseIndex !== -1) {
+          const phase = dept.phases[phaseIndex];
           const isPhaseActive = !reportData.phases[
             phaseIndex
           ]?.inactiveDepartments?.includes(dept.id_department);
 
-          if (isPhaseActive && phase.knockoutTypes) {
-            const knockoutList = phase.knockoutTypes
-              .split(",")
-              .map((type) => type.trim());
+          if (isPhaseActive) {
+            activeDepartments++;
+            const deptKnockouts = new Set();
 
-            knockoutList.forEach((type) => {
-              if (type.includes("An toàn lao động")) deptKnockouts.add("ATLĐ");
-              if (type.includes("Phòng ngừa kim loại"))
-                deptKnockouts.add("PNKL");
-              if (type.includes("QMS")) deptKnockouts.add("QMS");
-              if (type.includes("Trật tự nội vụ")) deptKnockouts.add("TTNV");
-            });
+            if (phase.knockoutTypes) {
+              const knockoutList = phase.knockoutTypes
+                .split(",")
+                .map((type) => type.trim());
+
+              knockoutList.forEach((type) => {
+                if (type.includes("An toàn lao động"))
+                  deptKnockouts.add("ATLĐ");
+                if (type.includes("Phòng ngừa kim loại"))
+                  deptKnockouts.add("PNKL");
+                if (type.includes("QMS")) deptKnockouts.add("QMS");
+                if (type.includes("Trật tự nội vụ")) deptKnockouts.add("TTNV");
+              });
+
+              knockoutsByDept.set(
+                dept.id_department,
+                Array.from(deptKnockouts)
+              );
+              deptKnockouts.forEach((type) => {
+                stats[type].count++;
+              });
+            }
           }
-        });
-
-        // Lưu các loại knockout unique của department
-        knockoutsByDept.set(dept.id_department, Array.from(deptKnockouts));
-
-        // Cập nhật count dựa trên các loại knockout unique
-        deptKnockouts.forEach((type) => {
-          stats[type].count++;
-        });
+        }
       }
     });
 
@@ -103,19 +146,13 @@ const KnockoutStatsChart = ({ reportData }) => {
       });
     }
 
-    const statsWithInfo = {
+    return {
       ...stats,
       _meta: {
         activeDepartments,
         workshopName,
       },
     };
-
-    return Object.fromEntries(
-      Object.entries(statsWithInfo).filter(
-        ([key, value]) => key === "_meta" || value.count > 0
-      )
-    );
   };
 
   // Kiểm tra nếu đang ở chế độ chỉ hiện SIGP
@@ -238,6 +275,8 @@ const KnockoutStatsChart = ({ reportData }) => {
             weight: "bold",
           },
           formatter: (value, context) => {
+            if (value === 0) return "";
+
             const dataIndex = context.dataIndex;
             const key = labels[dataIndex];
             const percentage = stats[key]?.total;

@@ -438,28 +438,6 @@ export default function MonthlyReportPage() {
     return Math.round(sum / departmentAverages.length);
   };
 
-  const isLatestPhaseGreen = (dept) => {
-    // Lặp từ đợt gần nhất về đợt cũ nhất
-    for (let i = dept.phases.length - 1; i >= 0; i--) {
-      const phase = dept.phases[i];
-      const isPhaseInactive = reportData.phases[
-        i
-      ]?.inactiveDepartments?.includes(dept.id_department);
-
-      // Nếu tìm thấy đợt hoạt động, kiểm tra điều kiện màu xanh
-      if (!isPhaseInactive && phase) {
-        return !(
-          phase.knockoutTypes ||
-          phase.has_knockout ||
-          phase.scorePercentage < 80
-        );
-      }
-    }
-
-    // Nếu không tìm thấy đợt nào hoạt động
-    return false;
-  };
-
   const handleMonthChange = (event) => {
     const newMonth = event.target.value;
     setSelectedMonth(newMonth);
@@ -556,7 +534,6 @@ export default function MonthlyReportPage() {
       calculateDepartmentAverage,
       calculateWorkshopTotalAverage,
       calculateOverallAverage,
-      isLatestPhaseGreen,
     };
 
     const exportData = {
@@ -1114,6 +1091,7 @@ export default function MonthlyReportPage() {
                 }
                 month={selectedMonth}
                 year={year}
+                selectedPhaseOption={selectedPhaseOption}
               />
             </Box>
           </>
@@ -1130,7 +1108,7 @@ export default function MonthlyReportPage() {
         />
 
         <PhaseSelectionBubble
-          phases={reportData?.phases || []}
+          phases={reportData.phases}
           selectedOption={selectedPhaseOption}
           onOptionChange={handlePhaseOptionChange}
         />
