@@ -172,7 +172,7 @@ const Chart = ({ title, data }) => {
   );
 };
 
-const WorkshopScoreChart = ({ reportData }) => {
+const WorkshopScoreChart = ({ reportData, selectedPhaseOption }) => {
   function calculateDepartmentAverage(dept) {
     const allPhasesInactive = dept.phases.every((phase, index) => {
       return reportData.phases[index]?.inactiveDepartments?.includes(
@@ -207,6 +207,37 @@ const WorkshopScoreChart = ({ reportData }) => {
     if (activeDepartments.length === 0) return null;
 
     const sum = activeDepartments.reduce((acc, avg) => acc + avg, 0);
+    return Math.round(sum / activeDepartments.length);
+  };
+
+  const calculatePhaseScore = (dept, phaseId) => {
+    const phase = dept.phases.find(
+      (p, index) => reportData.phases[index].id_phase === parseInt(phaseId)
+    );
+
+    if (!phase) return null;
+
+    const phaseIndex = dept.phases.findIndex(
+      (p, index) => reportData.phases[index].id_phase === parseInt(phaseId)
+    );
+
+    const isInactive = reportData.phases[
+      phaseIndex
+    ]?.inactiveDepartments?.includes(dept.id_department);
+
+    if (isInactive) return null;
+
+    return phase.scorePercentage;
+  };
+
+  const calculateWorkshopPhaseAverage = (departments, phaseId) => {
+    const activeDepartments = departments
+      .map((dept) => calculatePhaseScore(dept, phaseId))
+      .filter((score) => score !== null);
+
+    if (activeDepartments.length === 0) return null;
+
+    const sum = activeDepartments.reduce((acc, score) => acc + score, 0);
     return Math.round(sum / activeDepartments.length);
   };
 
@@ -357,44 +388,67 @@ const WorkshopScoreChart = ({ reportData }) => {
     let allData = [];
     workshops.forEach((workshop) => {
       const activeDepartments = workshop.departments.filter((dept) => {
-        const average = calculateDepartmentAverage(dept);
-        return average !== null;
+        if (selectedPhaseOption === "month") {
+          const average = calculateDepartmentAverage(dept);
+          return average !== null;
+        } else {
+          const phaseId = selectedPhaseOption.split("-")[1];
+          const score = calculatePhaseScore(dept, parseInt(phaseId));
+          return score !== null;
+        }
       });
 
       activeDepartments.forEach((dept) => {
-        const average = calculateDepartmentAverage(dept);
+        let score;
+        let isGreen;
 
-        // Tính số đợt màu xanh (chỉ tính các đợt đang hoạt động)
-        const greenPhaseCount = dept.phases.filter((phase, index) => {
-          const isInactive = reportData.phases[
-            index
-          ]?.inactiveDepartments?.includes(dept.id_department);
-          // Chỉ đếm các đợt đang hoạt động và đạt điều kiện màu xanh
-          return (
-            !isInactive && !phase.has_red_star && phase.scorePercentage >= 80
+        if (selectedPhaseOption === "month") {
+          score = calculateDepartmentAverage(dept);
+          const greenPhaseCount = dept.phases.filter((phase, index) => {
+            const isInactive = reportData.phases[
+              index
+            ]?.inactiveDepartments?.includes(dept.id_department);
+            return (
+              !isInactive && !phase.has_red_star && phase.scorePercentage >= 80
+            );
+          }).length;
+          isGreen = greenPhaseCount >= 3 && score >= 80;
+        } else {
+          const phaseId = selectedPhaseOption.split("-")[1];
+          score = calculatePhaseScore(dept, parseInt(phaseId));
+          const phase = dept.phases.find(
+            (p, index) =>
+              reportData.phases[index].id_phase === parseInt(phaseId)
           );
-        }).length;
-
-        // Điều kiện tô màu giống bảng điểm
-        const isGreen = greenPhaseCount >= 3 && average >= 80;
+          isGreen = !phase.has_red_star && score >= 80;
+        }
 
         allData.push({
           name: dept.name_department,
-          percentage: average,
+          percentage: score,
           color: isGreen ? "#009900" : "#FF0000",
         });
       });
 
-      // Thêm cột tổng chỉ cho xưởng chính (1-4)
+      // Thêm cột tổng cho xưởng chính
       if (/^XƯỞNG\s+[1-4]$/i.test(workshop.workshopName.trim())) {
-        const workshopAverage = calculateWorkshopAverage(workshop.departments);
+        let workshopAverage;
+        if (selectedPhaseOption === "month") {
+          workshopAverage = calculateWorkshopAverage(workshop.departments);
+        } else {
+          const phaseId = selectedPhaseOption.split("-")[1];
+          workshopAverage = calculateWorkshopPhaseAverage(
+            workshop.departments,
+            parseInt(phaseId)
+          );
+        }
+
         if (workshopAverage !== null) {
           allData.push({
             name: `TỔNG`,
             percentage: workshopAverage,
             color: "#FFD700",
             isTotal: true,
-            textColor: "#000000",
           });
         }
       }

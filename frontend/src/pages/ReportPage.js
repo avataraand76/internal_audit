@@ -35,6 +35,7 @@ import BackupTableIcon from "@mui/icons-material/BackupTable";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import logoVLH from "../assets/logo_vlh.jpg";
 import logoSIGP from "../assets/logo_sigp.jpg";
+import PhaseSelectionBubble from "../components/PhaseSelectionBubble";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   border: "1px solid rgba(240, 240, 240, 1)",
@@ -194,6 +195,7 @@ export default function MonthlyReportPage() {
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [showOnlySIGP, setShowOnlySIGP] = useState(false);
+  const [selectedPhaseOption, setSelectedPhaseOption] = useState("month");
 
   // Lấy tham số tháng và năm từ URL
   const { month: urlMonth, year: urlYear } = useParams();
@@ -462,6 +464,10 @@ export default function MonthlyReportPage() {
     const newMonth = event.target.value;
     setSelectedMonth(newMonth);
     navigate(`/report/${newMonth}/${year}`);
+  };
+
+  const handlePhaseOptionChange = (option) => {
+    setSelectedPhaseOption(option);
   };
 
   if (loading) {
@@ -1073,6 +1079,7 @@ export default function MonthlyReportPage() {
                     ? { ...reportData, workshops: filteredWorkshops }
                     : reportData
                 }
+                selectedPhaseOption={selectedPhaseOption}
               />
             </Box>
 
@@ -1083,6 +1090,7 @@ export default function MonthlyReportPage() {
                     ? { ...reportData, workshops: filteredWorkshops }
                     : reportData
                 }
+                selectedPhaseOption={selectedPhaseOption}
               />
             </Box>
 
@@ -1093,6 +1101,7 @@ export default function MonthlyReportPage() {
                     ? { ...reportData, workshops: filteredWorkshops }
                     : reportData
                 }
+                selectedPhaseOption={selectedPhaseOption}
               />
             </Box>
 
@@ -1118,6 +1127,12 @@ export default function MonthlyReportPage() {
             workshopStatsRef,
             imagesRef,
           }}
+        />
+
+        <PhaseSelectionBubble
+          phases={reportData?.phases || []}
+          selectedOption={selectedPhaseOption}
+          onOptionChange={handlePhaseOptionChange}
         />
       </Container>
     </Box>
