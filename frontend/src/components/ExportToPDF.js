@@ -12,7 +12,7 @@ export default class ExportToPDF {
       @media print {
         @page {
           size: landscape;
-          margin: 10mm;
+          margin: 8mm;
         }
 
         body {
@@ -35,14 +35,14 @@ export default class ExportToPDF {
         .chart-page {
           page-break-before: always;
           page-break-inside: avoid;
-          min-height: calc(100vh - 20mm) !important; /* Account for page margins */
+          min-height: calc(100vh - 16mm) !important;
           width: 100% !important;
           display: flex !important;
           flex-direction: column !important;
-          justify-content: center !important; /* Center vertically */
+          justify-content: center !important;
           align-items: center !important;
           box-sizing: border-box !important;
-          padding: 0 !important; /* Remove padding to allow true centering */
+          padding: 0 !important;
         }
 
         .chart-page:first-child {
@@ -50,17 +50,18 @@ export default class ExportToPDF {
         }
 
         .chart-title {
-          font-size: 16pt !important;
+          font-size: 20pt !important;
           font-weight: bold !important;
           text-align: center !important;
-          margin: 0 0 20mm 0 !important; /* Add bottom margin for spacing */
+          margin: 0 0 10mm 0 !important;
           color: black !important;
           display: block !important;
           width: 100% !important;
         }
 
         .chart-container {
-          width: 85% !important; /* Slightly reduce width for better margins */
+          width: 98% !important;
+          height: 82vh !important;
           display: flex !important;
           justify-content: center !important;
           align-items: center !important;
@@ -70,9 +71,15 @@ export default class ExportToPDF {
 
         canvas {
           max-width: 100% !important;
+          max-height: 100% !important;
           height: auto !important;
           display: block !important;
           margin: 0 auto !important;
+        }
+
+        [data-chart-id="green-star-chart"] .chart-container,
+        [data-chart-id="error-stats-chart"] .chart-container {
+          height: 85vh !important;
         }
 
         /* Remove other titles */

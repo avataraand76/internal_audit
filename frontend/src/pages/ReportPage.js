@@ -1092,6 +1092,7 @@ export default function MonthlyReportPage() {
                 month={selectedMonth}
                 year={year}
                 selectedPhaseOption={selectedPhaseOption}
+                onPhaseChange={handlePhaseOptionChange}
               />
             </Box>
           </>

@@ -110,7 +110,13 @@ const ImageFrame = ({ src, title, type }) => {
   );
 };
 
-const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
+const ViolationImages = ({
+  reportData,
+  month,
+  year,
+  selectedPhaseOption,
+  onPhaseChange,
+}) => {
   const imagesRef = useRef(null);
   const [violationImages, setViolationImages] = useState({});
   const [expandedWorkshop, setExpandedWorkshop] = useState(false);
@@ -176,11 +182,12 @@ const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
       document.body.appendChild(printContainer);
 
       const pdfTitle = isSIGPOnly
-        ? `BÁO CÁO HÌNH ẢNH VI PHẠM SIGP<br/>${month}/${year} ĐỢT ${selectedPhase}`
-        : `BÁO CÁO HÌNH ẢNH VI PHẠM<br/>${month}/${year} ĐỢT ${selectedPhase}`;
+        ? `BÁO CÁO HÌNH ẢNH VI PHẠM SIGP<br/>${month}/${year}<br/>${selectedPhase}`
+        : `BÁO CÁO HÌNH ẢNH VI PHẠM<br/>${month}/${year}<br/>${selectedPhase}`;
 
       // Add header
       const header = document.createElement("div");
+      header.className = "pdf-header";
       header.innerHTML = `<h1>${pdfTitle}</h1>`;
       printContainer.appendChild(header);
 
@@ -193,6 +200,7 @@ const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
 
       Object.entries(filteredWorkshops).forEach(
         ([workshopName, departments]) => {
+          // Create workshop section
           const workshopSection = document.createElement("div");
           workshopSection.className = "workshop-section";
           workshopSection.innerHTML = `<div class="workshop-title">${workshopName}</div>`;
@@ -227,47 +235,47 @@ const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
                   });
 
                   criteriaSection.innerHTML = `
-                <div class="criteria-title">${images.codename} - ${
+                    <div class="criteria-title">${images.codename} - ${
                     images.criterionName
                   }</div>
-                <div class="images-content">
-                  <div class="violation-content">
-                    <div class="violation-label">Ảnh vi phạm:</div>
-                    <div class="images-grid">
-                      ${
-                        beforeUrls.length > 0
-                          ? beforeUrls
-                              .map(
-                                (url) => `
-                            <div class="image-wrapper">
-                              <img src="${url}" alt="Ảnh vi phạm"/>
-                            </div>`
-                              )
-                              .join("")
-                          : '<div class="no-image">Không có ảnh vi phạm</div>'
-                      }
+                    <div class="images-content">
+                      <div class="image-group">
+                        <div class="image-header violation-label">Ảnh vi phạm:</div>
+                        <div class="images-grid">
+                          ${
+                            beforeUrls.length > 0
+                              ? beforeUrls
+                                  .map(
+                                    (url) => `
+                              <div class="image-wrapper">
+                                <img src="${url}" alt="Ảnh vi phạm"/>
+                              </div>`
+                                  )
+                                  .join("")
+                              : '<div class="no-image">Không có ảnh vi phạm</div>'
+                          }
+                        </div>
+                      </div>
+                      
+                      <div class="image-group">
+                        <div class="image-header fix-label">Ảnh sau khắc phục:</div>
+                        <div class="images-grid">
+                          ${
+                            afterUrls.length > 0
+                              ? afterUrls
+                                  .map(
+                                    (url) => `
+                              <div class="image-wrapper">
+                                <img src="${url}" alt="Ảnh khắc phục"/>
+                              </div>`
+                                  )
+                                  .join("")
+                              : '<div class="no-image">Không có ảnh khắc phục</div>'
+                          }
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div class="remediation-content">
-                    <div class="fix-label">Ảnh sau khắc phục:</div>
-                    <div class="images-grid">
-                      ${
-                        afterUrls.length > 0
-                          ? afterUrls
-                              .map(
-                                (url) => `
-                            <div class="image-wrapper">
-                              <img src="${url}" alt="Ảnh khắc phục"/>
-                            </div>`
-                              )
-                              .join("")
-                          : '<div class="no-image">Không có ảnh khắc phục</div>'
-                      }
-                    </div>
-                  </div>
-                </div>
-              `;
+                  `;
                   deptSection.appendChild(criteriaSection);
                 }
               );
@@ -324,43 +332,118 @@ const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
           }
 
           /* Headers */
-          h1 {
+          .pdf-header {
+            position: relative;
+            top: 50mm;
+            width: 100%;
             text-align: center;
-            font-size: 24pt;
-            margin-bottom: 15mm;
-            color: black;
+            page-break-after: always;
+            background-color: white;
+            padding: 20mm 0;
+          }
+
+          .pdf-header h1 {
+            font-size: 24pt !important;
+            font-weight: bold !important;
+            line-height: 2 !important;
+            margin: 0 auto !important;
+            max-width: 80% !important;
+          }
+
+          /* Ensure content starts on a new page */
+          .print-content {
+            page-break-before: always;
+          }
+
+          /* Workshop section */
+          .workshop-section {
+            page-break-before: always;
+            break-inside: avoid;
+            page-break-inside: avoid;
           }
 
           .workshop-title {
             background-color: #1976d2 !important;
             color: white !important;
             padding: 3mm !important;
-            margin: 8mm 0 4mm 0 !important;
+            margin: 0 0 4mm 0 !important;
             border-radius: 2mm !important;
             font-size: 16pt !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+            page-break-after: avoid;
+          }
+
+          /* Department section */
+          .department-section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            margin-bottom: 6mm !important;
           }
 
           .department-title {
             background-color: #9c27b0 !important;
             color: white !important;
             padding: 2mm !important;
-            margin: 6mm 0 3mm 5mm !important;
+            margin: 0 0 3mm 0 !important;
             border-radius: 2mm !important;
             font-size: 14pt !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+            page-break-after: avoid;
+          }
+
+          /* Phase section */
+          .phase-title {
+            background-color: #4caf50 !important;
+            color: white !important;
+            padding: 2mm !important;
+            margin: 0 0 3mm 0 !important;
+            border-radius: 2mm !important;
+            font-size: 13pt !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            page-break-after: avoid;
+          }
+
+          /* Criteria section */
+          .criteria-section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            margin-bottom: 8mm !important;
           }
 
           .criteria-title {
             background-color: #f5f5f5 !important;
             padding: 2mm !important;
-            margin: 4mm 0 2mm 0 !important;
+            margin: 0 0 2mm 0 !important;
             border-radius: 2mm !important;
             font-size: 12pt !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+            page-break-after: avoid;
+          }
+
+          /* Images grid */
+          .images-grid {
+            display: grid !important;
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 3mm !important;
+            margin: 3mm 0 6mm 0 !important;
+            justify-items: center !important;
+          }
+
+          .image-wrapper {
+            width: 45mm !important;
+            height: 45mm !important;
+          }
+
+          .image-wrapper img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+            border: 1px solid #ddd !important;
+            background-color: white !important;
           }
 
           /* Labels */
@@ -382,34 +465,9 @@ const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
             print-color-adjust: exact !important;
           }
 
-          /* Images grid */
-          .images-grid {
-            display: grid !important;
-            grid-template-columns: repeat(2, 1fr) !important;
-            gap: 5mm !important;
-            margin: 3mm 0 6mm 0 !important;
-            justify-items: center !important;
-          }
-
-          .image-wrapper {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            width: auto !important;
-            max-width: auto !important;
-            margin-bottom: 5mm !important;
-          }
-
-          .image-wrapper img {
-            width: 80mm !important;
-            height: auto !important;
-            object-fit: contain !important;
-            border: 1px solid #ddd !important;
-            background-color: white !important;
-          }
-
           .no-image {
-            width: 80mm !important;
-            height: 50mm !important;
+            width: 45mm !important;
+            height: 45mm !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -418,13 +476,227 @@ const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
             border-radius: 2mm !important;
             color: #666 !important;
             font-style: italic !important;
+            text-align: center !important;
+            padding: 2mm !important;
           }
 
-          /* Page breaks */
+          /* Images content layout */
+          .images-content {
+            margin-top: 4mm !important;
+          }
+
+          .images-section {
+            margin-bottom: 8mm !important;
+          }
+
+          /* Labels */
+          .violation-label,
+          .fix-label {
+            background-color: #f5f5f5 !important;
+            padding: 2mm 4mm !important;
+            margin: 0 0 2mm 0 !important;
+            border-radius: 2mm !important;
+            font-weight: bold !important;
+            display: inline-block !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          .violation-label {
+            color: #d32f2f !important;
+            border: 4px solid #d32f2f !important;
+          }
+
+          .fix-label {
+            color: #2e7d32 !important;
+            border: 4px solid #2e7d32 !important;
+          }
+
+          /* Images grid */
+          .images-grid {
+            display: grid !important;
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 3mm !important;
+            margin: 3mm 0 !important;
+            justify-items: center !important;
+            background-color: #ffffff !important;
+            padding: 2mm !important;
+            border-radius: 2mm !important;
+          }
+
+          .image-wrapper {
+            width: 45mm !important;
+            height: 45mm !important;
+            background-color: white !important;
+            border: 1px solid #e0e0e0 !important;
+            border-radius: 1mm !important;
+            overflow: hidden !important;
+          }
+
+          .image-wrapper img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+          }
+
+          .no-image {
+            width: 45mm !important;
+            height: 45mm !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background-color: #f5f5f5 !important;
+            border: 1px dashed #ccc !important;
+            border-radius: 2mm !important;
+            color: #666 !important;
+            font-style: italic !important;
+            text-align: center !important;
+            padding: 2mm !important;
+          }
+
+          /* Criteria section */
           .criteria-section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            margin-bottom: 10mm !important;
+            background-color: #ffffff !important;
+            border-radius: 3mm !important;
+            padding: 3mm !important;
+          }
+
+          .criteria-title {
+            background-color: #f5f5f5 !important;
+            padding: 2mm !important;
+            margin: 0 !important;
+            border-radius: 2mm !important;
+            font-size: 12pt !important;
+            font-weight: bold !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            page-break-after: avoid;
+          }
+
+          /* Images content layout */
+          .images-content {
+            margin-top: 4mm !important;
+          }
+
+          /* Image group - giữ label và grid ảnh đi cùng nhau */
+          .image-group {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
             margin-bottom: 8mm !important;
+          }
+
+          /* Image header (labels) */
+          .image-header {
+            background-color: #f5f5f5 !important;
+            padding: 2mm 4mm !important;
+            margin: 0 0 2mm 0 !important;
+            border-radius: 2mm !important;
+            font-weight: bold !important;
+            display: block !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          .violation-label {
+            color: #d32f2f !important;
+            border: 4px solid #d32f2f !important;
+          }
+
+          .fix-label {
+            color: #2e7d32 !important;
+            border: 4px solid #2e7d32 !important;
+          }
+
+          /* Images grid */
+          .images-grid {
+            display: grid !important;
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 3mm !important;
+            margin: 0 !important; /* Giảm margin để gắn chặt với label */
+            padding: 2mm !important;
+            background-color: #ffffff !important;
+            border-radius: 2mm !important;
+          }
+
+          /* Criteria section */
+          .criteria-section {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            margin-bottom: 10mm !important;
+            background-color: #ffffff !important;
+            border-radius: 3mm !important;
+            padding: 3mm !important;
+          }
+
+          /* Đảm bảo không có page break giữa title và content */
+          .criteria-title {
+            background-color: #f5f5f5 !important;
+            padding: 2mm !important;
+            margin: 0 0 4mm 0 !important;
+            border-radius: 2mm !important;
+            font-size: 12pt !important;
+            font-weight: bold !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            page-break-after: avoid !important;
+          }
+
+          /* Image wrapper styles */
+          .image-wrapper {
+            width: 45mm !important;
+            height: 45mm !important;
+            background-color: white !important;
+            border: 1px solid #e0e0e0 !important;
+            border-radius: 1mm !important;
+            overflow: hidden !important;
+          }
+
+          .image-wrapper img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+          }
+
+          .no-image {
+            width: 45mm !important;
+            height: 45mm !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background-color: #f5f5f5 !important;
+            border: 1px dashed #ccc !important;
+            border-radius: 2mm !important;
+            color: #666 !important;
+            font-style: italic !important;
+            text-align: center !important;
+            padding: 2mm !important;
+          }
+
+          /* Header styles */
+          .pdf-header {
+            position: relative;
+            top: 50mm;
+            width: 100%;
+            text-align: center;
+            page-break-after: always;
+            background-color: white;
+            padding: 20mm 0;
+          }
+
+          .pdf-header h1 {
+            font-size: 24pt !important;
+            font-weight: bold !important;
+            line-height: 2 !important;
+            margin: 0 auto !important;
+            max-width: 80% !important;
+          }
+
+          /* Ensure content starts on a new page */
+          .print-content {
+            page-break-before: always;
           }
         }
       `;
@@ -590,6 +862,7 @@ const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
 
       // Add header
       const header = document.createElement("div");
+      header.className = "pdf-header";
       header.innerHTML = `<h1>${pdfTitle}</h1>`;
       printContainer.appendChild(header);
 
@@ -641,8 +914,8 @@ const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
               images.criterionName
             }</div>
               <div class="images-content">
-                <div class="violation-content">
-                  <div class="violation-label">Ảnh vi phạm:</div>
+                <div class="image-group">
+                  <div class="image-header violation-label">Ảnh vi phạm:</div>
                   <div class="images-grid">
                     ${
                       beforeUrls.length > 0
@@ -659,8 +932,8 @@ const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
                   </div>
                 </div>
                 
-                <div class="remediation-content">
-                  <div class="fix-label">Ảnh sau khắc phục:</div>
+                <div class="image-group">
+                  <div class="image-header fix-label">Ảnh sau khắc phục:</div>
                   <div class="images-grid">
                     ${
                       afterUrls.length > 0
@@ -690,7 +963,7 @@ const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
       // Wait for all images to load
       await Promise.all(loadImagePromises);
 
-      // Add print styles (giữ nguyên styles hiện tại và thêm styles cho phase)
+      // Add print styles
       const style = document.createElement("style");
       style.id = "print-styles-workshop-images";
       style.textContent = `
@@ -736,38 +1009,82 @@ const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
             font-size: 24pt;
             margin-bottom: 15mm;
             color: black;
+            page-break-after: avoid;
           }
 
-          .workshop-title {
-            background-color: #1976d2 !important;
-            color: white !important;
-            padding: 3mm !important;
-            margin: 8mm 0 4mm 0 !important;
-            border-radius: 2mm !important;
-            font-size: 16pt !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+          /* Department section */
+          .department-section {
+            page-break-before: always;
           }
 
           .department-title {
             background-color: #9c27b0 !important;
             color: white !important;
             padding: 2mm !important;
-            margin: 6mm 0 3mm 5mm !important;
+            margin: 0 0 3mm 0 !important;
             border-radius: 2mm !important;
             font-size: 14pt !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+            page-break-after: avoid;
+          }
+
+          /* Phase section */
+          .phase-section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .phase-title {
+            background-color: #4caf50 !important;
+            color: white !important;
+            padding: 2mm !important;
+            margin: 4mm 0 3mm 0 !important;
+            border-radius: 2mm !important;
+            font-size: 13pt !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            page-break-after: avoid;
+          }
+
+          /* Criteria section */
+          .criteria-section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            margin-bottom: 8mm !important;
           }
 
           .criteria-title {
             background-color: #f5f5f5 !important;
             padding: 2mm !important;
-            margin: 4mm 0 2mm 0 !important;
+            margin: 0 0 2mm 0 !important;
             border-radius: 2mm !important;
             font-size: 12pt !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+            page-break-after: avoid;
+          }
+
+          /* Images grid */
+          .images-grid {
+            display: grid !important;
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 3mm !important;
+            margin: 3mm 0 6mm 0 !important;
+            justify-items: center !important;
+          }
+
+          .image-wrapper {
+            width: 45mm !important;
+            height: 45mm !important;
+          }
+
+          .image-wrapper img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+            border: 1px solid #ddd !important;
+            background-color: white !important;
           }
 
           /* Labels */
@@ -789,34 +1106,9 @@ const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
             print-color-adjust: exact !important;
           }
 
-          /* Images grid */
-          .images-grid {
-            display: grid !important;
-            grid-template-columns: repeat(2, 1fr) !important;
-            gap: 5mm !important;
-            margin: 3mm 0 6mm 0 !important;
-            justify-items: center !important;
-          }
-
-          .image-wrapper {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            width: auto !important;
-            max-width: auto !important;
-            margin-bottom: 5mm !important;
-          }
-
-          .image-wrapper img {
-            width: 80mm !important;
-            height: auto !important;
-            object-fit: contain !important;
-            border: 1px solid #ddd !important;
-            background-color: white !important;
-          }
-
           .no-image {
-            width: 80mm !important;
-            height: 50mm !important;
+            width: 45mm !important;
+            height: 45mm !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -825,25 +1117,227 @@ const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
             border-radius: 2mm !important;
             color: #666 !important;
             font-style: italic !important;
+            text-align: center !important;
+            padding: 2mm !important;
           }
 
-          /* Page breaks */
+          /* Images content layout */
+          .images-content {
+            margin-top: 4mm !important;
+          }
+
+          .images-section {
+            margin-bottom: 8mm !important;
+          }
+
+          /* Labels */
+          .violation-label,
+          .fix-label {
+            background-color: #f5f5f5 !important;
+            padding: 2mm 4mm !important;
+            margin: 0 0 2mm 0 !important;
+            border-radius: 2mm !important;
+            font-weight: bold !important;
+            display: inline-block !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          .violation-label {
+            color: #d32f2f !important;
+            border: 4px solid #d32f2f !important;
+          }
+
+          .fix-label {
+            color: #2e7d32 !important;
+            border: 4px solid #2e7d32 !important;
+          }
+
+          /* Images grid */
+          .images-grid {
+            display: grid !important;
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 3mm !important;
+            margin: 3mm 0 !important;
+            justify-items: center !important;
+            background-color: #ffffff !important;
+            padding: 2mm !important;
+            border-radius: 2mm !important;
+          }
+
+          .image-wrapper {
+            width: 45mm !important;
+            height: 45mm !important;
+            background-color: white !important;
+            border: 1px solid #e0e0e0 !important;
+            border-radius: 1mm !important;
+            overflow: hidden !important;
+          }
+
+          .image-wrapper img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+          }
+
+          .no-image {
+            width: 45mm !important;
+            height: 45mm !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background-color: #f5f5f5 !important;
+            border: 1px dashed #ccc !important;
+            border-radius: 2mm !important;
+            color: #666 !important;
+            font-style: italic !important;
+            text-align: center !important;
+            padding: 2mm !important;
+          }
+
+          /* Criteria section */
           .criteria-section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            margin-bottom: 10mm !important;
+            background-color: #ffffff !important;
+            border-radius: 3mm !important;
+            padding: 3mm !important;
+          }
+
+          .criteria-title {
+            background-color: #f5f5f5 !important;
+            padding: 2mm !important;
+            margin: 0 !important;
+            border-radius: 2mm !important;
+            font-size: 12pt !important;
+            font-weight: bold !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            page-break-after: avoid;
+          }
+
+          /* Images content layout */
+          .images-content {
+            margin-top: 4mm !important;
+          }
+
+          /* Image group - giữ label và grid ảnh đi cùng nhau */
+          .image-group {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
             margin-bottom: 8mm !important;
           }
 
-          /* Thêm styles cho phase */
-          .phase-title {
-            background-color: #4caf50 !important;
-            color: white !important;
-            padding: 2mm !important;
-            margin: 4mm 0 2mm 10mm !important;
+          /* Image header (labels) */
+          .image-header {
+            background-color: #f5f5f5 !important;
+            padding: 2mm 4mm !important;
+            margin: 0 0 2mm 0 !important;
             border-radius: 2mm !important;
-            font-size: 13pt !important;
+            font-weight: bold !important;
+            display: block !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+          }
+
+          .violation-label {
+            color: #d32f2f !important;
+            border: 4px solid #d32f2f !important;
+          }
+
+          .fix-label {
+            color: #2e7d32 !important;
+            border: 4px solid #2e7d32 !important;
+          }
+
+          /* Images grid */
+          .images-grid {
+            display: grid !important;
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 3mm !important;
+            margin: 0 !important;
+            padding: 2mm !important;
+            background-color: #ffffff !important;
+            border-radius: 2mm !important;
+          }
+
+          /* Criteria section */
+          .criteria-section {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            margin-bottom: 10mm !important;
+            background-color: #ffffff !important;
+            border-radius: 3mm !important;
+            padding: 3mm !important;
+          }
+
+          /* Đảm bảo không có page break giữa title và content */
+          .criteria-title {
+            background-color: #f5f5f5 !important;
+            padding: 2mm !important;
+            margin: 0 0 4mm 0 !important;
+            border-radius: 2mm !important;
+            font-size: 12pt !important;
+            font-weight: bold !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            page-break-after: avoid !important;
+          }
+
+          /* Image wrapper styles */
+          .image-wrapper {
+            width: 45mm !important;
+            height: 45mm !important;
+            background-color: white !important;
+            border: 1px solid #e0e0e0 !important;
+            border-radius: 1mm !important;
+            overflow: hidden !important;
+          }
+
+          .image-wrapper img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+          }
+
+          .no-image {
+            width: 45mm !important;
+            height: 45mm !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background-color: #f5f5f5 !important;
+            border: 1px dashed #ccc !important;
+            border-radius: 2mm !important;
+            color: #666 !important;
+            font-style: italic !important;
+            text-align: center !important;
+            padding: 2mm !important;
+          }
+
+          /* Header styles */
+          .pdf-header {
+            position: relative;
+            top: 50mm;
+            width: 100%;
+            text-align: center;
+            page-break-after: always;
+            background-color: white;
+            padding: 20mm 0;
+          }
+
+          .pdf-header h1 {
+            font-size: 24pt !important;
+            font-weight: bold !important;
+            line-height: 2 !important;
+            margin: 0 auto !important;
+            max-width: 80% !important;
+          }
+
+          /* Ensure content starts on a new page */
+          .print-content {
+            page-break-before: always;
           }
         }
       `;
@@ -865,7 +1359,7 @@ const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
     }
   };
 
-  // Add useEffect to watch selectedPhaseOption changes
+  // Cập nhật useEffect cho việc thay đổi phase
   useEffect(() => {
     if (selectedPhaseOption && selectedPhaseOption.startsWith("phase-")) {
       const phaseName = reportData.phases.find(
@@ -879,6 +1373,16 @@ const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
       }
     }
   }, [selectedPhaseOption, reportData.phases]);
+
+  // Thêm handler cho việc thay đổi phase trong ViolationImages
+  const handlePhaseChange = (newPhase) => {
+    setSelectedPhase(newPhase);
+    // Tìm phase ID tương ứng và cập nhật selectedPhaseOption
+    const phase = reportData.phases.find((p) => p.name_phase === newPhase);
+    if (phase) {
+      onPhaseChange(`phase-${phase.id_phase}`);
+    }
+  };
 
   // Return main component UI
   return (
@@ -914,11 +1418,7 @@ const ViolationImages = ({ reportData, month, year, selectedPhaseOption }) => {
               {reportData.phases.map((phase) => (
                 <Button
                   key={phase.id_phase}
-                  onClick={() => {
-                    setSelectedPhase(phase.name_phase);
-                    setExpandedWorkshop(false);
-                    setExpandedDepartment(false);
-                  }}
+                  onClick={() => handlePhaseChange(phase.name_phase)}
                   variant={
                     selectedPhase === phase.name_phase
                       ? "contained"
