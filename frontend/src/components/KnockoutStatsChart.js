@@ -249,6 +249,8 @@ const KnockoutStatsChart = ({ reportData, selectedPhaseOption }) => {
           display: false,
         },
         tooltip: {
+          position: "nearest",
+          mode: "index",
           callbacks: {
             label: (context) => {
               const dataIndex = context.dataIndex;

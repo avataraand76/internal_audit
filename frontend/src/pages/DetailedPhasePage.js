@@ -575,6 +575,9 @@ const DetailedPhasePage = () => {
     setIsUploading(true);
 
     try {
+      // Tránh gọi API nhiều lần
+      if (isUploading) return;
+
       const formData = new FormData();
 
       // Process each image for upload
@@ -604,57 +607,33 @@ const DetailedPhasePage = () => {
       formData.append("criterionId", selectedCriterion.id);
 
       // Upload images to Google Drive
-      const uploadResponse = await axios.post(`${API_URL}/upload`, formData, {
+      const response = await axios.post(`${API_URL}/upload`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
 
-      if (uploadResponse.data.success) {
-        const newImageUrls = uploadResponse.data.uploadedFiles.map(
-          (file) => file.webViewLink
-        );
-
-        // Get existing imgURL_after
-        const existingImagesResponse = await axios.get(
-          `${API_URL}/phase-details-images/${phaseId}/${selectedDepartment.id}/${selectedCriterion.id}`
-        );
-
-        let existingUrls = [];
-        if (existingImagesResponse.data.imgURL_after) {
-          existingUrls = existingImagesResponse.data.imgURL_after.split("; ");
-        }
-
-        // Combine existing and new URLs
-        const allUrls = [...existingUrls, ...newImageUrls];
-
-        // Cập nhật trạng thái trong database
-        await axios.post(`${API_URL}/phase-details`, {
-          id_department: selectedDepartment.id,
-          id_criteria: selectedCriterion.id,
-          id_phase: phaseId,
-          id_user: user.id_user,
-          date_updated: new Date().toISOString(),
-          status_phase_details: "ĐÃ KHẮC PHỤC",
-          imgURL_after: allUrls.join("; "),
-        });
-
-        // Cập nhật state criteriaStatuses
-        setCriteriaStatuses((prev) => ({
-          ...prev,
-          [selectedCriterion.id]: "ĐÃ KHẮC PHỤC",
-        }));
-
-        // Refresh hình ảnh hiển thị
-        await fetchCriterionImages(selectedDepartment.id, selectedCriterion.id);
-
+      if (response.data.success) {
+        // Reset state sau khi upload thành công
+        setSelectedImages([]);
         setIsUploading(false);
-        handleCloseDialog();
+        // Refresh data nếu cần
+        if (selectedDepartment && selectedCriterion) {
+          await fetchCriterionStatus(
+            selectedDepartment.id,
+            selectedCriterion.id
+          );
+          await fetchCriterionImages(
+            selectedDepartment.id,
+            selectedCriterion.id
+          );
+        }
       }
     } catch (error) {
-      console.error("Error in handleRemediate:", error);
+      console.error("Upload error:", error);
+      alert("Không thể tải ảnh lên. Vui lòng thử lại.");
+    } finally {
       setIsUploading(false);
-      alert("Có lỗi xảy ra khi xử lý ảnh khắc phục. Vui lòng thử lại.");
     }
   };
 
@@ -1475,86 +1454,48 @@ const DetailedPhasePage = () => {
     }
   };
 
-  const handleAdditionalImages = async () => {
-    if (!selectedImages.length) {
-      alert("Vui lòng chụp hoặc tải ảnh lên trước khi bổ sung.");
-      return;
-    }
-
-    setIsUploading(true);
+  const handleSupplementaryUpload = async () => {
+    // Prevent double submission
+    if (isUploading) return;
 
     try {
+      setIsUploading(true);
+
       const formData = new FormData();
 
-      // Process each image for upload
-      for (const image of selectedImages) {
-        let file;
+      // Thêm ảnh vào formData
+      selectedImages.forEach((image) => {
         if (image.file) {
-          file = image.file;
-        } else if (image.url && image.url.startsWith("data:image")) {
-          const response = await fetch(image.url);
-          const blob = await response.blob();
-          file = new File([blob], image.name, { type: "image/jpeg" });
+          formData.append("photos", image.file);
         }
+      });
 
-        if (file) {
-          formData.append("photos", file);
-        }
-      }
-
+      // Thêm thông tin khác
       formData.append("phase", phase?.name_phase || "");
       formData.append("department", selectedDepartment?.name || "");
       formData.append("criteria", selectedCriterion?.codename || "");
-      formData.append("isRemediation", "false");
-      // Add IDs for counting existing images
+      formData.append("isRemediation", "false"); // hoặc "true" tùy trường hợp
       formData.append("phaseId", phaseId);
       formData.append("departmentId", selectedDepartment.id);
       formData.append("criterionId", selectedCriterion.id);
 
-      // Upload images to Google Drive
-      const uploadResponse = await axios.post(`${API_URL}/upload`, formData, {
+      // Gọi API một lần duy nhất
+      const response = await axios.post(`${API_URL}/upload`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
 
-      if (uploadResponse.data.success) {
-        const imageUrls = uploadResponse.data.uploadedFiles.map(
-          (file) => file.webViewLink
-        );
-
-        // Get existing imgURL_before
-        const existingImagesResponse = await axios.get(
-          `${API_URL}/phase-details-images/${phaseId}/${selectedDepartment.id}/${selectedCriterion.id}`
-        );
-
-        let existingUrls = [];
-        if (existingImagesResponse.data.imgURL_before) {
-          existingUrls = existingImagesResponse.data.imgURL_before.split("; ");
-        }
-
-        // Combine existing and new URLs
-        const allUrls = [...existingUrls, ...imageUrls];
-
-        // Update database with combined URLs
-        await axios.post(`${API_URL}/save-image-urls`, {
-          id_department: selectedDepartment.id,
-          id_criteria: selectedCriterion.id,
-          id_phase: phaseId,
-          imageUrls: allUrls,
-        });
-
-        // Refresh images display
-        await fetchCriterionImages(selectedDepartment.id, selectedCriterion.id);
-
-        setIsUploading(false);
+      if (response.data.success) {
         setSelectedImages([]);
-        // Không đóng dialog để người dùng có thể tiếp tục thêm ảnh nếu cần
+        // Refresh data
+        await fetchCriterionImages(selectedDepartment.id, selectedCriterion.id);
       }
     } catch (error) {
-      console.error("Error in handleAdditionalImages:", error);
+      console.error("Upload error:", error);
+      alert("Không thể tải ảnh lên. Vui lòng thử lại.");
+    } finally {
       setIsUploading(false);
-      alert("Có lỗi xảy ra khi bổ sung ảnh. Vui lòng thử lại.");
     }
   };
 
@@ -2285,7 +2226,7 @@ const DetailedPhasePage = () => {
                 criterionStatus !== "ĐÃ KHẮC PHỤC" &&
                 isWithinTimeLimit() && (
                   <Button
-                    onClick={() => handleAdditionalImages()}
+                    onClick={() => handleSupplementaryUpload()}
                     variant="outlined"
                     color="primary"
                     disabled={

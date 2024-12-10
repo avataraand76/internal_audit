@@ -112,6 +112,8 @@ const Chart = ({ title, data }) => {
         display: false,
       },
       tooltip: {
+        position: "nearest",
+        mode: "index",
         callbacks: {
           label: function (context) {
             return `Điểm đạt: ${context.parsed.y}%`;

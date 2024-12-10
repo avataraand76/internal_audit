@@ -379,15 +379,13 @@ const WorkshopStatistics = ({ reportData, selectedPhaseOption }) => {
         backgroundColor: (context) => {
           // Use a different color for the total column
           return context.index === greenStarDepts.length
-            ? "#FFA000"
-            : "#4CAF50";
+            ? "#FFD700"
+            : "#009900";
         },
         borderColor: (context) => {
-          return context.index === greenStarDepts.length
-            ? "#F57C00"
-            : "#388E3C";
+          return context.index === greenStarDepts.length ? "#000" : "#009900";
         },
-        borderWidth: 1,
+        borderWidth: 2,
         barThickness: 40,
       },
     ],
@@ -427,6 +425,8 @@ const WorkshopStatistics = ({ reportData, selectedPhaseOption }) => {
         display: false,
       },
       tooltip: {
+        position: "nearest",
+        mode: "index",
         callbacks: {
           label: (context) => {
             if (context.dataIndex === greenStarDepts.length) {
@@ -498,6 +498,8 @@ const WorkshopStatistics = ({ reportData, selectedPhaseOption }) => {
         display: false,
       },
       tooltip: {
+        position: "nearest",
+        mode: "index",
         callbacks: {
           label: (context) => {
             const labels = [];

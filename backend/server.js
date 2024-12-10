@@ -13,6 +13,7 @@ const axios = require("axios");
 const axiosRetry = require("axios-retry").default;
 const { Readable } = require("stream");
 const { GoogleSpreadsheet } = require("google-spreadsheet");
+const util = require("util");
 
 // Configure axios retry
 axiosRetry(axios, {
@@ -820,7 +821,7 @@ app.post("/phase-details", (req, res) => {
     let params;
 
     if (clearBefore) {
-      // When marking as "đạt", clear imgURL_before
+      // When marking as "đạt", clear both imgURL_before and description_before
       query = `
         INSERT INTO tb_phase_details (
           id_department, 
@@ -830,14 +831,16 @@ app.post("/phase-details", (req, res) => {
           is_fail, 
           date_updated,
           status_phase_details,
-          imgURL_before
+          imgURL_before,
+          description_before
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL)
         ON DUPLICATE KEY UPDATE
         is_fail = VALUES(is_fail),
         date_updated = VALUES(date_updated),
         status_phase_details = VALUES(status_phase_details),
-        imgURL_before = NULL
+        imgURL_before = NULL,
+        description_before = NULL
       `;
       params = [
         id_department,
@@ -1700,64 +1703,101 @@ async function uploadToDrive(fileBuffer, fileName, folderId, phaseInfo = {}) {
 
 // Hàm để xử lý upload song song với giới hạn
 async function uploadFilesInParallel(files, phaseInfo = {}) {
+  const startTime = Date.now();
+  console.log(`\nStarting batch upload of ${files.length} files...`);
+
   const results = {
     uploadedFiles: [],
     errors: [],
   };
 
-  // Chia files thành chunks nhỏ hơn
-  const chunks = chunkArray(files, RETRY_CONFIG.chunkSize);
+  // Sắp xếp files theo ID
+  const sortedFiles = [...files].sort((a, b) => {
+    const idA = parseInt(a.originalname.match(/^new-(\d+)/)?.[1] || "0");
+    const idB = parseInt(b.originalname.match(/^new-(\d+)/)?.[1] || "0");
+    return idA - idB;
+  });
 
-  for (const chunk of chunks) {
-    // Upload song song trong chunk
-    const promises = chunk.map((file) => {
-      const fileStartTime = Date.now(); // Thêm tracking thời gian
+  // Sinh tên file tuần tự trước
+  const preparedFiles = await Promise.all(
+    sortedFiles.map(async (file, index) => {
+      const filename = await generateFileName(
+        file.originalname,
+        index,
+        phaseInfo.isRemediation,
+        phaseInfo,
+        phaseInfo.phaseId,
+        phaseInfo.departmentId,
+        phaseInfo.criterionId
+      );
+      return {
+        ...file,
+        generatedFileName: filename,
+      };
+    })
+  );
 
-      return uploadToDrive(file.buffer, file.originalname, FOLDER_ID, phaseInfo)
-        .then((result) => {
-          const uploadTime = (Date.now() - fileStartTime) / 1000; // Tính thời gian
+  // Chia files thành các chunks để upload song song
+  const chunks = chunkArray(preparedFiles, RETRY_CONFIG.chunkSize);
 
-          // Log thành công
-          console.log(
-            `Successfully uploaded: ${
-              file.originalname
-            } in ${uploadTime.toFixed(2)}s`
-          );
+  for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+    const chunk = chunks[chunkIndex];
+    console.log(
+      `\nProcessing chunk ${chunkIndex + 1}/${chunks.length} (${
+        chunk.length
+      } files)`
+    );
 
-          results.uploadedFiles.push({
-            ...result,
-            originalName: file.originalname,
-            size: file.size,
-            uploadTime: uploadTime, // Thêm thời gian vào kết quả
-          });
-        })
-        .catch((error) => {
-          const uploadTime = (Date.now() - fileStartTime) / 1000;
+    const promises = chunk.map(async (file) => {
+      const fileStartTime = Date.now();
+      try {
+        console.log(`Uploading ${file.generatedFileName}...`);
 
-          // Log lỗi với thời gian
-          console.error(
-            `Error uploading ${file.originalname} after ${uploadTime.toFixed(
-              2
-            )}s:`,
-            error.message
-          );
+        const result = await uploadToDrive(
+          file.buffer,
+          file.generatedFileName,
+          FOLDER_ID,
+          phaseInfo
+        );
 
-          results.errors.push({
-            filename: file.originalname,
-            error: error.message,
-            uploadTime: uploadTime, // Thêm thời gian vào error log
-          });
+        const uploadTime = (Date.now() - fileStartTime) / 1000;
+        console.log(
+          `Successfully uploaded ${
+            file.generatedFileName
+          } in ${uploadTime.toFixed(2)}s`
+        );
+
+        results.uploadedFiles.push({
+          ...result,
+          originalName: file.originalname,
+          size: file.size,
+          uploadTime,
         });
+      } catch (error) {
+        const uploadTime = (Date.now() - fileStartTime) / 1000;
+        console.error(
+          `Error uploading ${file.originalname} after ${uploadTime.toFixed(
+            2
+          )}s:`,
+          error.message
+        );
+        results.errors.push({
+          filename: file.originalname,
+          error: error.message,
+          uploadTime,
+        });
+      }
     });
 
-    // Xử lý từng chunk
     await Promise.all(promises);
-
-    // Nghỉ ngắn giữa các chunks
-    if (chunks.indexOf(chunk) < chunks.length - 1) {
-      await sleep(500);
-    }
   }
+
+  const totalTime = (Date.now() - startTime) / 1000;
+  console.log(
+    `\nBatch upload completed in ${totalTime.toFixed(2)}s:`,
+    `${results.uploadedFiles.length} successful,`,
+    `${results.errors.length} failed`
+  );
 
   return results;
 }
@@ -1802,28 +1842,29 @@ async function getExistingImageCount(
     const [imagesResponse] = await new Promise((resolve, reject) => {
       pool.query(
         `SELECT 
-          COALESCE(
-            CASE 
-              WHEN ? = true THEN 
-                NULLIF(LENGTH(imgURL_after) - LENGTH(REPLACE(imgURL_after, ';', '')) + 1, 1)
-              ELSE 
-                NULLIF(LENGTH(imgURL_before) - LENGTH(REPLACE(imgURL_before, ';', '')) + 1, 1)
-            END,
-            0
-          ) as count
-        FROM tb_phase_details 
-        WHERE id_phase = ? 
-        AND id_department = ? 
-        AND id_criteria = ?`,
+          IF(? = true, description_after, description_before) as descriptions
+         FROM tb_phase_details 
+         WHERE id_phase = ? AND id_department = ? AND id_criteria = ?`,
         [isRemediation, phaseId, departmentId, criterionId],
         (err, results) => {
           if (err) reject(err);
-          else resolve([results]);
+          else resolve([results[0], null]);
         }
       );
     });
 
-    return imagesResponse[0]?.count || 0;
+    if (!imagesResponse?.descriptions) return 0;
+
+    // Split descriptions và lọc ra các số
+    const numbers = imagesResponse.descriptions
+      .split(";")
+      .map((desc) => {
+        const match = desc.match(/(?:vi phạm|khắc phục)\s+(\d+)/);
+        return match ? parseInt(match[1]) : 0;
+      })
+      .filter((num) => !isNaN(num));
+
+    return Math.max(0, ...numbers);
   } catch (error) {
     console.error("Error getting existing image count:", error);
     return 0;
@@ -1843,16 +1884,21 @@ const generateFileName = async (
   const ext = originalName.split(".").pop();
   const prefix = isRemediation ? "Hình ảnh khắc phục" : "Hình ảnh vi phạm";
 
-  // Get existing count based on type
-  const existingCount = await getExistingImageCount(
+  // Get current max number from database
+  const maxNumber = await getExistingImageCount(
     phaseId,
     departmentId,
     criterionId,
     isRemediation
   );
-  const imageNumber = existingCount + index + 1;
 
-  return `${prefix} ${imageNumber} - Đợt ${phaseInfo.phase} - ${phaseInfo.department} - ${phaseInfo.criteria}.${ext}`;
+  // Generate unique filename with sequential numbering
+  const newNumber = maxNumber + index + 1;
+
+  // Get unique ID for timestamp
+  const timestamp = `${Date.now()}${process.hrtime()[1]}`;
+
+  return `${prefix} ${newNumber} - Đợt ${phaseInfo.phase} - ${phaseInfo.department} - ${phaseInfo.criteria} - ${timestamp}.${ext}`;
 };
 
 // Upload endpoint
@@ -1878,9 +1924,9 @@ app.post("/upload", upload.array("photos", 20), async (req, res) => {
 
     // Lấy thông tin từ body request
     const phaseInfo = {
-      phase: req.body.phase || "", // Tên đợt
-      department: req.body.department || "", // Tên bộ phận
-      criteria: req.body.criteria || "", // Tên tiêu chí
+      phase: req.body.phase || "",
+      department: req.body.department || "",
+      criteria: req.body.criteria || "",
     };
 
     // Lấy số ảnh hiện có của tiêu chí này
@@ -1909,7 +1955,13 @@ app.post("/upload", upload.array("photos", 20), async (req, res) => {
     // Upload files song song
     const { uploadedFiles, errors } = await uploadFilesInParallel(
       modifiedFiles,
-      phaseInfo
+      {
+        ...phaseInfo,
+        isRemediation,
+        phaseId,
+        departmentId,
+        criterionId,
+      }
     );
 
     const totalTime = (Date.now() - startTime) / 1000;
@@ -1917,8 +1969,8 @@ app.post("/upload", upload.array("photos", 20), async (req, res) => {
       `\nTOTAL UPLOAD PROCESS COMPLETED IN ${totalTime.toFixed(2)} SECONDS`
     );
 
-    // Send response
-    res.json({
+    // Prepare response data
+    const responseData = {
       success: uploadedFiles.length > 0,
       folderId: FOLDER_ID,
       uploadedFiles,
@@ -1936,19 +1988,78 @@ app.post("/upload", upload.array("photos", 20), async (req, res) => {
               ).toFixed(2)
             : 0,
       },
-    });
+    };
+
+    // Update database
+    try {
+      const description = uploadedFiles.map((file) => file.name).join("; ");
+      const urls = uploadedFiles.map((file) => file.webViewLink).join("; ");
+
+      const query = util.promisify(pool.query).bind(pool);
+
+      // Lấy dữ liệu hiện tại trước khi update
+      const [currentData] = await query(
+        "SELECT imgURL_before, description_before, imgURL_after, description_after FROM tb_phase_details WHERE id_phase = ? AND id_department = ? AND id_criteria = ?",
+        [phaseId, departmentId, criterionId]
+      );
+
+      if (isRemediation) {
+        // Nối thêm URLs và descriptions mới cho ảnh khắc phục
+        const newUrls = currentData?.imgURL_after
+          ? `${currentData.imgURL_after}; ${urls}`
+          : urls;
+        const newDescriptions = currentData?.description_after
+          ? `${currentData.description_after}; ${description}`
+          : description;
+
+        // Update cả trạng thái và ảnh khắc phục
+        await query(
+          `UPDATE tb_phase_details 
+           SET imgURL_after = ?, 
+               description_after = ?,
+               status_phase_details = 'ĐÃ KHẮC PHỤC'
+           WHERE id_phase = ? AND id_department = ? AND id_criteria = ?`,
+          [newUrls, newDescriptions, phaseId, departmentId, criterionId]
+        );
+      } else {
+        // Nối thêm URLs và descriptions mới cho ảnh vi phạm
+        const newUrls = currentData?.imgURL_before
+          ? `${currentData.imgURL_before}; ${urls}`
+          : urls;
+        const newDescriptions = currentData?.description_before
+          ? `${currentData.description_before}; ${description}`
+          : description;
+
+        await query(
+          "UPDATE tb_phase_details SET imgURL_before = ?, description_before = ? WHERE id_phase = ? AND id_department = ? AND id_criteria = ?",
+          [newUrls, newDescriptions, phaseId, departmentId, criterionId]
+        );
+      }
+
+      res.json(responseData);
+    } catch (dbError) {
+      console.error("Database update error:", dbError);
+      res.json({
+        ...responseData,
+        dbError: "Lỗi cập nhật database",
+      });
+    }
   } catch (error) {
     const totalTime = (Date.now() - startTime) / 1000;
     console.error(
       `Upload process failed after ${totalTime.toFixed(2)} seconds:`,
       error
     );
-    res.status(500).json({
-      success: false,
-      error: "Không thể tải ảnh lên",
-      details: error.message,
-      processingTimeSeconds: totalTime,
-    });
+
+    // Chỉ gửi response error nếu chưa gửi response nào trước đó
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: "Không thể tải ảnh lên",
+        details: error.message,
+        processingTimeSeconds: totalTime,
+      });
+    }
   }
 });
 
