@@ -724,6 +724,31 @@ const ViolationImages = ({
     }
   };
 
+  // Cập nhật useEffect cho việc thay đổi phase
+  useEffect(() => {
+    if (selectedPhaseOption && selectedPhaseOption.startsWith("phase-")) {
+      const phaseName = reportData.phases.find(
+        (phase) => `phase-${phase.id_phase}` === selectedPhaseOption
+      )?.name_phase;
+
+      if (phaseName) {
+        setSelectedPhase(phaseName);
+        setExpandedWorkshop(false);
+        setExpandedDepartment(false);
+      }
+    }
+  }, [selectedPhaseOption, reportData.phases]);
+
+  // Thêm useEffect mới để xử lý khi reportData thay đổi
+  useEffect(() => {
+    if (reportData?.phases && reportData.phases.length > 0) {
+      // Nếu đã có selectedPhase, giữ nguyên giá trị đó
+      if (!selectedPhase) {
+        setSelectedPhase(reportData.phases[0].name_phase);
+      }
+    }
+  }, [reportData, selectedPhase]);
+
   // Fetch dữ liệu khi component mount
   useEffect(() => {
     const fetchViolationImages = async () => {
@@ -777,9 +802,6 @@ const ViolationImages = ({
       }
 
       setViolationImages(imagesData);
-      if (reportData.phases && reportData.phases.length > 0) {
-        setSelectedPhase(reportData.phases[0].name_phase);
-      }
     };
 
     if (reportData?.workshops && reportData?.inactiveDepartments) {
@@ -1358,21 +1380,6 @@ const ViolationImages = ({
       setIsExporting(false);
     }
   };
-
-  // Cập nhật useEffect cho việc thay đổi phase
-  useEffect(() => {
-    if (selectedPhaseOption && selectedPhaseOption.startsWith("phase-")) {
-      const phaseName = reportData.phases.find(
-        (phase) => `phase-${phase.id_phase}` === selectedPhaseOption
-      )?.name_phase;
-
-      if (phaseName) {
-        setSelectedPhase(phaseName);
-        setExpandedWorkshop(false);
-        setExpandedDepartment(false);
-      }
-    }
-  }, [selectedPhaseOption, reportData.phases]);
 
   // Thêm handler cho việc thay đổi phase trong ViolationImages
   const handlePhaseChange = (newPhase) => {

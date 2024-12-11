@@ -258,20 +258,12 @@ const WorkshopStatistics = ({ reportData, selectedPhaseOption }) => {
                     if (knockout.includes("Trật tự nội vụ"))
                       deptKnockouts.add("TTNV");
                   });
-
-                  if (deptKnockouts.size > 0) {
-                    knockoutsByDept.set(dept.id_department, deptKnockouts);
-                    deptKnockouts.forEach((type) => {
-                      errorCounts[type].deptCount++;
-                    });
-                  }
                 }
               });
 
-              return {
-                counts: errorCounts,
-                activeDepartments,
-              };
+              deptKnockouts.forEach((type) => {
+                errorCounts[type].deptCount++;
+              });
             }
           } else {
             // Logic cho phase cụ thể
