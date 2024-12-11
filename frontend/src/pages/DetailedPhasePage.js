@@ -629,6 +629,25 @@ const DetailedPhasePage = () => {
           );
         }
       }
+
+      // Cập nhật criteriaStatuses
+      setCriteriaStatuses((prev) => ({
+        ...prev,
+        [selectedCriterion.id]: "ĐÃ KHẮC PHỤC",
+      }));
+
+      // Cập nhật lại allCategories để refresh trạng thái
+      const updatedCategories = allCategories.map((category) => ({
+        ...category,
+        criteria: category.criteria.map((criterion) =>
+          criterion.id === selectedCriterion.id
+            ? { ...criterion, status_phase_details: "ĐÃ KHẮC PHỤC" }
+            : criterion
+        ),
+      }));
+      setAllCategories(updatedCategories);
+
+      handleCloseDialog();
     } catch (error) {
       console.error("Upload error:", error);
       alert("Không thể tải ảnh lên. Vui lòng thử lại.");

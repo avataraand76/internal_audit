@@ -1624,7 +1624,37 @@ async function checkDNSResolution() {
   }
 }
 
-// Main upload function
+// Hàm kiểm tra file đã tồn tại trên Drive
+async function checkFileExists(fileName, folderId) {
+  try {
+    const drive = await getDriveInstance();
+    const response = await drive.files.list({
+      q: `name = '${fileName}' and '${folderId}' in parents and trashed = false`,
+      fields: "files(id, name)",
+      spaces: "drive",
+    });
+
+    return response.data.files.length > 0 ? response.data.files[0] : null;
+  } catch (error) {
+    console.error("Error checking file existence:", error);
+    return null;
+  }
+}
+
+// Hàm xóa file cũ trên Drive
+async function deleteFile(fileId) {
+  try {
+    const drive = await getDriveInstance();
+    await drive.files.delete({ fileId });
+    console.log(`Successfully deleted file with ID: ${fileId}`);
+    return true;
+  } catch (error) {
+    console.error("Error deleting file:", error);
+    return false;
+  }
+}
+
+// Cập nhật hàm uploadToDrive
 async function uploadToDrive(fileBuffer, fileName, folderId, phaseInfo = {}) {
   let currentDelay = RETRY_CONFIG.minRetryDelay;
 
@@ -1640,6 +1670,16 @@ async function uploadToDrive(fileBuffer, fileName, folderId, phaseInfo = {}) {
         throw new Error("Network or token validation failed");
       }
 
+      // Kiểm tra file tồn tại
+      const existingFile = await checkFileExists(fileName, folderId);
+      if (existingFile) {
+        console.log(`File ${fileName} already exists, replacing...`);
+
+        // Xóa file cũ
+        await deleteFile(existingFile.id);
+      }
+
+      // Upload file mới
       const drive = await getDriveInstance();
 
       // Tối ưu promise racing
@@ -1701,7 +1741,7 @@ async function uploadToDrive(fileBuffer, fileName, folderId, phaseInfo = {}) {
   }
 }
 
-// Hàm để xử lý upload song song với giới hạn
+// Cập nhật hàm uploadFilesInParallel để xử lý file trùng lặp
 async function uploadFilesInParallel(files, phaseInfo = {}) {
   const startTime = Date.now();
   console.log(`\nStarting batch upload of ${files.length} files...`);
@@ -1737,8 +1777,19 @@ async function uploadFilesInParallel(files, phaseInfo = {}) {
     })
   );
 
+  // Kiểm tra và loại bỏ các file trùng lặp
+  const uniqueFiles = [];
+  const seenNames = new Set();
+
+  for (const file of preparedFiles) {
+    if (!seenNames.has(file.generatedFileName)) {
+      seenNames.add(file.generatedFileName);
+      uniqueFiles.push(file);
+    }
+  }
+
   // Chia files thành các chunks để upload song song
-  const chunks = chunkArray(preparedFiles, RETRY_CONFIG.chunkSize);
+  const chunks = chunkArray(uniqueFiles, RETRY_CONFIG.chunkSize);
 
   for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
     const chunk = chunks[chunkIndex];
@@ -1747,6 +1798,11 @@ async function uploadFilesInParallel(files, phaseInfo = {}) {
         chunk.length
       } files)`
     );
+
+    // Thêm delay giữa các chunk
+    if (chunkIndex > 0) {
+      await sleep(1000); // delay 1s giữa các chunk
+    }
 
     const promises = chunk.map(async (file) => {
       const fileStartTime = Date.now();
@@ -1831,46 +1887,6 @@ async function checkTokenValidity() {
   }
 }
 
-// Function to get existing image count with proper type filtering
-async function getExistingImageCount(
-  phaseId,
-  departmentId,
-  criterionId,
-  isRemediation
-) {
-  try {
-    const [imagesResponse] = await new Promise((resolve, reject) => {
-      pool.query(
-        `SELECT 
-          IF(? = true, description_after, description_before) as descriptions
-         FROM tb_phase_details 
-         WHERE id_phase = ? AND id_department = ? AND id_criteria = ?`,
-        [isRemediation, phaseId, departmentId, criterionId],
-        (err, results) => {
-          if (err) reject(err);
-          else resolve([results[0], null]);
-        }
-      );
-    });
-
-    if (!imagesResponse?.descriptions) return 0;
-
-    // Split descriptions và lọc ra các số
-    const numbers = imagesResponse.descriptions
-      .split(";")
-      .map((desc) => {
-        const match = desc.match(/(?:vi phạm|khắc phục)\s+(\d+)/);
-        return match ? parseInt(match[1]) : 0;
-      })
-      .filter((num) => !isNaN(num));
-
-    return Math.max(0, ...numbers);
-  } catch (error) {
-    console.error("Error getting existing image count:", error);
-    return 0;
-  }
-}
-
 // Updated generateFileName function
 const generateFileName = async (
   originalName,
@@ -1884,21 +1900,42 @@ const generateFileName = async (
   const ext = originalName.split(".").pop();
   const prefix = isRemediation ? "Hình ảnh khắc phục" : "Hình ảnh vi phạm";
 
-  // Get current max number from database
-  const maxNumber = await getExistingImageCount(
-    phaseId,
-    departmentId,
-    criterionId,
-    isRemediation
-  );
+  // Get current max number from database - thêm DISTINCT để tránh đếm trùng
+  const [imagesResponse] = await new Promise((resolve, reject) => {
+    pool.query(
+      `SELECT 
+        IF(? = true, 
+          GROUP_CONCAT(DISTINCT description_after), 
+          GROUP_CONCAT(DISTINCT description_before)
+        ) as descriptions
+       FROM tb_phase_details 
+       WHERE id_phase = ? AND id_department = ? AND id_criteria = ?`,
+      [isRemediation, phaseId, departmentId, criterionId],
+      (err, results) => {
+        if (err) reject(err);
+        else resolve([results[0], null]);
+      }
+    );
+  });
 
-  // Generate unique filename with sequential numbering
+  let maxNumber = 0;
+  if (imagesResponse?.descriptions) {
+    const numbers = imagesResponse.descriptions
+      .split(";")
+      .map((desc) => {
+        const match = desc.match(/(?:vi phạm|khắc phục)\s+(\d+)/);
+        return match ? parseInt(match[1]) : 0;
+      })
+      .filter((num) => !isNaN(num));
+
+    maxNumber = Math.max(0, ...numbers);
+  }
+
+  // Generate unique filename với timestamp để tránh trùng lặp
+  const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const newNumber = maxNumber + index + 1;
 
-  // Get unique ID for timestamp
-  const timestamp = `${Date.now()}${process.hrtime()[1]}`;
-
-  return `${prefix} ${newNumber} - Đợt ${phaseInfo.phase} - ${phaseInfo.department} - ${phaseInfo.criteria} - ${timestamp}.${ext}`;
+  return `${prefix} ${newNumber} - Đợt ${phaseInfo.phase} - ${phaseInfo.department} - ${phaseInfo.criteria} - ${uniqueId}.${ext}`;
 };
 
 // Upload endpoint
@@ -2014,8 +2051,8 @@ app.post("/upload", upload.array("photos", 20), async (req, res) => {
 
         // Update cả trạng thái và ảnh khắc phục
         await query(
-          `UPDATE tb_phase_details 
-           SET imgURL_after = ?, 
+          `UPDATE tb_phase_details
+           SET imgURL_after = ?,
                description_after = ?,
                status_phase_details = 'ĐÃ KHẮC PHỤC'
            WHERE id_phase = ? AND id_department = ? AND id_criteria = ?`,
@@ -2066,29 +2103,54 @@ app.post("/upload", upload.array("photos", 20), async (req, res) => {
 // Save image URLs to database
 app.post("/save-image-urls", async (req, res) => {
   const { id_department, id_criteria, id_phase, imageUrls } = req.body;
-  const imgURL_before = imageUrls.join("; ");
 
-  const query = `
-    UPDATE tb_phase_details 
-    SET imgURL_before = ?
-    WHERE id_department = ? AND id_criteria = ? AND id_phase = ?
-  `;
+  try {
+    // Lấy URLs hiện tại
+    const [currentUrls] = await new Promise((resolve, reject) => {
+      pool.query(
+        `SELECT imgURL_before FROM tb_phase_details 
+         WHERE id_department = ? AND id_criteria = ? AND id_phase = ?`,
+        [id_department, id_criteria, id_phase],
+        (err, results) => {
+          if (err) reject(err);
+          else resolve([results[0], null]);
+        }
+      );
+    });
 
-  pool.query(
-    query,
-    [imgURL_before, id_department, id_criteria, id_phase],
-    (err, result) => {
-      if (err) {
-        console.error("Error saving image URLs:", err);
-        res.status(500).json({ error: "Error saving image URLs" });
-        return;
-      }
-      res.status(200).json({
-        success: true,
-        message: "Image URLs saved successfully",
-      });
-    }
-  );
+    // Kết hợp URLs mới với URLs hiện tại, loại bỏ trùng lặp
+    const existingUrls = currentUrls?.imgURL_before
+      ? currentUrls.imgURL_before.split("; ")
+      : [];
+    const uniqueUrls = [...new Set([...existingUrls, ...imageUrls])];
+    const imgURL_before = uniqueUrls.join("; ");
+
+    // Update với URLs đã được deduplicate
+    const query = `
+      UPDATE tb_phase_details 
+      SET imgURL_before = ?
+      WHERE id_department = ? AND id_criteria = ? AND id_phase = ?
+    `;
+
+    await new Promise((resolve, reject) => {
+      pool.query(
+        query,
+        [imgURL_before, id_department, id_criteria, id_phase],
+        (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        }
+      );
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Image URLs saved successfully",
+    });
+  } catch (error) {
+    console.error("Error saving image URLs:", error);
+    res.status(500).json({ error: "Error saving image URLs" });
+  }
 });
 ///////////upload ảnh gg drive////////////
 
