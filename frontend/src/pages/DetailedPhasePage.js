@@ -141,10 +141,11 @@ const DetailedPhasePage = () => {
         }
         setUser(storedUser);
 
-        // Kiểm tra role của user
-        const supervisorResponse = await axios.get(
-          `${API_URL}/check-supervisor/${storedUser.id_user}`
-        );
+        // Kiểm tra các role của user
+        const [supervisorResponse] = await Promise.all([
+          axios.get(`${API_URL}/check-supervisor/${storedUser.id_user}`),
+        ]);
+
         setIsSupervisor(supervisorResponse.data.isSupervisor);
 
         // Fetch phase details
@@ -179,7 +180,7 @@ const DetailedPhasePage = () => {
     };
 
     fetchData();
-  }, [phaseId, navigate]);
+  }, [navigate, phaseId]);
 
   useEffect(() => {
     const fetchFailedCriteria = async () => {

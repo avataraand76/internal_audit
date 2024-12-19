@@ -1,4 +1,4 @@
-// frontend/src/components/WorkshopStatistics.js
+// frontend/src/components/WorkshopStatisticsChart.js
 import React from "react";
 import { Paper, Typography, Box } from "@mui/material";
 import { Bar } from "react-chartjs-2";
@@ -23,7 +23,7 @@ ChartJS.register(
   ChartDataLabels
 );
 
-const WorkshopStatistics = ({ reportData, selectedPhaseOption }) => {
+const WorkshopStatisticsChart = ({ reportData, selectedPhaseOption }) => {
   // Kiểm tra xem đang ở chế độ SIGP
   const isSIGPOnly = reportData.workshops.every(
     (w) => w.workshopName === "SIGP"
@@ -634,4 +634,4 @@ const WorkshopStatistics = ({ reportData, selectedPhaseOption }) => {
   );
 };
 
-export default WorkshopStatistics;
+export default WorkshopStatisticsChart;

@@ -105,19 +105,115 @@ app.post("/login", async (req, res) => {
   });
 });
 
-// check có phải là người giám sát kp
-app.get("/check-supervisor/:userId", (req, res) => {
+// check có phải là người giám sát ko
+app.get("/check-supervisor/:userId", async (req, res) => {
   const userId = req.params.userId;
-  const query = "SELECT * FROM tb_user_supervisor WHERE id_user = ?";
+
+  try {
+    // Check cả role admin và supervisor
+    const roleQuery = `
+      SELECT 1 
+      FROM tb_role r
+      WHERE r.id_user = ? AND (r.id_permission = 2 OR r.id_permission = 1)
+    `;
+
+    const [roleResults] = await new Promise((resolve, reject) => {
+      pool.query(roleQuery, [userId], (err, results) => {
+        if (err) reject(err);
+        else resolve([results, null]);
+      });
+    });
+
+    // Nếu là admin thì trả về true luôn
+    if (roleResults.some((r) => r.id_permission === 1)) {
+      return res.json({ isSupervisor: true });
+    }
+
+    // Nếu là supervisor thì check thêm trong tb_user_supervisor
+    if (roleResults.length > 0) {
+      const supervisorQuery = `
+        SELECT 1 FROM tb_user_supervisor WHERE id_user = ?
+      `;
+
+      const [supervisorResults] = await new Promise((resolve, reject) => {
+        pool.query(supervisorQuery, [userId], (err, results) => {
+          if (err) reject(err);
+          else resolve([results, null]);
+        });
+      });
+
+      return res.json({ isSupervisor: supervisorResults.length > 0 });
+    }
+
+    res.json({ isSupervisor: false });
+  } catch (error) {
+    console.error("Error checking supervisor role:", error);
+    res.status(500).json({ error: "Error checking supervisor role" });
+  }
+});
+
+// Thêm API check supervised
+app.get("/check-supervised/:userId", async (req, res) => {
+  const userId = req.params.userId;
+
+  try {
+    // Đầu tiên check trong tb_role
+    const roleQuery = `
+      SELECT 1 
+      FROM tb_role r
+      WHERE r.id_user = ? AND r.id_permission = 3
+    `;
+
+    const [roleResults] = await new Promise((resolve, reject) => {
+      pool.query(roleQuery, [userId], (err, results) => {
+        if (err) reject(err);
+        else resolve([results, null]);
+      });
+    });
+
+    // Nếu không có role supervised thì trả về false luôn
+    if (roleResults.length === 0) {
+      return res.json({ isSupervised: false });
+    }
+
+    // Nếu có role thì check tiếp trong tb_user_supervised
+    const supervisedQuery = `
+      SELECT 1 
+      FROM tb_user_supervised 
+      WHERE id_user = ?
+    `;
+
+    const [supervisedResults] = await new Promise((resolve, reject) => {
+      pool.query(supervisedQuery, [userId], (err, results) => {
+        if (err) reject(err);
+        else resolve([results, null]);
+      });
+    });
+
+    res.json({ isSupervised: supervisedResults.length > 0 });
+  } catch (error) {
+    console.error("Error checking supervised role:", error);
+    res.status(500).json({ error: "Error checking supervised role" });
+  }
+});
+
+// endpoint để check admin permission
+app.get("/check-admin/:userId", (req, res) => {
+  const userId = req.params.userId;
+  const query = `
+    SELECT 1 
+    FROM tb_role r
+    WHERE r.id_user = ? AND r.id_permission = 1
+  `;
 
   pool.query(query, [userId], (err, results) => {
     if (err) {
-      console.error("Error checking supervisor role:", err);
-      res.status(500).json({ error: "Error checking supervisor role" });
+      console.error("Error checking admin role:", err);
+      res.status(500).json({ error: "Error checking admin role" });
       return;
     }
 
-    res.json({ isSupervisor: results.length > 0 });
+    res.json({ isAdmin: results.length > 0 });
   });
 });
 
@@ -1486,6 +1582,112 @@ app.post("/inactive-departments/:phaseId", (req, res) => {
         });
       }
     });
+  });
+});
+
+// Sửa endpoint get departments without remediation
+app.get("/departments-without-remediation/:phaseId", async (req, res) => {
+  const { phaseId } = req.params;
+  const userId = req.query.userId;
+
+  try {
+    // Kiểm tra role của user
+    const roleQuery = `
+      SELECT id_permission 
+      FROM tb_role 
+      WHERE id_user = ?`;
+
+    const [roleResults] = await new Promise((resolve, reject) => {
+      pool.query(roleQuery, [userId], (err, results) => {
+        if (err) reject(err);
+        else resolve([results]);
+      });
+    });
+
+    // Sửa query chính để thêm date_recorded vào SELECT khi dùng DISTINCT
+    let query = `
+      SELECT DISTINCT
+        p.id_phase,
+        p.name_phase,
+        p.date_recorded,
+        DATE_FORMAT(p.date_recorded, '%Y-%m-%d %H:%i:%s') as formatted_date,
+        MONTH(p.date_recorded) as phase_month,
+        YEAR(p.date_recorded) as phase_year,
+        w.id_workshop,
+        w.name_workshop,
+        d.name_department,
+        c.codename,
+        c.name_criteria,
+        pd.status_phase_details,
+        pd.date_updated
+      FROM tb_phase_details pd
+      JOIN tb_department d ON pd.id_department = d.id_department
+      JOIN tb_workshop w ON d.id_workshop = w.id_workshop
+      JOIN tb_criteria c ON pd.id_criteria = c.id_criteria
+      JOIN tb_phase p ON pd.id_phase = p.id_phase
+      LEFT JOIN tb_inactive_department id ON 
+        pd.id_department = id.id_department 
+        AND pd.id_phase = id.id_phase
+      WHERE pd.is_fail = 1 
+        AND pd.imgURL_after IS NULL
+        AND pd.status_phase_details = 'CHƯA KHẮC PHỤC'
+        AND (id.is_inactive IS NULL OR id.is_inactive = 0)`;
+
+    // Nếu user có role supervised (3), thêm điều kiện lọc theo workshop được phân công
+    if (roleResults.some((r) => r.id_permission === 3)) {
+      query += `
+        AND w.id_workshop IN (
+          SELECT id_workshop 
+          FROM tb_user_supervised 
+          WHERE id_user = ?
+        )`;
+    }
+
+    // Thêm ORDER BY với date_recorded và id_workshop
+    query += ` ORDER BY p.date_recorded DESC, w.id_workshop ASC, d.name_department, c.codename ASC`;
+
+    const [results] = await new Promise((resolve, reject) => {
+      // Nếu là supervised user, truyền thêm userId vào query
+      const params = roleResults.some((r) => r.id_permission === 3)
+        ? [userId]
+        : [];
+      pool.query(query, params, (err, results) => {
+        if (err) reject(err);
+        else resolve([results]);
+      });
+    });
+
+    // Map kết quả để sử dụng formatted_date thay vì date_recorded gốc
+    const formattedResults = results.map((row) => ({
+      ...row,
+      date_recorded: row.formatted_date,
+      formatted_date: undefined, // Loại bỏ trường tạm
+    }));
+
+    res.json(formattedResults);
+  } catch (error) {
+    console.error("Error fetching departments without remediation:", error);
+    res.status(500).json({ error: "Error fetching departments data" });
+  }
+});
+
+// Get available months and years
+app.get("/available-dates", (req, res) => {
+  const query = `
+    SELECT DISTINCT 
+      MONTH(date_recorded) as month,
+      YEAR(date_recorded) as year
+    FROM tb_phase
+    ORDER BY year DESC, month DESC
+  `;
+
+  pool.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching available dates:", err);
+      res.status(500).json({ error: "Error fetching dates" });
+      return;
+    }
+    res.json(results);
   });
 });
 

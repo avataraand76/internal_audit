@@ -30,12 +30,13 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  FilterList as FilterIcon,
   Business as BusinessIcon,
+  FilterAlt as FilterAltIcon,
 } from "@mui/icons-material";
 import Header from "../components/Header";
 import API_URL from "../data/api";
 import moment from "moment";
+import axios from "axios";
 
 // ResizeObserverWrapper
 const ResizeObserverWrapper = memo(({ children }) => {
@@ -412,27 +413,44 @@ const CreatePhasePage = () => {
   const [filteredPhases, setFilteredPhases] = useState([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("all");
+  const [selectedMonth, setSelectedMonth] = useState(moment().format("M"));
+  const [selectedYear, setSelectedYear] = useState(moment().format("YYYY"));
   const [user, setUser] = useState(null);
   const [isSupervisor, setIsSupervisor] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [phaseToDelete, setPhaseToDelete] = useState(null);
   const [departments, setDepartments] = useState([]);
   const [selectedInactiveDepartments, setSelectedInactiveDepartments] =
     useState([]);
   const [openDepartmentDialog, setOpenDepartmentDialog] = useState(false);
+  const [availableMonths, setAvailableMonths] = useState([]);
+  const [availableYears, setAvailableYears] = useState([]);
 
   // Initial data fetching
   useEffect(() => {
     const initializePage = async () => {
-      await fetchPhases();
-      await fetchDepartments();
-      const storedUser = JSON.parse(localStorage.getItem("user"));
-      if (storedUser) {
+      try {
+        const storedUser = JSON.parse(localStorage.getItem("user"));
+        if (!storedUser) {
+          navigate("/");
+          return;
+        }
         setUser(storedUser);
-        await checkUserRole(storedUser.id_user);
-      } else {
-        navigate("/");
+
+        // Check all roles
+        const [supervisorResponse, adminResponse] = await Promise.all([
+          axios.get(`${API_URL}/check-supervisor/${storedUser.id_user}`),
+          axios.get(`${API_URL}/check-admin/${storedUser.id_user}`),
+        ]);
+
+        setIsSupervisor(supervisorResponse.data.isSupervisor);
+        setIsAdmin(adminResponse.data.isAdmin);
+
+        await fetchPhases();
+        await fetchDepartments();
+      } catch (error) {
+        console.error("Error initializing page:", error);
       }
     };
 
@@ -470,38 +488,6 @@ const CreatePhasePage = () => {
       }
     } catch (error) {
       console.error("Error fetching phases:", error);
-    }
-  };
-
-  // Check user role
-  const checkUserRole = async (userId) => {
-    try {
-      // Kiểm tra xem user có trong tb_user_supervisor không
-      const response = await fetch(`${API_URL}/check-supervisor/${userId}`);
-      const data = await response.json();
-      setIsSupervisor(data.isSupervisor);
-    } catch (error) {
-      console.error("Error checking user role:", error);
-    }
-  };
-
-  // Fetch inactive departments
-  const fetchInactiveDepartments = async (phaseId) => {
-    try {
-      const response = await fetch(
-        `${API_URL}/inactive-departments/${phaseId}`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        // Chỉ lấy các department thực sự inactive
-        setSelectedInactiveDepartments(
-          data
-            .filter((d) => d.is_inactive === 1) // Đảm bảo chỉ lấy các department inactive
-            .map((d) => d.id_department)
-        );
-      }
-    } catch (error) {
-      console.error("Error fetching inactive departments:", error);
     }
   };
 
@@ -546,11 +532,6 @@ const CreatePhasePage = () => {
     filterPhases(selectedMonth);
   }, [filterPhases, selectedMonth]);
 
-  // Handlers
-  const handleMonthChange = (event) => {
-    setSelectedMonth(event.target.value);
-  };
-
   const handlePhaseNameChange = (e) => {
     setPhaseName(e.target.value.toUpperCase());
   };
@@ -581,17 +562,21 @@ const CreatePhasePage = () => {
     if (!isSupervisor || !phaseName.trim()) return;
 
     try {
-      const standardizeDate = (dateString) => {
+      const standardizeDate = (dateString, isEndDate = false) => {
         if (!dateString) return null;
         const date = new Date(dateString);
-        date.setHours(7, 0, 0, 0);
+        if (isEndDate) {
+          date.setHours(23, 59, 59, 0); // Thời gian kết thúc: 23:59:59.999
+        } else {
+          date.setHours(0, 0, 0, 0); // Thời gian bắt đầu: 00:00:00.000
+        }
         return date.toISOString();
       };
 
       const phaseData = {
         name_phase: phaseName.toUpperCase(),
-        time_limit_start: standardizeDate(startDate),
-        time_limit_end: standardizeDate(endDate),
+        time_limit_start: standardizeDate(startDate, false), // isEndDate = false
+        time_limit_end: standardizeDate(endDate, true), // isEndDate = true
       };
 
       if (dialogMode === "create") {
@@ -640,7 +625,7 @@ const CreatePhasePage = () => {
   };
 
   const handleDeletePhase = async () => {
-    if (!isSupervisor || !phaseToDelete) return;
+    if (!isAdmin) return;
 
     try {
       const response = await fetch(
@@ -697,6 +682,85 @@ const CreatePhasePage = () => {
     return moment(dateString).format("DD/MM/YYYY");
   };
 
+  // Move fetchInactiveDepartments inside component
+  const fetchInactiveDepartments = async (phaseId) => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/inactive-departments/${phaseId}`
+      );
+      if (response.data) {
+        setSelectedInactiveDepartments(
+          response.data
+            .filter((d) => d.is_inactive === 1)
+            .map((d) => d.id_department)
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching inactive departments:", error);
+    }
+  };
+
+  // Thêm useEffect để fetch available dates
+  useEffect(() => {
+    const fetchAvailableDates = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/available-dates`);
+        const dates = response.data;
+
+        // Extract unique years
+        const years = [...new Set(dates.map((d) => d.year))];
+        setAvailableYears(years);
+
+        // Get months for selected year
+        const monthsForYear = dates
+          .filter((d) => d.year.toString() === selectedYear)
+          .map((d) => d.month.toString())
+          .sort((a, b) => a - b);
+        setAvailableMonths(monthsForYear);
+      } catch (error) {
+        console.error("Error fetching available dates:", error);
+      }
+    };
+
+    fetchAvailableDates();
+  }, [selectedYear]);
+
+  // Sửa lại phần filter phases
+  useEffect(() => {
+    if (phases.length > 0) {
+      let filtered = [...phases];
+
+      // Luôn filter theo năm và tháng hiện tại khi khởi tạo
+      filtered = filtered.filter((phase) => {
+        const phaseYear = moment(phase.date_recorded).format("YYYY");
+        const phaseMonth = moment(phase.date_recorded).format("M");
+
+        const yearMatch = selectedYear === "all" || phaseYear === selectedYear;
+        const monthMatch =
+          selectedMonth === "all" || phaseMonth === selectedMonth;
+
+        return yearMatch && monthMatch;
+      });
+
+      setFilteredPhases(filtered);
+    }
+  }, [phases, selectedMonth, selectedYear]);
+
+  // Thêm useEffect để tự động chọn tháng khi component mount
+  useEffect(() => {
+    const currentMonth = moment().format("M");
+    const currentYear = moment().format("YYYY");
+
+    setSelectedMonth(currentMonth);
+    setSelectedYear(currentYear);
+  }, []); // Chỉ chạy 1 lần khi component mount
+
+  // Thêm hàm handleClearFilters
+  const handleClearFilters = () => {
+    setSelectedMonth(moment().format("M"));
+    setSelectedYear(moment().format("YYYY"));
+  };
+
   // JSX
   return (
     <>
@@ -709,7 +773,9 @@ const CreatePhasePage = () => {
             justifyContent="space-between"
             alignItems={{ xs: "flex-start", sm: "center" }}
             spacing={2}
+            width="100%"
           >
+            {/* Tiêu đề bên trái */}
             <Typography
               variant="h4"
               component="h1"
@@ -723,35 +789,116 @@ const CreatePhasePage = () => {
             >
               {isSupervisor ? "Quản lý đợt chấm điểm" : "Đợt chấm điểm"}
             </Typography>
-            <Stack direction="row" spacing={2} alignItems="center">
-              <FormControl variant="outlined" sx={{ minWidth: 120 }}>
-                <InputLabel>Tháng</InputLabel>
-                <MuiSelect
-                  value={selectedMonth}
-                  onChange={handleMonthChange}
-                  label="Tháng"
-                  size={isMobile ? "small" : "medium"}
-                  startAdornment={
-                    <FilterIcon
-                      sx={{ mr: 1, ml: -0.5, color: "action.active" }}
-                    />
-                  }
+
+            {/* Controls bên phải */}
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={2}
+              alignItems={{ xs: "stretch", sm: "center" }}
+              sx={{ width: { xs: "100%", sm: "auto" } }}
+            >
+              {/* Stack cho năm và tháng */}
+              <Stack
+                direction={{ xs: "row", sm: "row" }}
+                spacing={2}
+                alignItems="center"
+                sx={{ width: "100%" }}
+              >
+                <FormControl
+                  variant="outlined"
+                  sx={{
+                    flex: 1,
+                    minWidth: { xs: 0, sm: 120 },
+                  }}
                 >
-                  <MenuItem value="all">Tất cả</MenuItem>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => (
-                    <MenuItem key={month} value={month.toString()}>
-                      Tháng {month}
-                    </MenuItem>
-                  ))}
-                </MuiSelect>
-              </FormControl>
+                  <InputLabel>Năm</InputLabel>
+                  <MuiSelect
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(e.target.value)}
+                    label="Năm"
+                    size={isMobile ? "small" : "medium"}
+                  >
+                    <MenuItem value="all">Tất cả</MenuItem>
+                    {availableYears.map((year) => (
+                      <MenuItem
+                        key={year}
+                        value={year.toString()}
+                        sx={
+                          year.toString() === moment().format("YYYY")
+                            ? {
+                                fontWeight: "bold",
+                                backgroundColor: "action.hover",
+                              }
+                            : {}
+                        }
+                      >
+                        {year}
+                      </MenuItem>
+                    ))}
+                  </MuiSelect>
+                </FormControl>
+
+                <FormControl
+                  variant="outlined"
+                  sx={{
+                    flex: 1,
+                    minWidth: { xs: 0, sm: 120 },
+                  }}
+                >
+                  <InputLabel>Tháng</InputLabel>
+                  <MuiSelect
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    label="Tháng"
+                    size={isMobile ? "small" : "medium"}
+                  >
+                    <MenuItem value="all">Tất cả</MenuItem>
+                    {availableMonths.map((month) => (
+                      <MenuItem
+                        key={month}
+                        value={month}
+                        sx={
+                          month === moment().format("M") &&
+                          selectedYear === moment().format("YYYY")
+                            ? {
+                                fontWeight: "bold",
+                                backgroundColor: "action.hover",
+                              }
+                            : {}
+                        }
+                      >
+                        Tháng {month}
+                      </MenuItem>
+                    ))}
+                  </MuiSelect>
+                </FormControl>
+              </Stack>
+
+              {/* Nút xóa bộ lọc */}
+              <Button
+                startIcon={<FilterAltIcon />}
+                onClick={handleClearFilters}
+                variant="outlined"
+                fullWidth
+                sx={{
+                  minWidth: 0,
+                  width: "100%",
+                }}
+              >
+                Xóa bộ lọc
+              </Button>
+
+              {/* Nút tạo đợt chấm điểm */}
               {!isMobile && isSupervisor && (
                 <Button
                   variant="contained"
                   color="primary"
                   startIcon={<AddIcon />}
                   onClick={() => handleOpenDialog("create")}
-                  sx={{ minWidth: { sm: "200px" }, py: { sm: 1, md: 1.5 } }}
+                  sx={{
+                    minWidth: { sm: "200px" },
+                    py: { sm: 1, md: 1.5 },
+                  }}
                 >
                   Tạo đợt chấm điểm mới
                 </Button>
@@ -813,14 +960,16 @@ const CreatePhasePage = () => {
                             >
                               <EditIcon />
                             </IconButton>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleOpenDeleteDialog(phase)}
-                              title="Xóa"
-                            >
-                              <DeleteIcon />
-                            </IconButton>
+                            {isAdmin && (
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleOpenDeleteDialog(phase)}
+                                title="Xóa"
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            )}
                           </>
                         )}
                       </Stack>

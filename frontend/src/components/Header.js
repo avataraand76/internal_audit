@@ -27,6 +27,8 @@ import AssessmentIcon from "@mui/icons-material/Assessment";
 import LogoutIcon from "@mui/icons-material/Logout";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import logo from "../assets/logo_cty.png";
+import axios from "axios";
+import API_URL from "../data/api";
 
 const CustomAppBar = styled(AppBar)(({ theme }) => ({
   backgroundColor: "white",
@@ -91,12 +93,29 @@ const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const isLoginPage = location.pathname === "/login";
   const [displayName, setDisplayName] = useState("");
+  const [isSupervisor, setIsSupervisor] = useState(false);
+  const [isSupervised, setIsSupervised] = useState(false);
 
   useEffect(() => {
+    const checkUserRole = async (userId) => {
+      try {
+        const [supervisorResponse, supervisedResponse] = await Promise.all([
+          axios.get(`${API_URL}/check-supervisor/${userId}`),
+          axios.get(`${API_URL}/check-supervised/${userId}`),
+        ]);
+
+        setIsSupervisor(supervisorResponse.data.isSupervisor);
+        setIsSupervised(supervisedResponse.data.isSupervised);
+      } catch (error) {
+        console.error("Error checking user roles:", error);
+      }
+    };
+
     const user = JSON.parse(localStorage.getItem("user"));
     if (user) {
       // Use ten_nv if available, otherwise fall back to name_user
       setDisplayName(user.ten_nv || user.name_user);
+      checkUserRole(user.id_user);
     }
   }, []);
 
@@ -106,14 +125,22 @@ const Header = () => {
   );
 
   const getNavItems = () => {
-    const baseItems = [
-      { text: "Trang chủ", path: "/", icon: <HomeIcon /> },
-      {
-        text: "Đợt chấm điểm",
+    const baseItems = [{ text: "Trang chủ", path: "/", icon: <HomeIcon /> }];
+
+    // Thêm menu tùy theo role
+    if (isSupervisor) {
+      baseItems.push({
+        text: "Quản lý đợt chấm điểm",
         path: "/create-phase",
         icon: <GradeIcon />,
-      },
-    ];
+      });
+    } else if (isSupervised) {
+      baseItems.push({
+        text: "Xem đợt chấm điểm",
+        path: "/create-phase",
+        icon: <GradeIcon />,
+      });
+    }
 
     // Thêm nút báo cáo cho cả supervisor và supervised users
     if (!isReportDetailPage) {

@@ -5,9 +5,7 @@ let API_URL = "";
 if (window.location.hostname === "localhost") {
   API_URL = "http://localhost:8081"; // localhost
 } else if (window.location.hostname === "192.168.1.61") {
-  API_URL = "http://192.168.1.61:8081"; // for mobile test cty
-} else if (window.location.hostname === "192.168.1.167") {
-  API_URL = "http://192.168.1.167:8081"; // for mobile test personal
+  API_URL = "http://192.168.1.61:8081"; // for mobile test
 }
 //////local host//////
 

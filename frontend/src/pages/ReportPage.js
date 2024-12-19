@@ -19,13 +19,13 @@ import {
   MenuItem,
   FormControl,
   Button,
-  Tooltip,
   Switch,
+  Stack,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import ScorePercentageChart from "../components/ScorePercentageChart";
 import KnockoutStatsChart from "../components/KnockoutStatsChart";
-import WorkshopStatistics from "../components/WorkshopStatistics";
+import WorkshopStatisticsChart from "../components/WorkshopStatisticsChart";
 import ViolationImages from "../components/ViolationImages";
 import Header from "../components/Header";
 import NavigationBubble from "../components/NavigationBubble";
@@ -36,6 +36,7 @@ import AssessmentIcon from "@mui/icons-material/Assessment";
 import logoVLH from "../assets/logo_vlh.jpg";
 import logoSIGP from "../assets/logo_sigp.jpg";
 import PhaseSelectionBubble from "../components/PhaseSelectionBubble";
+import StarIcon from "@mui/icons-material/Star";
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   border: "1px solid rgba(240, 240, 240, 1)",
@@ -116,7 +117,7 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
 }));
 
 const StyledTableContainer = styled(TableContainer)({
-  maxHeight: "calc(100vh - 250px)",
+  maxHeight: "calc(100vh - 100px)",
   overflow: "auto",
   "& .MuiTable-root": {
     borderCollapse: "separate",
@@ -179,6 +180,13 @@ const Logo = styled("img")(({ isActive }) => ({
   objectFit: "contain",
   transition: "filter 0.3s",
   filter: isActive ? "none" : "grayscale(1) opacity(0.6)",
+}));
+
+const StarIconStyled = styled(StarIcon)(({ color }) => ({
+  fontSize: "16px",
+  verticalAlign: "middle",
+  marginRight: "4px",
+  color: color,
 }));
 
 export default function MonthlyReportPage() {
@@ -448,6 +456,27 @@ export default function MonthlyReportPage() {
     setSelectedPhaseOption(option);
   };
 
+  // Thêm state cho năm
+  const [availableYears, setAvailableYears] = useState([]);
+
+  // Thêm useEffect để fetch available years
+  useEffect(() => {
+    const fetchAvailableDates = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/available-dates`);
+        const dates = response.data;
+        const years = [...new Set(dates.map((d) => d.year))].sort(
+          (a, b) => b - a
+        );
+        setAvailableYears(years);
+      } catch (error) {
+        console.error("Error fetching available dates:", error);
+      }
+    };
+
+    fetchAvailableDates();
+  }, []);
+
   if (loading) {
     return (
       <Box sx={{ flexGrow: 1 }}>
@@ -496,32 +525,106 @@ export default function MonthlyReportPage() {
               <Typography variant="h5" fontWeight="bold">
                 BẢNG TỔNG HỢP ĐIỂM KSNB CỦA CÁC BỘ PHẬN
               </Typography>
-              <FormControl sx={{ minWidth: 120 }}>
-                <Select
-                  value={selectedMonth}
-                  onChange={handleMonthChange}
-                  size="small"
-                  sx={{ fontWeight: "bold" }}
+
+              {/* Stack cho năm và tháng */}
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={2}
+                alignItems={{ xs: "stretch", sm: "center" }}
+                sx={{ minWidth: { xs: "100%", sm: "auto" } }}
+              >
+                <Stack
+                  direction="row"
+                  spacing={2}
+                  alignItems="center"
+                  sx={{ width: "100%" }}
                 >
-                  {months.map((month) => (
-                    <MenuItem key={month.value} value={month.value}>
-                      {month.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <Typography variant="h5" fontWeight="bold">
-                /{year}
-              </Typography>
+                  <FormControl
+                    sx={{
+                      flex: 1,
+                      minWidth: { xs: 0, sm: 120 },
+                    }}
+                  >
+                    <Select
+                      value={selectedMonth}
+                      onChange={handleMonthChange}
+                      size="small"
+                      sx={{ fontWeight: "bold" }}
+                    >
+                      {months.map((month) => (
+                        <MenuItem
+                          key={month.value}
+                          value={month.value}
+                          sx={
+                            month.value === currentMonth && year === currentYear
+                              ? {
+                                  fontWeight: "bold",
+                                  backgroundColor: "action.hover",
+                                }
+                              : {}
+                          }
+                        >
+                          {month.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl
+                    sx={{
+                      flex: 1,
+                      minWidth: { xs: 0, sm: 150 },
+                    }}
+                  >
+                    <Select
+                      value={year}
+                      onChange={(e) => {
+                        const newYear = e.target.value;
+                        navigate(`/report/${selectedMonth}/${newYear}`);
+                      }}
+                      size="small"
+                      sx={{ fontWeight: "bold" }}
+                    >
+                      {availableYears.map((y) => (
+                        <MenuItem
+                          key={y}
+                          value={y}
+                          sx={
+                            y.toString() === currentYear
+                              ? {
+                                  fontWeight: "bold",
+                                  backgroundColor: "action.hover",
+                                }
+                              : {}
+                          }
+                        >
+                          Năm {y}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Stack>
+              </Stack>
             </Box>
           </Box>
 
-          {/* Thông báo không có dữ liệu */}
-          <Paper sx={{ p: 4, mt: 4 }}>
-            <Typography variant="h6" align="center" color="text.secondary">
+          {/* Message khi không có dữ liệu */}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              minHeight: "100px",
+              bgcolor: "background.paper",
+              borderRadius: 1,
+              p: 3,
+              boxShadow: 1,
+            }}
+          >
+            <Typography variant="h6" color="text.secondary">
               Không có dữ liệu cho tháng {selectedMonth} năm {year}
             </Typography>
-          </Paper>
+          </Box>
         </Container>
       </Box>
     );
@@ -590,33 +693,97 @@ export default function MonthlyReportPage() {
             <Typography ref={tableRef} variant="h5" fontWeight="bold">
               BẢNG TỔNG HỢP ĐIỂM KSNB CỦA CÁC BỘ PHẬN
             </Typography>
-            <FormControl sx={{ minWidth: 120 }}>
-              <Select
-                value={selectedMonth}
-                onChange={handleMonthChange}
-                size="small"
-                sx={{ fontWeight: "bold" }}
-              >
-                {months.map((month) => (
-                  <MenuItem key={month.value} value={month.value}>
-                    {month.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Typography variant="h5" fontWeight="bold">
-              /{year}
-            </Typography>
 
-            <Tooltip title={`Xuất bảng điểm `} placement="top">
-              <span>
+            {/* Stack cho năm và tháng */}
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={2}
+              alignItems={{ xs: "stretch", sm: "center" }}
+              sx={{ minWidth: { xs: "100%", sm: "auto" } }}
+            >
+              <Stack
+                direction="row"
+                spacing={2}
+                alignItems="center"
+                sx={{ width: "100%" }}
+              >
+                <FormControl
+                  sx={{
+                    flex: 1,
+                    minWidth: { xs: 0, sm: 120 },
+                  }}
+                >
+                  <Select
+                    value={selectedMonth}
+                    onChange={handleMonthChange}
+                    size="small"
+                    sx={{ fontWeight: "bold" }}
+                  >
+                    {months.map((month) => (
+                      <MenuItem
+                        key={month.value}
+                        value={month.value}
+                        sx={
+                          month.value === currentMonth && year === currentYear
+                            ? {
+                                fontWeight: "bold",
+                                backgroundColor: "action.hover",
+                              }
+                            : {}
+                        }
+                      >
+                        {month.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl
+                  sx={{
+                    flex: 1,
+                    minWidth: { xs: 0, sm: 150 },
+                  }}
+                >
+                  <Select
+                    value={year}
+                    onChange={(e) => {
+                      const newYear = e.target.value;
+                      navigate(`/report/${selectedMonth}/${newYear}`);
+                    }}
+                    size="small"
+                    sx={{ fontWeight: "bold" }}
+                  >
+                    {availableYears.map((y) => (
+                      <MenuItem
+                        key={y}
+                        value={y}
+                        sx={
+                          y.toString() === currentYear
+                            ? {
+                                fontWeight: "bold",
+                                backgroundColor: "action.hover",
+                              }
+                            : {}
+                        }
+                      >
+                        Năm {y}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Stack>
+
+              {/* Buttons */}
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={2}
+                sx={{ width: { xs: "100%", sm: "auto" } }}
+              >
                 <Button
                   variant="contained"
                   sx={{
                     backgroundColor: "#217346",
-                    "&:hover": {
-                      backgroundColor: "#1e6b3e",
-                    },
+                    "&:hover": { backgroundColor: "#1e6b3e" },
                     "&.Mui-disabled": {
                       backgroundColor: "#217346",
                       opacity: 0.7,
@@ -628,18 +795,12 @@ export default function MonthlyReportPage() {
                 >
                   {isExportingExcel ? "Đang xuất Excel..." : "Xuất Excel"}
                 </Button>
-              </span>
-            </Tooltip>
 
-            <Tooltip title={`Xuất thống kê biểu đồ`} placement="top">
-              <span>
                 <Button
                   variant="contained"
                   sx={{
                     backgroundColor: "#FF6347",
-                    "&:hover": {
-                      backgroundColor: "#E5533F",
-                    },
+                    "&:hover": { backgroundColor: "#E5533F" },
                     "&.Mui-disabled": {
                       backgroundColor: "#FF6347",
                       opacity: 0.7,
@@ -651,77 +812,78 @@ export default function MonthlyReportPage() {
                 >
                   {isExportingPdf ? "Đang xuất PDF..." : "Xuất PDF"}
                 </Button>
-              </span>
-            </Tooltip>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                bgcolor: "background.paper",
-                padding: "8px 12px",
-                borderRadius: "24px",
-                border: "1px solid #e0e0e0",
-              }}
-            >
-              {/* VLH Label và Logo bên trái */}
+              </Stack>
+
               <Box
                 sx={{
                   display: "flex",
                   alignItems: "center",
                   gap: 1,
-                  color: !showOnlySIGP ? "primary.main" : "text.secondary",
-                  transition: "color 0.3s",
+                  bgcolor: "background.paper",
+                  padding: "8px 12px",
+                  borderRadius: "24px",
+                  border: "1px solid #e0e0e0",
                 }}
               >
-                <Logo src={logoVLH} alt="VLH" isActive={!showOnlySIGP} />
-                <Typography
+                {/* VLH Label và Logo bên trái */}
+                <Box
                   sx={{
-                    fontWeight: "bold",
-                    fontSize: "1rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    color: !showOnlySIGP ? "primary.main" : "text.secondary",
+                    transition: "color 0.3s",
                   }}
                 >
-                  VLH
-                </Typography>
-              </Box>
+                  <Logo src={logoVLH} alt="VLH" isActive={!showOnlySIGP} />
+                  <Typography
+                    sx={{
+                      fontWeight: "bold",
+                      fontSize: "1rem",
+                    }}
+                  >
+                    VLH
+                  </Typography>
+                </Box>
 
-              {/* Switch */}
-              <Switch
-                checked={showOnlySIGP}
-                onChange={handleSwitchChange}
-                color="primary"
-                sx={{
-                  "& .MuiSwitch-switchBase.Mui-checked": {
-                    color: "#1976d2",
-                  },
-                  "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
-                    backgroundColor: "#1976d2",
-                  },
-                  mx: 1,
-                }}
-              />
-
-              {/* SIGP Label và Logo bên phải */}
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  color: showOnlySIGP ? "primary.main" : "text.secondary",
-                  transition: "color 0.3s",
-                }}
-              >
-                <Typography
+                {/* Switch */}
+                <Switch
+                  checked={showOnlySIGP}
+                  onChange={handleSwitchChange}
+                  color="primary"
                   sx={{
-                    fontWeight: "bold",
-                    fontSize: "1rem",
+                    "& .MuiSwitch-switchBase.Mui-checked": {
+                      color: "#1976d2",
+                    },
+                    "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                      backgroundColor: "#1976d2",
+                    },
+                    mx: 1,
+                  }}
+                />
+
+                {/* SIGP Label và Logo bên phải */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    color: showOnlySIGP ? "primary.main" : "text.secondary",
+                    transition: "color 0.3s",
                   }}
                 >
-                  SIGP
-                </Typography>
-                <Logo src={logoSIGP} alt="SIGP" isActive={showOnlySIGP} />
+                  <Typography
+                    sx={{
+                      fontWeight: "bold",
+                      fontSize: "1rem",
+                    }}
+                  >
+                    SIGP
+                  </Typography>
+                  <Logo src={logoSIGP} alt="SIGP" isActive={showOnlySIGP} />
+                </Box>
               </Box>
-            </Box>
+            </Stack>
           </Box>
         </Box>
 
@@ -898,6 +1060,9 @@ export default function MonthlyReportPage() {
                             ]?.inactiveDepartments?.includes(
                               dept.id_department
                             );
+                            const showGreenStar =
+                              !phase.has_red_star &&
+                              phase.scorePercentage >= 80;
 
                             return (
                               <React.Fragment key={`${dIndex}-${pIndex}`}>
@@ -932,12 +1097,31 @@ export default function MonthlyReportPage() {
                                             }
                                             return "#009900";
                                           },
+                                          minWidth: "100px",
+                                          "& .score-container": {
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                          },
                                         }),
                                   }}
                                 >
-                                  {isInactive
-                                    ? ""
-                                    : `${phase.scorePercentage}%`}
+                                  {isInactive ? (
+                                    ""
+                                  ) : (
+                                    <Box className="score-container">
+                                      {!isInactive && (
+                                        <StarIconStyled
+                                          color={
+                                            showGreenStar
+                                              ? "#009900"
+                                              : "#FF0000"
+                                          }
+                                        />
+                                      )}
+                                      {`${phase.scorePercentage}%`}
+                                    </Box>
+                                  )}
                                 </StyledTableCell>
                                 <StyledTableCell
                                   align="center"
@@ -971,14 +1155,32 @@ export default function MonthlyReportPage() {
                                       }
                                       return "#FF0000";
                                     },
+                                    minWidth: "100px",
+                                    "& .score-container": {
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                    },
                                   }
                                 : inactiveCellStyle),
                             }}
                           >
                             {typeof calculateDepartmentAverage(dept) ===
-                            "number"
-                              ? `${calculateDepartmentAverage(dept)}%`
-                              : calculateDepartmentAverage(dept)}
+                            "number" ? (
+                              <Box className="score-container">
+                                <StarIconStyled
+                                  color={
+                                    greenPhaseCount >= 3 &&
+                                    calculateDepartmentAverage(dept) >= 80
+                                      ? "#009900"
+                                      : "#FF0000"
+                                  }
+                                />
+                                {`${calculateDepartmentAverage(dept)}%`}
+                              </Box>
+                            ) : (
+                              calculateDepartmentAverage(dept)
+                            )}
                           </StyledTableCell>
                         </StyledTableRow>
                       );
@@ -1072,7 +1274,7 @@ export default function MonthlyReportPage() {
             </Box>
 
             <Box ref={workshopStatsRef}>
-              <WorkshopStatistics
+              <WorkshopStatisticsChart
                 reportData={
                   showOnlySIGP
                     ? { ...reportData, workshops: filteredWorkshops }

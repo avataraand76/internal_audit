@@ -184,7 +184,7 @@ const KnockoutStatsChart = ({ reportData, selectedPhaseOption }) => {
     const stats = workshop.stats;
     // Lọc bỏ các labels không xác định và _meta
     const labels = Object.keys(stats).filter(
-      (key) => key !== "_meta" && stats[key] !== undefined
+      (key) => key !== "_meta" && stats[key].count > 0
     );
     const data = labels.map((key) => stats[key].count);
 
