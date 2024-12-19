@@ -76,22 +76,27 @@ function HomePage() {
         );
         setAvailableMonths(months);
 
-        // Fetch remediation data - thêm userId vào query params
+        // Fetch remediation data
         const storedUser = JSON.parse(localStorage.getItem("user"));
         const remediationResponse = await axios.get(
           `${API_URL}/departments-without-remediation/0?userId=${storedUser.id_user}`
         );
         setDepartmentsWithoutRemediation(remediationResponse.data);
 
-        // Group data
+        // Group data với id_phase
         const grouped = remediationResponse.data.reduce((acc, item) => {
-          if (!acc[item.name_phase]) {
-            acc[item.name_phase] = {};
+          const phaseKey = `${item.name_phase}-${item.id_phase}`;
+          if (!acc[phaseKey]) {
+            acc[phaseKey] = {
+              id_phase: item.id_phase,
+              name_phase: item.name_phase,
+              workshops: {},
+            };
           }
-          if (!acc[item.name_phase][item.name_workshop]) {
-            acc[item.name_phase][item.name_workshop] = [];
+          if (!acc[phaseKey].workshops[item.name_workshop]) {
+            acc[phaseKey].workshops[item.name_workshop] = [];
           }
-          acc[item.name_phase][item.name_workshop].push(item);
+          acc[phaseKey].workshops[item.name_workshop].push(item);
           return acc;
         }, {});
         setGroupedData(grouped);
@@ -153,22 +158,22 @@ function HomePage() {
     // Filter by year and month
     if (selectedYear !== "all" || selectedMonth !== "all") {
       filtered = Object.entries(filtered).reduce(
-        (acc, [phaseName, workshops]) => {
-          const monthMatch = phaseName.match(/THÁNG (\d+)/i);
-          const phaseMonth = monthMatch ? monthMatch[1] : null;
-          const firstWorkshop = Object.values(workshops)[0];
+        (acc, [phaseKey, phaseData]) => {
+          const firstWorkshop = Object.values(phaseData.workshops)[0];
           const firstItem = firstWorkshop[0];
-          const phaseYear = firstItem?.date_recorded
-            ? new Date(firstItem.date_recorded).getFullYear().toString()
-            : null;
+          if (firstItem?.date_recorded) {
+            const recordDate = new Date(firstItem.date_recorded);
+            const phaseMonth = (recordDate.getMonth() + 1).toString();
+            const phaseYear = recordDate.getFullYear().toString();
 
-          const matchYear =
-            selectedYear === "all" || phaseYear === selectedYear;
-          const matchMonth =
-            selectedMonth === "all" || phaseMonth === selectedMonth;
+            const matchYear =
+              selectedYear === "all" || phaseYear === selectedYear;
+            const matchMonth =
+              selectedMonth === "all" || phaseMonth === selectedMonth;
 
-          if (matchYear && matchMonth) {
-            acc[phaseName] = workshops;
+            if (matchYear && matchMonth) {
+              acc[phaseKey] = phaseData;
+            }
           }
           return acc;
         },
@@ -179,9 +184,9 @@ function HomePage() {
     // Filter by specific phase
     if (selectedPhase !== "all") {
       filtered = Object.entries(filtered).reduce(
-        (acc, [phaseName, workshops]) => {
-          if (phaseName === selectedPhase) {
-            acc[phaseName] = workshops;
+        (acc, [phaseKey, phaseData]) => {
+          if (phaseData.name_phase === selectedPhase) {
+            acc[phaseKey] = phaseData;
           }
           return acc;
         },
@@ -192,8 +197,8 @@ function HomePage() {
     // Filter by department
     if (selectedDepartment !== "all") {
       filtered = Object.entries(filtered).reduce(
-        (acc, [phaseName, workshops]) => {
-          const filteredWorkshops = Object.entries(workshops).reduce(
+        (acc, [phaseKey, phaseData]) => {
+          const filteredWorkshops = Object.entries(phaseData.workshops).reduce(
             (wacc, [workshopName, departments]) => {
               const filteredDepts = departments.filter(
                 (dept) => dept.name_department === selectedDepartment
@@ -207,7 +212,10 @@ function HomePage() {
           );
 
           if (Object.keys(filteredWorkshops).length > 0) {
-            acc[phaseName] = filteredWorkshops;
+            acc[phaseKey] = {
+              ...phaseData,
+              workshops: filteredWorkshops,
+            };
           }
           return acc;
         },
@@ -324,32 +332,35 @@ function HomePage() {
     (selectedDept, filteredDataInput) => {
       // Nếu chọn "Tất cả", mở tất cả các accordion
       if (selectedDept === "all") {
-        const newExpandedPhases = new Set(Object.keys(filteredDataInput));
+        const newExpandedPhases = new Set();
         const newExpandedWorkshops = {};
 
-        Object.entries(filteredDataInput).forEach(([phaseName, workshops]) => {
-          Object.keys(workshops).forEach((workshopName) => {
-            newExpandedWorkshops[`${phaseName}-${workshopName}`] = true;
+        Object.entries(filteredDataInput).forEach(([phaseKey, phaseData]) => {
+          newExpandedPhases.add(phaseKey);
+          Object.keys(phaseData.workshops).forEach((workshopName) => {
+            newExpandedWorkshops[`${phaseKey}-${workshopName}`] = true;
           });
         });
 
         return { phases: newExpandedPhases, workshops: newExpandedWorkshops };
       }
 
-      // Logic cũ cho trường hợp chọn bộ phận cụ thể
+      // Logic cho trường hợp chọn bộ phận cụ thể
       const newExpandedPhases = new Set();
       const newExpandedWorkshops = {};
 
-      Object.entries(filteredDataInput).forEach(([phaseName, workshops]) => {
-        Object.entries(workshops).forEach(([workshopName, departments]) => {
-          const hasDepartment = departments.some(
-            (dept) => dept.name_department === selectedDept
-          );
-          if (hasDepartment) {
-            newExpandedPhases.add(phaseName);
-            newExpandedWorkshops[`${phaseName}-${workshopName}`] = true;
+      Object.entries(filteredDataInput).forEach(([phaseKey, phaseData]) => {
+        Object.entries(phaseData.workshops).forEach(
+          ([workshopName, departments]) => {
+            const hasDepartment =
+              Array.isArray(departments) &&
+              departments.some((dept) => dept.name_department === selectedDept);
+            if (hasDepartment) {
+              newExpandedPhases.add(phaseKey);
+              newExpandedWorkshops[`${phaseKey}-${workshopName}`] = true;
+            }
           }
-        });
+        );
       });
 
       return { phases: newExpandedPhases, workshops: newExpandedWorkshops };
@@ -623,18 +634,15 @@ function HomePage() {
               </Stack>
 
               {Object.entries(filteredData)
-                .sort(([phaseNameA, workshopsA], [phaseNameB, workshopsB]) => {
-                  // Lấy date_recorded của một item bất kỳ trong mỗi phase
-                  const dateA =
-                    workshopsA[Object.keys(workshopsA)[0]][0].date_recorded;
-                  const dateB =
-                    workshopsB[Object.keys(workshopsB)[0]][0].date_recorded;
-                  // So sánh ngày tháng để sắp xếp (mới nhất lên đầu)
+                .sort(([keyA, dataA], [keyB, dataB]) => {
+                  const dateA = Object.values(dataA.workshops)[0][0]
+                    .date_recorded;
+                  const dateB = Object.values(dataB.workshops)[0][0]
+                    .date_recorded;
                   return new Date(dateB) - new Date(dateA);
                 })
-                .map(([phaseName, workshops]) => {
-                  // Tính tổng số bộ phận và tiêu chí cho mỗi đợt
-                  const phaseStats = Object.values(workshops).reduce(
+                .map(([phaseKey, phaseData]) => {
+                  const phaseStats = Object.values(phaseData.workshops).reduce(
                     (acc, departments) => {
                       const uniqueDepts = new Set(
                         departments.map((d) => d.name_department)
@@ -648,9 +656,9 @@ function HomePage() {
 
                   return (
                     <Accordion
-                      key={phaseName}
-                      expanded={expandedPhases.has(phaseName)}
-                      onChange={() => handlePhaseToggle(phaseName)}
+                      key={phaseKey}
+                      expanded={expandedPhases.has(phaseKey)}
+                      onChange={() => handlePhaseToggle(phaseKey)}
                     >
                       <AccordionSummary
                         expandIcon={<ExpandMoreIcon />}
@@ -663,21 +671,17 @@ function HomePage() {
                         }}
                       >
                         <Typography sx={{ fontWeight: "bold" }}>
-                          {phaseName} ({phaseStats.totalCriteria} tiêu chí chưa
-                          tải ảnh khắc phục)
+                          {phaseData.name_phase} ({phaseStats.totalCriteria}{" "}
+                          tiêu chí chưa tải ảnh khắc phục)
                         </Typography>
                       </AccordionSummary>
                       <AccordionDetails sx={{ p: 0 }}>
-                        {Object.entries(workshops)
-                          .sort(([, departmentsA], [, departmentsB]) => {
-                            // Sort theo id_workshop
-                            return (
-                              departmentsA[0].id_workshop -
-                              departmentsB[0].id_workshop
-                            );
-                          })
+                        {Object.entries(phaseData.workshops)
+                          .sort(([workshopA], [workshopB]) =>
+                            workshopA.localeCompare(workshopB)
+                          )
                           .map(([workshop, departments]) => {
-                            const workshopKey = `${phaseName}-${workshop}`;
+                            const workshopKey = `${phaseKey}-${workshop}`;
                             return (
                               <Accordion
                                 key={workshopKey}

@@ -880,7 +880,7 @@ const ViolationImages = ({
       printContainer.id = "print-container-workshop-images";
       document.body.appendChild(printContainer);
 
-      const pdfTitle = `BÁO CÁO HÌNH ẢNH VI PHẠM ${workshopName}<br/>${month}/${year}`;
+      const pdfTitle = `BÁO CÁO HÌNH ẢNH VI PHẠM<br/>${workshopName}<br/>${month}/${year}`;
 
       // Add header
       const header = document.createElement("div");
