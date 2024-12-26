@@ -1142,6 +1142,36 @@ app.get("/criteria-statuses/:phaseId/:departmentId", (req, res) => {
   });
 });
 
+// Update criterion status
+app.post("/update-criterion-status", async (req, res) => {
+  const { phaseId, departmentId, criterionId, status } = req.body;
+
+  try {
+    await new Promise((resolve, reject) => {
+      pool.query(
+        `UPDATE tb_phase_details 
+         SET status_phase_details = ?
+         WHERE id_phase = ? AND id_department = ? AND id_criteria = ?`,
+        [
+          status ? "ĐÃ KHẮC PHỤC" : "CHƯA KHẮC PHỤC",
+          phaseId,
+          departmentId,
+          criterionId,
+        ],
+        (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        }
+      );
+    });
+
+    res.json({ success: true, message: "Status updated successfully" });
+  } catch (error) {
+    console.error("Error updating criterion status:", error);
+    res.status(500).json({ error: "Error updating criterion status" });
+  }
+});
+
 // get criterion images
 app.get(
   "/phase-details-images/:phaseId/:departmentId/:criterionId",
@@ -2354,6 +2384,78 @@ app.post("/save-image-urls", async (req, res) => {
     res.status(500).json({ error: "Error saving image URLs" });
   }
 });
+
+// delete image URLs
+app.delete(
+  "/delete-image/:phaseId/:departmentId/:criterionId/:type/:index",
+  async (req, res) => {
+    const { phaseId, departmentId, criterionId, type, index } = req.params;
+
+    try {
+      // Get current image URLs
+      const [currentData] = await new Promise((resolve, reject) => {
+        pool.query(
+          "SELECT imgURL_before, description_before, imgURL_after, description_after FROM tb_phase_details WHERE id_phase = ? AND id_department = ? AND id_criteria = ?",
+          [phaseId, departmentId, criterionId],
+          (err, results) => {
+            if (err) reject(err);
+            else resolve([results[0], null]);
+          }
+        );
+      });
+
+      if (!currentData) {
+        return res.status(404).json({ error: "Data not found" });
+      }
+
+      // Split URLs into arrays
+      const urlField = type === "before" ? "imgURL_before" : "imgURL_after";
+      const descField =
+        type === "before" ? "description_before" : "description_after";
+      const urls = currentData[urlField]
+        ? currentData[urlField].split("; ")
+        : [];
+      const descriptions = currentData[descField]
+        ? currentData[descField].split("; ")
+        : [];
+
+      // Remove the specified URL and description
+      if (index >= 0 && index < urls.length) {
+        urls.splice(index, 1);
+        descriptions.splice(index, 1);
+      }
+
+      // Join arrays back into strings
+      const newUrls = urls.join("; ");
+      const newDescriptions = descriptions.join("; ");
+
+      // Update database
+      await new Promise((resolve, reject) => {
+        pool.query(
+          `UPDATE tb_phase_details 
+           SET ${urlField} = ?, ${descField} = ?
+           WHERE id_phase = ? AND id_department = ? AND id_criteria = ?`,
+          [
+            newUrls || null,
+            newDescriptions || null,
+            phaseId,
+            departmentId,
+            criterionId,
+          ],
+          (err, result) => {
+            if (err) reject(err);
+            else resolve(result);
+          }
+        );
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting image:", error);
+      res.status(500).json({ error: "Error deleting image" });
+    }
+  }
+);
 ///////////upload ảnh gg drive////////////
 
 //////////report page//////////

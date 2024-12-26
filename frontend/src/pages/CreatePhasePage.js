@@ -23,7 +23,6 @@ import {
   FormControl,
   Select as MuiSelect,
   InputLabel,
-  Alert,
   Box,
 } from "@mui/material";
 import {
@@ -1156,13 +1155,43 @@ const CreatePhasePage = () => {
           <DialogTitle>
             <Stack direction="row" spacing={1} alignItems="center">
               <DeleteIcon color="error" />
-              <Typography>Xác nhận xóa</Typography>
+              <Typography
+                sx={{
+                  color: "error.main",
+                  fontWeight: "bold",
+                  fontSize: "1.2rem",
+                }}
+              >
+                Xác nhận xóa đợt
+              </Typography>
             </Stack>
           </DialogTitle>
           <DialogContent>
-            <Alert severity="warning" sx={{ mb: 2 }}>
+            {/* <Alert severity="warning" sx={{ mb: 2 }}>
               Hành động này không thể hoàn tác!
-            </Alert>
+            </Alert> */}
+            <Box
+              sx={{
+                mb: 2,
+                bgcolor: "#ffebee",
+                p: 2,
+                borderRadius: 1,
+                border: "1px solid #ef5350",
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  color: "#c62828",
+                  fontWeight: "bold",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                }}
+              >
+                Lưu ý: Hành động này không thể hoàn tác!
+              </Typography>
+            </Box>
             <Typography>
               Bạn có chắc chắn muốn xóa đợt chấm điểm "
               {phaseToDelete?.name_phase} -{" "}

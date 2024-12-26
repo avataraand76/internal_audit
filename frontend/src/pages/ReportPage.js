@@ -204,6 +204,7 @@ export default function MonthlyReportPage() {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [showOnlySIGP, setShowOnlySIGP] = useState(false);
   const [selectedPhaseOption, setSelectedPhaseOption] = useState("month");
+  const [isPhaseChanging, setIsPhaseChanging] = useState(false);
 
   // Lấy tham số tháng và năm từ URL
   const { month: urlMonth, year: urlYear } = useParams();
@@ -452,8 +453,12 @@ export default function MonthlyReportPage() {
     navigate(`/report/${newMonth}/${year}`);
   };
 
-  const handlePhaseOptionChange = (option) => {
+  const handlePhaseOptionChange = async (option) => {
+    setIsPhaseChanging(true); // Bắt đầu loading
     setSelectedPhaseOption(option);
+    // Thêm timeout nhỏ để đảm bảo UI được cập nhật
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    setIsPhaseChanging(false); // Kết thúc loading
   };
 
   // Thêm state cho năm
@@ -476,6 +481,33 @@ export default function MonthlyReportPage() {
 
     fetchAvailableDates();
   }, []);
+
+  // Thêm LoadingOverlay component
+  const LoadingOverlay = () => (
+    <Box
+      sx={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(255, 255, 255, 0.8)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 9999,
+      }}
+    >
+      <CircularProgress size={60} thickness={4} sx={{ color: "#1976d2" }} />
+      <Typography
+        variant="h6"
+        sx={{ mt: 2, fontWeight: "bold", color: "#1976d2" }}
+      >
+        Đang tải dữ liệu...
+      </Typography>
+    </Box>
+  );
 
   if (loading) {
     return (
@@ -678,6 +710,7 @@ export default function MonthlyReportPage() {
   return (
     <Box sx={{ flexGrow: 1 }}>
       <Header />
+      {isPhaseChanging && <LoadingOverlay />}
       <Container maxWidth="xl" sx={{ py: 4 }}>
         {/* Header */}
         <Box textAlign="center" mb={4}>

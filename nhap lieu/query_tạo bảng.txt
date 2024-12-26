@@ -81,7 +81,7 @@ CREATE TABLE tb_criteria
 (
 	id_criteria BIGINT NOT NULL AUTO_INCREMENT,
 	id_category BIGINT,
-	codename CHAR(10),
+	codename CHAR(20),
 	name_criteria TEXT,
 	description TEXT,
 	failing_point_type INT CHECK (failing_point_type IN (0, 1, 2, 3)), -- (0:safe, 1:liệt, 2:QMS/ATLĐ, 3:PNKL)

@@ -47,9 +47,12 @@ import LoadingOverlay from "../components/LoadingOverlay";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import Zoom from "@mui/material/Zoom";
 import useScrollTrigger from "@mui/material/useScrollTrigger";
-import { Link } from "@mui/material";
 import { MenuItem } from "@mui/material";
 import ScoreBubble from "../components/ScoreBubble";
+import DeleteIcon from "@mui/icons-material/Delete";
+import ZoomOutMapIcon from "@mui/icons-material/ZoomOutMap";
+import WarningIcon from "@mui/icons-material/Warning";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 
 const WorkshopText = styled(Typography)(({ theme }) => ({
   fontWeight: "bold",
@@ -128,6 +131,25 @@ const DetailedPhasePage = () => {
     ttnv: 0,
   });
   const [showImageLimitWarning, setShowImageLimitWarning] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [imageToDelete, setImageToDelete] = useState(null);
+  // Add new state for image preview
+  const [previewImage, setPreviewImage] = useState(null);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+
+  // Add helper function to convert URLs to thumbnails
+  const convertToThumbnailUrl = (url) => {
+    if (!url) return "";
+    if (url.includes("drive.google.com/file/d/")) {
+      const fileId = url.match(/\/d\/(.*?)\/|\/d\/(.*?)$/);
+      if (fileId) {
+        return `https://drive.google.com/thumbnail?id=${
+          fileId[1] || fileId[2]
+        }&sz=w2000`;
+      }
+    }
+    return url;
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -647,8 +669,6 @@ const DetailedPhasePage = () => {
         ),
       }));
       setAllCategories(updatedCategories);
-
-      handleCloseDialog();
     } catch (error) {
       console.error("Upload error:", error);
       alert("Không thể tải ảnh lên. Vui lòng thử lại.");
@@ -1519,6 +1539,12 @@ const DetailedPhasePage = () => {
     }
   };
 
+  // Add handler for image preview
+  const handlePreviewImage = (url, title, type, index) => {
+    setPreviewImage({ url, title, type, index });
+    setShowPreviewDialog(true);
+  };
+
   if (!phase) {
     return <Typography>Loading...</Typography>;
   }
@@ -2047,6 +2073,109 @@ const DetailedPhasePage = () => {
                 </Typography>
               )}
 
+              {/* Add Image Preview Dialog */}
+              <Dialog
+                open={showPreviewDialog}
+                onClose={() => setShowPreviewDialog(false)}
+                maxWidth="md"
+                fullWidth
+              >
+                <DialogTitle sx={{ pb: 1 }}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography
+                      sx={{
+                        fontWeight: "bold",
+                        fontSize: "1.2rem",
+                      }}
+                    >
+                      {previewImage?.title || ""}
+                    </Typography>
+                  </Stack>
+                </DialogTitle>
+                <DialogContent>
+                  {previewImage?.url && (
+                    <Box
+                      sx={{
+                        width: "100%",
+                        height: "500px",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        bgcolor: "grey.100",
+                        borderRadius: 1,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <img
+                        src={convertToThumbnailUrl(previewImage.url)}
+                        alt={previewImage.title || ""}
+                        style={{
+                          maxWidth: "100%",
+                          maxHeight: "100%",
+                          objectFit: "contain",
+                        }}
+                      />
+                    </Box>
+                  )}
+                </DialogContent>
+                <DialogActions sx={{ p: 2, pt: 1 }}>
+                  {((previewImage?.type === "before" &&
+                    isSupervisor &&
+                    criterionImages.after.length === 0) ||
+                    (previewImage?.type === "after" && !isSupervisor)) && (
+                    <Button
+                      onClick={() => {
+                        setImageToDelete(previewImage);
+                        setShowDeleteDialog(true);
+                      }}
+                      startIcon={<DeleteIcon />}
+                      color="error"
+                      variant="outlined"
+                      sx={{
+                        mr: "auto",
+                        minWidth: 120,
+                        borderColor: "error.main",
+                        "&:hover": {
+                          backgroundColor: "error.light",
+                          borderColor: "error.dark",
+                        },
+                      }}
+                    >
+                      Xóa ảnh
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() =>
+                      previewImage?.url &&
+                      window.open(previewImage.url, "_blank")
+                    }
+                    startIcon={<ZoomOutMapIcon />}
+                    variant="outlined"
+                    color="primary"
+                    disabled={!previewImage?.url}
+                    sx={{
+                      minWidth: 160,
+                      mr: 1,
+                    }}
+                  >
+                    Phóng to ảnh
+                  </Button>
+                  <Button
+                    onClick={() => setShowPreviewDialog(false)}
+                    variant="contained"
+                    sx={{
+                      minWidth: 100,
+                      bgcolor: "primary.main",
+                      "&:hover": {
+                        bgcolor: "primary.dark",
+                      },
+                    }}
+                  >
+                    Đóng
+                  </Button>
+                </DialogActions>
+              </Dialog>
+
               {/* Phần hiển thị hình ảnh vi phạm */}
               {criterionImages.before.length > 0 && (
                 <Box sx={{ mt: 2 }}>
@@ -2061,21 +2190,28 @@ const DetailedPhasePage = () => {
                     sx={{ display: "flex", flexDirection: "column", gap: 1 }}
                   >
                     {criterionImages.before.map((url, index) => (
-                      <Link
+                      <Box
                         key={index}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        component="span"
+                        onClick={() =>
+                          handlePreviewImage(
+                            url,
+                            `Hình ảnh vi phạm ${index + 1}`,
+                            "before",
+                            index
+                          )
+                        }
                         sx={{
                           color: "primary.main",
                           textDecoration: "none",
+                          cursor: "pointer",
                           "&:hover": {
                             textDecoration: "underline",
                           },
                         }}
                       >
                         Hình ảnh vi phạm {index + 1}
-                      </Link>
+                      </Box>
                     ))}
                   </Box>
                 </Box>
@@ -2095,21 +2231,28 @@ const DetailedPhasePage = () => {
                     sx={{ display: "flex", flexDirection: "column", gap: 1 }}
                   >
                     {criterionImages.after.map((url, index) => (
-                      <Link
+                      <Box
                         key={index}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        component="span"
+                        onClick={() =>
+                          handlePreviewImage(
+                            url,
+                            `Hình ảnh khắc phục ${index + 1}`,
+                            "after",
+                            index
+                          )
+                        }
                         sx={{
                           color: "primary.main",
                           textDecoration: "none",
+                          cursor: "pointer",
                           "&:hover": {
                             textDecoration: "underline",
                           },
                         }}
                       >
                         Hình ảnh khắc phục {index + 1}
-                      </Link>
+                      </Box>
                     ))}
                   </Box>
                 </Box>
@@ -2325,6 +2468,198 @@ const DetailedPhasePage = () => {
           </>
         )}
         {isUploading && <LoadingOverlay />}
+      </Dialog>
+
+      {/* Dialog xác nhận xóa ảnh */}
+      <Dialog
+        open={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <DeleteIcon color="error" />
+            <Typography
+              sx={{
+                color: "error.main",
+                fontWeight: "bold",
+                fontSize: "1.2rem",
+              }}
+            >
+              Xác nhận xóa ảnh
+            </Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="h6" gutterBottom>
+            Bạn có chắc chắn muốn xóa {imageToDelete?.title}?
+          </Typography>
+
+          {/* Cảnh báo khi xóa ảnh khắc phục cuối cùng */}
+          {!isSupervisor &&
+            imageToDelete?.type === "after" &&
+            criterionImages.after.length === 1 && (
+              <Box
+                sx={{
+                  mt: 2,
+                  mb: 2,
+                  bgcolor: "#fff3e0",
+                  p: 2,
+                  borderRadius: 1,
+                  border: "1px solid #ffb74d",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                }}
+              >
+                <WarningIcon color="warning" />
+                <Typography
+                  sx={{
+                    color: "warning.dark",
+                    fontWeight: "medium",
+                  }}
+                >
+                  Đây là ảnh khắc phục cuối cùng. Nếu xóa, tiêu chí này sẽ
+                  chuyển về trạng thái chưa khắc phục.
+                </Typography>
+              </Box>
+            )}
+
+          {/* Thông báo không thể hoàn tác */}
+          <Box
+            sx={{
+              mt: 2,
+              bgcolor: "#ffebee",
+              p: 2,
+              borderRadius: 1,
+              border: "1px solid #ef5350",
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <ErrorOutlineIcon color="error" />
+            <Typography
+              variant="subtitle2"
+              sx={{
+                color: "#c62828",
+                fontWeight: "bold",
+              }}
+            >
+              Lưu ý: Hành động này không thể hoàn tác!
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 1 }}>
+          <Button
+            onClick={() => setShowDeleteDialog(false)}
+            variant="outlined"
+            color="inherit"
+            sx={{
+              minWidth: 100,
+              mr: 1,
+              color: "grey.700",
+              borderColor: "grey.400",
+              "&:hover": {
+                backgroundColor: "grey.100",
+                borderColor: "grey.500",
+              },
+            }}
+          >
+            Hủy
+          </Button>
+          <Button
+            onClick={async () => {
+              if (imageToDelete) {
+                try {
+                  // Nếu là user thường xóa ảnh khắc phục cuối cùng
+                  if (
+                    !isSupervisor &&
+                    imageToDelete.type === "after" &&
+                    criterionImages.after.length === 1
+                  ) {
+                    // Gọi API để cập nhật trạng thái tiêu chí thành chưa khắc phục
+                    await axios.post(`${API_URL}/update-criterion-status`, {
+                      phaseId,
+                      departmentId: selectedDepartment.id,
+                      criterionId: selectedCriterion.id,
+                      status: false, // false = chưa khắc phục
+                    });
+
+                    // Cập nhật trạng thái local
+                    setCriterionStatus("CHƯA KHẮC PHỤC");
+                    setCriteriaStatuses((prev) => ({
+                      ...prev,
+                      [selectedCriterion.id]: "CHƯA KHẮC PHỤC",
+                    }));
+
+                    // Cập nhật allCategories để refresh trạng thái
+                    setAllCategories((prevCategories) =>
+                      prevCategories.map((category) => ({
+                        ...category,
+                        criteria: category.criteria.map((criterion) =>
+                          criterion.id === selectedCriterion.id
+                            ? {
+                                ...criterion,
+                                status_phase_details: "CHƯA KHẮC PHỤC",
+                              }
+                            : criterion
+                        ),
+                      }))
+                    );
+                  }
+
+                  // Xóa ảnh
+                  await axios.delete(
+                    `${API_URL}/delete-image/${phaseId}/${selectedDepartment.id}/${selectedCriterion.id}/${imageToDelete.type}/${imageToDelete.index}`,
+                    {
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                    }
+                  );
+
+                  // Refresh images after deletion
+                  await fetchCriterionImages(
+                    selectedDepartment.id,
+                    selectedCriterion.id
+                  );
+                  setShowDeleteDialog(false);
+                  setShowPreviewDialog(false);
+                } catch (error) {
+                  console.error("Error deleting image:", error);
+                  if (error.response) {
+                    // Nếu server trả về lỗi
+                    alert(
+                      error.response.data.message ||
+                        "Không thể xóa ảnh. Vui lòng thử lại."
+                    );
+                  } else if (error.request) {
+                    // Nếu không nhận được response
+                    alert(
+                      "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng."
+                    );
+                  } else {
+                    // Lỗi khác
+                    alert("Có lỗi xảy ra. Vui lòng thử lại.");
+                  }
+                }
+              }
+            }}
+            variant="contained"
+            color="error"
+            sx={{
+              minWidth: 100,
+              bgcolor: "error.main",
+              "&:hover": {
+                bgcolor: "error.dark",
+              },
+            }}
+          >
+            Xóa
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

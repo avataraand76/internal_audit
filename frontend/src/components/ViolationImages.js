@@ -13,51 +13,53 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  IconButton,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CollectionsIcon from "@mui/icons-material/Collections";
 import axios from "axios";
 import API_URL from "../data/api";
+import ZoomOutMapIcon from "@mui/icons-material/ZoomOutMap";
 
 // Component ImageFrame cho việc hiển thị ảnh
 const ImageFrame = ({ src, title, type }) => {
   const [isVisible, setIsVisible] = useState(false);
-  const [isIntersecting, setIsIntersecting] = useState(false);
+
+  // Thêm hàm chuyển đổi URL cho nút phóng to
+  const convertToGoogleDriveViewUrl = (url) => {
+    if (!url) return null;
+    if (url.includes("drive.google.com/file/d/")) {
+      const fileId = url.match(/\/d\/(.*?)\/|\/d\/(.*?)$/);
+      if (fileId) {
+        return `https://drive.google.com/file/d/${fileId[1] || fileId[2]}/view`;
+      }
+    }
+    return url;
+  };
 
   useEffect(() => {
     const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        setIsIntersecting(entry.isIntersecting);
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting);
       },
       {
         root: null,
-        rootMargin: "50px",
+        rootMargin: "0px",
         threshold: 0.1,
       }
     );
 
-    let currentElement = null;
-
-    if (src) {
-      currentElement = document.getElementById(`frame-${src}`);
-      if (currentElement) {
-        observer.observe(currentElement);
-      }
+    const element = document.getElementById(`frame-${src}`);
+    if (element) {
+      observer.observe(element);
     }
 
     return () => {
-      if (currentElement) {
-        observer.unobserve(currentElement);
+      if (element) {
+        observer.unobserve(element);
       }
     };
   }, [src]);
-
-  useEffect(() => {
-    if (isIntersecting) {
-      setIsVisible(true);
-    }
-  }, [isIntersecting]);
 
   if (!src) {
     return (
@@ -65,18 +67,18 @@ const ImageFrame = ({ src, title, type }) => {
         sx={{
           width: "300px",
           height: "300px",
-          backgroundColor: "#f5f5f5",
+          backgroundColor: "grey.100",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          border: "1px dashed #ccc",
           borderRadius: 1,
+          border: "1px dashed rgba(0, 0, 0, 0.2)",
         }}
       >
-        <Typography color="text.secondary" align="center">
+        <Typography color="text.secondary">
           {type === "before"
-            ? "Không có ảnh vi phạm"
-            : "Không có ảnh khắc phục"}
+            ? "Không có hình ảnh vi phạm"
+            : "Không có hình ảnh khắc phục"}
         </Typography>
       </Box>
     );
@@ -90,21 +92,60 @@ const ImageFrame = ({ src, title, type }) => {
         height: "300px",
         backgroundColor: "grey.100",
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
+        position: "relative",
+        borderRadius: 1,
+        overflow: "hidden",
       }}
     >
       {!isVisible ? (
         <Typography>Đang tải...</Typography>
       ) : (
-        <iframe
-          src={src}
-          width="300px"
-          height="300px"
-          allow="autoplay"
-          style={{ border: "none" }}
-          title={title}
-        />
+        <>
+          <img
+            src={src}
+            alt={title}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+            }}
+          />
+          <Box
+            sx={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              bgcolor: "rgba(0, 0, 0, 0.6)",
+              color: "white",
+              p: 1,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Box sx={{ display: "flex", gap: 1 }}>
+              <IconButton
+                size="small"
+                sx={{ color: "white" }}
+                onClick={() => {
+                  const originalUrl = src
+                    .replace("thumbnail?id=", "file/d/")
+                    .replace("&sz=w2000", "/view");
+                  window.open(
+                    convertToGoogleDriveViewUrl(originalUrl),
+                    "_blank"
+                  );
+                }}
+              >
+                <ZoomOutMapIcon />
+              </IconButton>
+            </Box>
+          </Box>
+        </>
       )}
     </Box>
   );
@@ -124,6 +165,7 @@ const ViolationImages = ({
   const [selectedPhase, setSelectedPhase] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Thêm kiểm tra chế độ SIGP
   const isSIGPOnly = reportData.workshops.every(
@@ -139,9 +181,9 @@ const ViolationImages = ({
         if (url.includes("drive.google.com/file/d/")) {
           const fileId = url.match(/\/d\/(.*?)\/|\/d\/(.*?)$/);
           if (fileId) {
-            return `https://drive.google.com/file/d/${
+            return `https://drive.google.com/thumbnail?id=${
               fileId[1] || fileId[2]
-            }/preview`;
+            }&sz=w2000`;
           }
         }
         return url;
@@ -749,62 +791,93 @@ const ViolationImages = ({
     }
   }, [reportData, selectedPhase]);
 
-  // Fetch dữ liệu khi component mount
+  // Tối ưu hàm fetchViolationImages bằng cách thêm debounce
   useEffect(() => {
     const fetchViolationImages = async () => {
+      setIsLoading(true);
       const imagesData = {};
 
-      // Lọc chỉ các workshop cần hiển thị
-      const workshopsToProcess = reportData.workshops.filter((workshop) => {
-        return isSIGPOnly
-          ? workshop.workshopName === "SIGP"
-          : workshop.workshopName !== "SIGP";
-      });
+      try {
+        // Lọc chỉ các workshop cần hiển thị
+        const workshopsToProcess = reportData.workshops.filter((workshop) => {
+          return isSIGPOnly
+            ? workshop.workshopName === "SIGP"
+            : workshop.workshopName !== "SIGP";
+        });
 
-      for (const workshop of workshopsToProcess) {
-        imagesData[workshop.workshopName] = {};
+        // Tạo mảng promises cho tất cả các requests
+        const promises = [];
+        for (const workshop of workshopsToProcess) {
+          imagesData[workshop.workshopName] = {};
 
-        for (const dept of workshop.departments) {
-          imagesData[workshop.workshopName][dept.name_department] = {};
-          let hasActivePhaseWithImages = false;
+          for (const dept of workshop.departments) {
+            imagesData[workshop.workshopName][dept.name_department] = {};
 
-          for (const phase of reportData.phases) {
-            const isDepartmentInactive =
-              reportData.inactiveDepartments?.[phase.id_phase]?.[
-                dept.id_department
-              ];
-            if (isDepartmentInactive) continue;
+            for (const phase of reportData.phases) {
+              const isDepartmentInactive =
+                reportData.inactiveDepartments?.[phase.id_phase]?.[
+                  dept.id_department
+                ];
+              if (isDepartmentInactive) continue;
 
-            try {
-              const response = await axios.get(
-                `${API_URL}/get-phase-details-images/${phase.id_phase}/${dept.id_department}`
+              promises.push(
+                axios
+                  .get(
+                    `${API_URL}/get-phase-details-images/${phase.id_phase}/${dept.id_department}`
+                  )
+                  .then((response) => ({
+                    workshop: workshop.workshopName,
+                    dept: dept.name_department,
+                    phase: phase.name_phase,
+                    data: response.data,
+                  }))
+                  .catch((error) => {
+                    console.error("Error fetching images:", error);
+                    return null;
+                  })
               );
-
-              if (Object.keys(response.data).length > 0) {
-                imagesData[workshop.workshopName][dept.name_department][
-                  phase.name_phase
-                ] = response.data;
-                hasActivePhaseWithImages = true;
-              }
-            } catch (error) {
-              console.error("Error fetching images:", error);
             }
           }
+        }
 
-          if (!hasActivePhaseWithImages) {
-            delete imagesData[workshop.workshopName][dept.name_department];
+        // Đợi tất cả requests hoàn thành
+        const results = await Promise.all(promises);
+
+        // Xử lý kết quả
+        results.forEach((result) => {
+          if (result && Object.keys(result.data).length > 0) {
+            if (!imagesData[result.workshop]) {
+              imagesData[result.workshop] = {};
+            }
+            if (!imagesData[result.workshop][result.dept]) {
+              imagesData[result.workshop][result.dept] = {};
+            }
+            imagesData[result.workshop][result.dept][result.phase] =
+              result.data;
           }
-        }
+        });
 
-        if (Object.keys(imagesData[workshop.workshopName]).length === 0) {
-          delete imagesData[workshop.workshopName];
-        }
+        // Lọc bỏ các workshop và department không có ảnh
+        Object.keys(imagesData).forEach((workshop) => {
+          Object.keys(imagesData[workshop]).forEach((dept) => {
+            if (Object.keys(imagesData[workshop][dept]).length === 0) {
+              delete imagesData[workshop][dept];
+            }
+          });
+          if (Object.keys(imagesData[workshop]).length === 0) {
+            delete imagesData[workshop];
+          }
+        });
+
+        setViolationImages(imagesData);
+      } catch (error) {
+        console.error("Error in fetchViolationImages:", error);
+      } finally {
+        setIsLoading(false);
       }
-
-      setViolationImages(imagesData);
     };
 
-    if (reportData?.workshops && reportData?.inactiveDepartments) {
+    if (reportData.workshops?.length > 0 && reportData.phases?.length > 0) {
       fetchViolationImages();
     }
   }, [reportData, isSIGPOnly]);
@@ -1402,198 +1475,232 @@ const ViolationImages = ({
         HÌNH ẢNH VI PHẠM TIÊU CHÍ
       </Typography>
 
-      {Object.keys(violationImages).length === 0 ? (
-        <Paper elevation={3} sx={{ p: 3 }}>
-          <Typography variant="body1" align="center" color="text.secondary">
-            {isSIGPOnly
-              ? "Không có hình ảnh vi phạm nào của SIGP"
-              : "Không có hình ảnh vi phạm nào của VLH"}
-          </Typography>
-        </Paper>
+      {isLoading ? (
+        <Box sx={{ display: "flex", justifyContent: "center", my: 4 }}>
+          <Typography>Đang tải dữ liệu...</Typography>
+        </Box>
       ) : (
-        <Paper elevation={3} sx={{ p: 3 }}>
-          {/* Phase Selection Buttons */}
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              mb: 3,
-            }}
-          >
-            <ButtonGroup variant="contained" color="primary">
-              {reportData.phases.map((phase) => (
-                <Button
-                  key={phase.id_phase}
-                  onClick={() => handlePhaseChange(phase.name_phase)}
-                  variant={
-                    selectedPhase === phase.name_phase
-                      ? "contained"
-                      : "outlined"
-                  }
-                  sx={{
-                    backgroundColor:
-                      selectedPhase === phase.name_phase
-                        ? "primary.main"
-                        : "transparent",
-                    "&:hover": {
-                      backgroundColor:
-                        selectedPhase === phase.name_phase
-                          ? "primary.dark"
-                          : "primary.light",
-                    },
-                  }}
-                >
-                  {phase.name_phase}
-                </Button>
-              ))}
-            </ButtonGroup>
-
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={handleExportClick}
-              disabled={isExporting}
-              startIcon={<CollectionsIcon />}
-              sx={{
-                backgroundColor: "#1E90FF",
-                "&:hover": {
-                  backgroundColor: "#1A78D6",
-                },
-                "&.Mui-disabled": {
-                  backgroundColor: "#1E90FF",
-                  opacity: 0.7,
-                },
-              }}
-            >
-              {isExporting ? "Đang xuất PDF..." : "Xuất PDF"}
-            </Button>
-          </Box>
-
-          {/* Render Workshops */}
-          {Object.entries(filteredWorkshops).map(
-            ([workshopName, departments], workshopIndex) => (
-              <Accordion
-                key={workshopName}
-                expanded={expandedWorkshop === workshopIndex}
-                onChange={() =>
-                  setExpandedWorkshop(
-                    expandedWorkshop === workshopIndex ? false : workshopIndex
-                  )
-                }
-                sx={{ mb: 2 }}
+        <>
+          {Object.keys(violationImages).length === 0 ? (
+            <Paper elevation={3} sx={{ p: 3 }}>
+              <Typography variant="body1" align="center" color="text.secondary">
+                {isSIGPOnly
+                  ? "Không có hình ảnh vi phạm nào của SIGP"
+                  : "Không có hình ảnh vi phạm nào của VLH"}
+              </Typography>
+            </Paper>
+          ) : (
+            <Paper elevation={3} sx={{ p: 3 }}>
+              {/* Phase Selection Buttons */}
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mb: 3,
+                }}
               >
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
+                <ButtonGroup variant="contained" color="primary">
+                  {reportData.phases.map((phase) => (
+                    <Button
+                      key={phase.id_phase}
+                      onClick={() => handlePhaseChange(phase.name_phase)}
+                      variant={
+                        selectedPhase === phase.name_phase
+                          ? "contained"
+                          : "outlined"
+                      }
+                      sx={{
+                        backgroundColor:
+                          selectedPhase === phase.name_phase
+                            ? "primary.main"
+                            : "transparent",
+                        "&:hover": {
+                          backgroundColor:
+                            selectedPhase === phase.name_phase
+                              ? "primary.dark"
+                              : "primary.light",
+                        },
+                      }}
+                    >
+                      {phase.name_phase}
+                    </Button>
+                  ))}
+                </ButtonGroup>
+
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  onClick={handleExportClick}
+                  disabled={isExporting}
+                  startIcon={<CollectionsIcon />}
                   sx={{
-                    backgroundColor: "primary.light",
+                    backgroundColor: "#1E90FF",
                     "&:hover": {
-                      backgroundColor: "primary.main",
-                      color: "white",
+                      backgroundColor: "#1A78D6",
+                    },
+                    "&.Mui-disabled": {
+                      backgroundColor: "#1E90FF",
+                      opacity: 0.7,
                     },
                   }}
                 >
-                  <Typography sx={{ fontWeight: "bold" }}>
-                    {workshopName}
-                  </Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  {Object.entries(departments).map(
-                    ([deptName, phases], deptIndex) => (
-                      <Accordion
-                        key={deptName}
-                        expanded={
-                          expandedDepartment === `${workshopIndex}-${deptIndex}`
-                        }
-                        onChange={() =>
-                          setExpandedDepartment(
-                            expandedDepartment ===
+                  {isExporting ? "Đang xuất PDF..." : "Xuất PDF"}
+                </Button>
+              </Box>
+
+              {/* Render Workshops */}
+              {Object.entries(filteredWorkshops).map(
+                ([workshopName, departments], workshopIndex) => (
+                  <Accordion
+                    key={workshopName}
+                    expanded={expandedWorkshop === workshopIndex}
+                    onChange={() =>
+                      setExpandedWorkshop(
+                        expandedWorkshop === workshopIndex
+                          ? false
+                          : workshopIndex
+                      )
+                    }
+                    sx={{ mb: 2 }}
+                  >
+                    <AccordionSummary
+                      expandIcon={<ExpandMoreIcon />}
+                      sx={{
+                        backgroundColor: "primary.light",
+                        "&:hover": {
+                          backgroundColor: "primary.main",
+                          color: "white",
+                        },
+                      }}
+                    >
+                      <Typography sx={{ fontWeight: "bold" }}>
+                        {workshopName}
+                      </Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      {Object.entries(departments).map(
+                        ([deptName, phases], deptIndex) => (
+                          <Accordion
+                            key={deptName}
+                            expanded={
+                              expandedDepartment ===
                               `${workshopIndex}-${deptIndex}`
-                              ? false
-                              : `${workshopIndex}-${deptIndex}`
-                          )
-                        }
-                        sx={{ ml: 2, mb: 2 }}
-                      >
-                        <AccordionSummary
-                          expandIcon={<ExpandMoreIcon />}
-                          sx={{
-                            backgroundColor: "secondary.light",
-                            "&:hover": {
-                              backgroundColor: "secondary.main",
-                              color: "white",
-                            },
-                          }}
-                        >
-                          <Typography sx={{ fontWeight: "bold" }}>
-                            {deptName}
-                          </Typography>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                          {phases[selectedPhase] && (
-                            <Box sx={{ ml: 2 }}>
-                              {Object.entries(phases[selectedPhase]).map(
-                                ([criteriaId, images]) => (
-                                  <Box key={criteriaId} sx={{ mb: 4 }}>
-                                    <Typography
-                                      sx={{
-                                        backgroundColor: "grey.100",
-                                        p: 2,
-                                        borderRadius: 1,
-                                        fontWeight: "bold",
-                                        mb: 2,
-                                      }}
-                                    >
-                                      {images.codename} - {images.criterionName}
-                                    </Typography>
+                            }
+                            onChange={() =>
+                              setExpandedDepartment(
+                                expandedDepartment ===
+                                  `${workshopIndex}-${deptIndex}`
+                                  ? false
+                                  : `${workshopIndex}-${deptIndex}`
+                              )
+                            }
+                            sx={{ ml: 2, mb: 2 }}
+                          >
+                            <AccordionSummary
+                              expandIcon={<ExpandMoreIcon />}
+                              sx={{
+                                backgroundColor: "secondary.light",
+                                "&:hover": {
+                                  backgroundColor: "secondary.main",
+                                  color: "white",
+                                },
+                              }}
+                            >
+                              <Typography sx={{ fontWeight: "bold" }}>
+                                {deptName}
+                              </Typography>
+                            </AccordionSummary>
+                            <AccordionDetails>
+                              {phases[selectedPhase] && (
+                                <Box sx={{ ml: 2 }}>
+                                  {Object.entries(phases[selectedPhase]).map(
+                                    ([criteriaId, images]) => (
+                                      <Box key={criteriaId} sx={{ mb: 4 }}>
+                                        <Typography
+                                          sx={{
+                                            backgroundColor: "grey.100",
+                                            p: 2,
+                                            borderRadius: 1,
+                                            fontWeight: "bold",
+                                            mb: 2,
+                                          }}
+                                        >
+                                          {images.codename} -{" "}
+                                          {images.criterionName}
+                                        </Typography>
 
-                                    <Box sx={{ mb: 3 }}>
-                                      <Typography
-                                        variant="subtitle2"
-                                        sx={{
-                                          fontWeight: "bold",
-                                          color: "error.main",
-                                          fontSize: 20,
-                                          mb: 2,
-                                        }}
-                                      >
-                                        Ảnh vi phạm:
-                                      </Typography>
-                                      <Grid container spacing={3}>
-                                        {renderImages(images.before, "before")}
-                                      </Grid>
-                                    </Box>
+                                        <Box sx={{ mb: 3 }}>
+                                          <Typography
+                                            variant="subtitle2"
+                                            sx={{
+                                              fontWeight: "bold",
+                                              color: "error.main",
+                                              fontSize: 20,
+                                              mb: 2,
+                                            }}
+                                          >
+                                            Ảnh vi phạm:
+                                          </Typography>
+                                          <Box
+                                            sx={{
+                                              display: "grid",
+                                              gridTemplateColumns:
+                                                "repeat(auto-fill, minmax(300px, 1fr))",
+                                              gap: 2,
+                                              mt: 1,
+                                            }}
+                                          >
+                                            {renderImages(
+                                              images.before,
+                                              "before"
+                                            )}
+                                          </Box>
+                                        </Box>
 
-                                    <Box>
-                                      <Typography
-                                        variant="subtitle2"
-                                        sx={{
-                                          fontWeight: "bold",
-                                          color: "success.main",
-                                          fontSize: 20,
-                                          mb: 2,
-                                        }}
-                                      >
-                                        Ảnh sau khắc phục:
-                                      </Typography>
-                                      <Grid container spacing={3}>
-                                        {renderImages(images.after, "after")}
-                                      </Grid>
-                                    </Box>
-                                  </Box>
-                                )
+                                        <Box>
+                                          <Typography
+                                            variant="subtitle2"
+                                            sx={{
+                                              fontWeight: "bold",
+                                              color: "success.main",
+                                              fontSize: 20,
+                                              mb: 2,
+                                            }}
+                                          >
+                                            Ảnh sau khắc phục:
+                                          </Typography>
+                                          <Box
+                                            sx={{
+                                              display: "grid",
+                                              gridTemplateColumns:
+                                                "repeat(auto-fill, minmax(300px, 1fr))",
+                                              gap: 2,
+                                              mt: 1,
+                                            }}
+                                          >
+                                            {renderImages(
+                                              images.after,
+                                              "after"
+                                            )}
+                                          </Box>
+                                        </Box>
+                                      </Box>
+                                    )
+                                  )}
+                                </Box>
                               )}
-                            </Box>
-                          )}
-                        </AccordionDetails>
-                      </Accordion>
-                    )
-                  )}
-                </AccordionDetails>
-              </Accordion>
-            )
+                            </AccordionDetails>
+                          </Accordion>
+                        )
+                      )}
+                    </AccordionDetails>
+                  </Accordion>
+                )
+              )}
+            </Paper>
           )}
-        </Paper>
+        </>
       )}
 
       <Dialog open={isDialogOpen} onClose={handleDialogClose}>
