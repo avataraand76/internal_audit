@@ -2133,8 +2133,11 @@ const DetailedPhasePage = () => {
                       variant="outlined"
                       sx={{
                         mr: "auto",
-                        minWidth: 120,
+                        minWidth: { xs: 80, sm: 120 },
                         borderColor: "error.main",
+                        fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                        py: { xs: 0.5, sm: 1 },
+                        px: { xs: 1, sm: 2 },
                         "&:hover": {
                           backgroundColor: "error.light",
                           borderColor: "error.dark",
@@ -2154,8 +2157,11 @@ const DetailedPhasePage = () => {
                     color="primary"
                     disabled={!previewImage?.url}
                     sx={{
-                      minWidth: 160,
+                      minWidth: { xs: 120, sm: 160 },
                       mr: 1,
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      py: { xs: 0.5, sm: 1 },
+                      px: { xs: 1, sm: 2 },
                     }}
                   >
                     Phóng to ảnh
@@ -2164,8 +2170,11 @@ const DetailedPhasePage = () => {
                     onClick={() => setShowPreviewDialog(false)}
                     variant="contained"
                     sx={{
-                      minWidth: 100,
+                      minWidth: { xs: 60, sm: 100 },
                       bgcolor: "primary.main",
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      py: { xs: 0.5, sm: 1 },
+                      px: { xs: 1, sm: 2 },
                       "&:hover": {
                         bgcolor: "primary.dark",
                       },
@@ -2373,9 +2382,9 @@ const DetailedPhasePage = () => {
               sx={{
                 display: "flex",
                 justifyContent: "flex-start",
-                gap: 1,
+                gap: { xs: 0.5, sm: 1 },
                 flexWrap: "wrap",
-                p: 2,
+                p: { xs: 1, sm: 2 },
               }}
             >
               {/* Bổ sung ảnh button - chỉ hiển thị cho supervisor khi:
@@ -2398,6 +2407,12 @@ const DetailedPhasePage = () => {
                       showImageLimitWarning
                     }
                     startIcon={<AddPhotoAlternateIcon />}
+                    sx={{
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      py: { xs: 0.5, sm: 1 },
+                      px: { xs: 1, sm: 2 },
+                      whiteSpace: "nowrap",
+                    }}
                   >
                     Bổ sung ảnh
                   </Button>
@@ -2411,6 +2426,12 @@ const DetailedPhasePage = () => {
                 onClick={handleCloseDialog}
                 color="inherit"
                 disabled={isUploading}
+                sx={{
+                  fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                  py: { xs: 0.5, sm: 1 },
+                  px: { xs: 1, sm: 2 },
+                  minWidth: { xs: "60px", sm: "auto" },
+                }}
               >
                 Hủy
               </Button>
@@ -2428,8 +2449,14 @@ const DetailedPhasePage = () => {
                       disabled={
                         isUploading ||
                         criterionStatus === "ĐÃ KHẮC PHỤC" ||
-                        !isWithinTimeLimit() // Thêm điều kiện kiểm tra thời hạn
+                        !isWithinTimeLimit()
                       }
+                      sx={{
+                        fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                        py: { xs: 0.5, sm: 1 },
+                        px: { xs: 1, sm: 2 },
+                        minWidth: { xs: "60px", sm: "auto" },
+                      }}
                     >
                       Đạt
                     </Button>
@@ -2439,6 +2466,12 @@ const DetailedPhasePage = () => {
                       variant="contained"
                       color="error"
                       disabled={isUploading || showImageLimitWarning}
+                      sx={{
+                        fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                        py: { xs: 0.5, sm: 1 },
+                        px: { xs: 1, sm: 2 },
+                        minWidth: { xs: "60px", sm: "auto" },
+                      }}
                     >
                       Không đạt
                     </Button>
@@ -2459,6 +2492,12 @@ const DetailedPhasePage = () => {
                       selectedImages.length === 0 ||
                       showImageLimitWarning
                     }
+                    sx={{
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                      py: { xs: 0.5, sm: 1 },
+                      px: { xs: 1, sm: 2 },
+                      minWidth: { xs: "60px", sm: "auto" },
+                    }}
                   >
                     Khắc phục
                   </Button>
