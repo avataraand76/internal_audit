@@ -369,25 +369,29 @@ const DetailedPhasePage = () => {
     setIsUploading(true);
 
     try {
-      // Standardize time to 07:00:00
-      const standardizeDate = (dateString) => {
+      // Standardize time to 00:00:00 for start date and 23:59:59 for end date
+      const standardizeDate = (dateString, isEndDate = false) => {
         if (!dateString) return null;
         const date = new Date(dateString);
-        date.setHours(7, 0, 0, 0);
+        if (isEndDate) {
+          date.setHours(23, 59, 59, 0); // Thời gian kết thúc: 23:59:59.000
+        } else {
+          date.setHours(0, 0, 0, 0); // Thời gian bắt đầu: 00:00:00.000
+        }
         return date.toISOString();
       };
 
       // Cập nhật thời hạn trong database
       await axios.put(`${API_URL}/phases/${phaseId}`, {
         name_phase: phase.name_phase,
-        time_limit_start: standardizeDate(newStartDate),
-        time_limit_end: standardizeDate(newEndDate),
+        time_limit_start: standardizeDate(newStartDate, false),
+        time_limit_end: standardizeDate(newEndDate, true),
       });
 
       // Cập nhật state local
       setPhaseTimeLimit({
-        start: new Date(standardizeDate(newStartDate)),
-        end: new Date(standardizeDate(newEndDate)),
+        start: new Date(standardizeDate(newStartDate, false)),
+        end: new Date(standardizeDate(newEndDate, true)),
       });
 
       // Process pending score if exists

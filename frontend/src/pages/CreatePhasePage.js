@@ -382,6 +382,7 @@ const DepartmentSelectionDialog = memo(
 // Thêm hàm để tạo tên đợt tự động
 const generatePhaseName = (phases) => {
   const currentMonth = moment().format("M");
+  const currentYear = moment().format("YY");
 
   // Đếm số đợt trong tháng hiện tại
   const currentMonthPhases = phases.filter((phase) => {
@@ -395,7 +396,7 @@ const generatePhaseName = (phases) => {
   // Số thứ tự của đợt mới sẽ là tổng số đợt + 1
   const nextOrder = currentMonthPhases.length + 1;
 
-  return `THÁNG ${currentMonth} - ĐỢT ${nextOrder}`;
+  return `THÁNG ${currentMonth}/${currentYear} - ĐỢT ${nextOrder}`;
 };
 
 const CreatePhasePage = () => {
@@ -543,9 +544,15 @@ const CreatePhasePage = () => {
       phase ? phase.name_phase.toUpperCase() : generatePhaseName(phases)
     );
     setStartDate(
-      phase?.time_limit_start ? phase.time_limit_start.split("T")[0] : ""
+      phase?.time_limit_start
+        ? moment(phase.time_limit_start).format("YYYY-MM-DD")
+        : ""
     );
-    setEndDate(phase?.time_limit_end ? phase.time_limit_end.split("T")[0] : "");
+    setEndDate(
+      phase?.time_limit_end
+        ? moment(phase.time_limit_end).format("YYYY-MM-DD")
+        : ""
+    );
     setOpenDialog(true);
   };
 
@@ -565,7 +572,7 @@ const CreatePhasePage = () => {
         if (!dateString) return null;
         const date = new Date(dateString);
         if (isEndDate) {
-          date.setHours(23, 59, 59, 0); // Thời gian kết thúc: 23:59:59.999
+          date.setHours(23, 59, 59, 0); // Thời gian kết thúc: 23:59:59.000
         } else {
           date.setHours(0, 0, 0, 0); // Thời gian bắt đầu: 00:00:00.000
         }
