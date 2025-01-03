@@ -14,6 +14,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  CircularProgress,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import CollectionsIcon from "@mui/icons-material/Collections";
@@ -165,7 +166,7 @@ const ViolationImages = ({
   const [selectedPhase, setSelectedPhase] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loadingWorkshop, setLoadingWorkshop] = useState("");
 
   // Thêm kiểm tra chế độ SIGP
   const isSIGPOnly = reportData.workshops.every(
@@ -213,11 +214,10 @@ const ViolationImages = ({
 
   // Hàm xuất PDF
   const handleExportPDF = async () => {
-    if (!selectedPhase || isExporting) return;
+    if (isExporting) return;
+    setIsExporting(true);
 
     try {
-      setIsExporting(true);
-
       // Create container for print content
       const printContainer = document.createElement("div");
       printContainer.id = "print-container-phase-images";
@@ -762,7 +762,9 @@ const ViolationImages = ({
     } catch (error) {
       console.error("Error exporting PDF:", error);
     } finally {
-      setIsExporting(false);
+      setTimeout(() => {
+        setIsExporting(false);
+      }, 1000);
     }
   };
 
@@ -794,7 +796,6 @@ const ViolationImages = ({
   // Tối ưu hàm fetchViolationImages bằng cách thêm debounce
   useEffect(() => {
     const fetchViolationImages = async () => {
-      setIsLoading(true);
       const imagesData = {};
 
       try {
@@ -872,8 +873,6 @@ const ViolationImages = ({
         setViolationImages(imagesData);
       } catch (error) {
         console.error("Error in fetchViolationImages:", error);
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -944,11 +943,11 @@ const ViolationImages = ({
 
   // Thêm hàm xuất PDF cho workshop
   const handleExportWorkshopPDF = async (workshopName) => {
-    if (isExporting) return;
+    if (loadingWorkshop) return;
+    setLoadingWorkshop(workshopName);
 
     try {
-      setIsExporting(true);
-
+      // Create container for print content
       const printContainer = document.createElement("div");
       printContainer.id = "print-container-workshop-images";
       document.body.appendChild(printContainer);
@@ -1450,7 +1449,9 @@ const ViolationImages = ({
     } catch (error) {
       console.error("Error exporting workshop PDF:", error);
     } finally {
-      setIsExporting(false);
+      setTimeout(() => {
+        setLoadingWorkshop("");
+      }, 1000);
     }
   };
 
@@ -1464,6 +1465,9 @@ const ViolationImages = ({
     }
   };
 
+  // Thêm biến để kiểm tra trạng thái xuất PDF
+  const isAnyExporting = isExporting || loadingWorkshop !== "";
+
   // Return main component UI
   return (
     <Box ref={imagesRef} sx={{ width: "100%", mt: 4, mb: 4 }}>
@@ -1475,232 +1479,214 @@ const ViolationImages = ({
         HÌNH ẢNH VI PHẠM TIÊU CHÍ
       </Typography>
 
-      {isLoading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", my: 4 }}>
-          <Typography>Đang tải dữ liệu...</Typography>
-        </Box>
+      {Object.keys(violationImages).length === 0 ? (
+        <Paper elevation={3} sx={{ p: 3 }}>
+          <Typography variant="body1" align="center" color="text.secondary">
+            {isSIGPOnly
+              ? "Không có hình ảnh vi phạm nào của SIGP"
+              : "Không có hình ảnh vi phạm nào của VLH"}
+          </Typography>
+        </Paper>
       ) : (
-        <>
-          {Object.keys(violationImages).length === 0 ? (
-            <Paper elevation={3} sx={{ p: 3 }}>
-              <Typography variant="body1" align="center" color="text.secondary">
-                {isSIGPOnly
-                  ? "Không có hình ảnh vi phạm nào của SIGP"
-                  : "Không có hình ảnh vi phạm nào của VLH"}
-              </Typography>
-            </Paper>
-          ) : (
-            <Paper elevation={3} sx={{ p: 3 }}>
-              {/* Phase Selection Buttons */}
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 3,
-                }}
-              >
-                <ButtonGroup variant="contained" color="primary">
-                  {reportData.phases.map((phase) => (
-                    <Button
-                      key={phase.id_phase}
-                      onClick={() => handlePhaseChange(phase.name_phase)}
-                      variant={
-                        selectedPhase === phase.name_phase
-                          ? "contained"
-                          : "outlined"
-                      }
-                      sx={{
-                        backgroundColor:
-                          selectedPhase === phase.name_phase
-                            ? "primary.main"
-                            : "transparent",
-                        "&:hover": {
-                          backgroundColor:
-                            selectedPhase === phase.name_phase
-                              ? "primary.dark"
-                              : "primary.light",
-                        },
-                      }}
-                    >
-                      {phase.name_phase}
-                    </Button>
-                  ))}
-                </ButtonGroup>
-
+        <Paper elevation={3} sx={{ p: 3 }}>
+          {/* Phase Selection Buttons */}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 3,
+            }}
+          >
+            <ButtonGroup variant="contained" color="primary">
+              {reportData.phases.map((phase) => (
                 <Button
-                  variant="contained"
-                  color="secondary"
-                  onClick={handleExportClick}
-                  disabled={isExporting}
-                  startIcon={<CollectionsIcon />}
+                  key={phase.id_phase}
+                  onClick={() => handlePhaseChange(phase.name_phase)}
+                  variant={
+                    selectedPhase === phase.name_phase
+                      ? "contained"
+                      : "outlined"
+                  }
                   sx={{
-                    backgroundColor: "#1E90FF",
+                    backgroundColor:
+                      selectedPhase === phase.name_phase
+                        ? "primary.main"
+                        : "transparent",
                     "&:hover": {
-                      backgroundColor: "#1A78D6",
-                    },
-                    "&.Mui-disabled": {
-                      backgroundColor: "#1E90FF",
-                      opacity: 0.7,
+                      backgroundColor:
+                        selectedPhase === phase.name_phase
+                          ? "primary.dark"
+                          : "primary.light",
                     },
                   }}
                 >
-                  {isExporting ? "Đang xuất PDF..." : "Xuất PDF"}
+                  {phase.name_phase}
                 </Button>
-              </Box>
+              ))}
+            </ButtonGroup>
 
-              {/* Render Workshops */}
-              {Object.entries(filteredWorkshops).map(
-                ([workshopName, departments], workshopIndex) => (
-                  <Accordion
-                    key={workshopName}
-                    expanded={expandedWorkshop === workshopIndex}
-                    onChange={() =>
-                      setExpandedWorkshop(
-                        expandedWorkshop === workshopIndex
-                          ? false
-                          : workshopIndex
-                      )
-                    }
-                    sx={{ mb: 2 }}
-                  >
-                    <AccordionSummary
-                      expandIcon={<ExpandMoreIcon />}
-                      sx={{
-                        backgroundColor: "primary.light",
-                        "&:hover": {
-                          backgroundColor: "primary.main",
-                          color: "white",
-                        },
-                      }}
-                    >
-                      <Typography sx={{ fontWeight: "bold" }}>
-                        {workshopName}
-                      </Typography>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      {Object.entries(departments).map(
-                        ([deptName, phases], deptIndex) => (
-                          <Accordion
-                            key={deptName}
-                            expanded={
-                              expandedDepartment ===
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={handleExportClick}
+              disabled={isAnyExporting}
+              startIcon={<CollectionsIcon />}
+              sx={{
+                backgroundColor: "#1E90FF",
+                "&:hover": {
+                  backgroundColor: "#1A78D6",
+                },
+                "&.Mui-disabled": {
+                  backgroundColor: "#1E90FF",
+                  opacity: 0.7,
+                },
+              }}
+            >
+              {isExporting ? "Đang xuất PDF..." : "Xuất PDF"}
+            </Button>
+          </Box>
+
+          {/* Render Workshops */}
+          {Object.entries(filteredWorkshops).map(
+            ([workshopName, departments], workshopIndex) => (
+              <Accordion
+                key={workshopName}
+                expanded={expandedWorkshop === workshopIndex}
+                onChange={() =>
+                  setExpandedWorkshop(
+                    expandedWorkshop === workshopIndex ? false : workshopIndex
+                  )
+                }
+                sx={{ mb: 2 }}
+              >
+                <AccordionSummary
+                  expandIcon={<ExpandMoreIcon />}
+                  sx={{
+                    backgroundColor: "primary.light",
+                    "&:hover": {
+                      backgroundColor: "primary.main",
+                      color: "white",
+                    },
+                  }}
+                >
+                  <Typography sx={{ fontWeight: "bold" }}>
+                    {workshopName}
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  {Object.entries(departments).map(
+                    ([deptName, phases], deptIndex) => (
+                      <Accordion
+                        key={deptName}
+                        expanded={
+                          expandedDepartment === `${workshopIndex}-${deptIndex}`
+                        }
+                        onChange={() =>
+                          setExpandedDepartment(
+                            expandedDepartment ===
                               `${workshopIndex}-${deptIndex}`
-                            }
-                            onChange={() =>
-                              setExpandedDepartment(
-                                expandedDepartment ===
-                                  `${workshopIndex}-${deptIndex}`
-                                  ? false
-                                  : `${workshopIndex}-${deptIndex}`
-                              )
-                            }
-                            sx={{ ml: 2, mb: 2 }}
-                          >
-                            <AccordionSummary
-                              expandIcon={<ExpandMoreIcon />}
-                              sx={{
-                                backgroundColor: "secondary.light",
-                                "&:hover": {
-                                  backgroundColor: "secondary.main",
-                                  color: "white",
-                                },
-                              }}
-                            >
-                              <Typography sx={{ fontWeight: "bold" }}>
-                                {deptName}
-                              </Typography>
-                            </AccordionSummary>
-                            <AccordionDetails>
-                              {phases[selectedPhase] && (
-                                <Box sx={{ ml: 2 }}>
-                                  {Object.entries(phases[selectedPhase]).map(
-                                    ([criteriaId, images]) => (
-                                      <Box key={criteriaId} sx={{ mb: 4 }}>
-                                        <Typography
-                                          sx={{
-                                            backgroundColor: "grey.100",
-                                            p: 2,
-                                            borderRadius: 1,
-                                            fontWeight: "bold",
-                                            mb: 2,
-                                          }}
-                                        >
-                                          {images.codename} -{" "}
-                                          {images.criterionName}
-                                        </Typography>
+                              ? false
+                              : `${workshopIndex}-${deptIndex}`
+                          )
+                        }
+                        sx={{ ml: 2, mb: 2 }}
+                      >
+                        <AccordionSummary
+                          expandIcon={<ExpandMoreIcon />}
+                          sx={{
+                            backgroundColor: "secondary.light",
+                            "&:hover": {
+                              backgroundColor: "secondary.main",
+                              color: "white",
+                            },
+                          }}
+                        >
+                          <Typography sx={{ fontWeight: "bold" }}>
+                            {deptName}
+                          </Typography>
+                        </AccordionSummary>
+                        <AccordionDetails>
+                          {phases[selectedPhase] && (
+                            <Box sx={{ ml: 2 }}>
+                              {Object.entries(phases[selectedPhase]).map(
+                                ([criteriaId, images]) => (
+                                  <Box key={criteriaId} sx={{ mb: 4 }}>
+                                    <Typography
+                                      sx={{
+                                        backgroundColor: "grey.100",
+                                        p: 2,
+                                        borderRadius: 1,
+                                        fontWeight: "bold",
+                                        mb: 2,
+                                      }}
+                                    >
+                                      {images.codename} - {images.criterionName}
+                                    </Typography>
 
-                                        <Box sx={{ mb: 3 }}>
-                                          <Typography
-                                            variant="subtitle2"
-                                            sx={{
-                                              fontWeight: "bold",
-                                              color: "error.main",
-                                              fontSize: 20,
-                                              mb: 2,
-                                            }}
-                                          >
-                                            Ảnh vi phạm:
-                                          </Typography>
-                                          <Box
-                                            sx={{
-                                              display: "grid",
-                                              gridTemplateColumns:
-                                                "repeat(auto-fill, minmax(300px, 1fr))",
-                                              gap: 2,
-                                              mt: 1,
-                                            }}
-                                          >
-                                            {renderImages(
-                                              images.before,
-                                              "before"
-                                            )}
-                                          </Box>
-                                        </Box>
-
-                                        <Box>
-                                          <Typography
-                                            variant="subtitle2"
-                                            sx={{
-                                              fontWeight: "bold",
-                                              color: "success.main",
-                                              fontSize: 20,
-                                              mb: 2,
-                                            }}
-                                          >
-                                            Ảnh sau khắc phục:
-                                          </Typography>
-                                          <Box
-                                            sx={{
-                                              display: "grid",
-                                              gridTemplateColumns:
-                                                "repeat(auto-fill, minmax(300px, 1fr))",
-                                              gap: 2,
-                                              mt: 1,
-                                            }}
-                                          >
-                                            {renderImages(
-                                              images.after,
-                                              "after"
-                                            )}
-                                          </Box>
-                                        </Box>
+                                    <Box sx={{ mb: 3 }}>
+                                      <Typography
+                                        variant="subtitle2"
+                                        sx={{
+                                          fontWeight: "bold",
+                                          color: "error.main",
+                                          fontSize: 20,
+                                          mb: 2,
+                                        }}
+                                      >
+                                        Ảnh vi phạm:
+                                      </Typography>
+                                      <Box
+                                        sx={{
+                                          display: "grid",
+                                          gridTemplateColumns:
+                                            "repeat(auto-fill, minmax(300px, 1fr))",
+                                          gap: 2,
+                                          mt: 1,
+                                        }}
+                                      >
+                                        {renderImages(images.before, "before")}
                                       </Box>
-                                    )
-                                  )}
-                                </Box>
+                                    </Box>
+
+                                    <Box>
+                                      <Typography
+                                        variant="subtitle2"
+                                        sx={{
+                                          fontWeight: "bold",
+                                          color: "success.main",
+                                          fontSize: 20,
+                                          mb: 2,
+                                        }}
+                                      >
+                                        Ảnh sau khắc phục:
+                                      </Typography>
+                                      <Box
+                                        sx={{
+                                          display: "grid",
+                                          gridTemplateColumns:
+                                            "repeat(auto-fill, minmax(300px, 1fr))",
+                                          gap: 2,
+                                          mt: 1,
+                                        }}
+                                      >
+                                        {renderImages(images.after, "after")}
+                                      </Box>
+                                    </Box>
+                                  </Box>
+                                )
                               )}
-                            </AccordionDetails>
-                          </Accordion>
-                        )
-                      )}
-                    </AccordionDetails>
-                  </Accordion>
-                )
-              )}
-            </Paper>
+                            </Box>
+                          )}
+                        </AccordionDetails>
+                      </Accordion>
+                    )
+                  )}
+                </AccordionDetails>
+              </Accordion>
+            )
           )}
-        </>
+        </Paper>
       )}
 
       <Dialog open={isDialogOpen} onClose={handleDialogClose}>
@@ -1712,12 +1698,27 @@ const ViolationImages = ({
                 fullWidth
                 variant="outlined"
                 onClick={handleExportPDF}
+                disabled={isAnyExporting}
                 sx={{
                   textTransform: "none",
                   fontWeight: "bold",
+                  position: "relative",
+                  "& .MuiCircularProgress-root": {
+                    position: "absolute",
+                    right: 10,
+                  },
                 }}
               >
-                Xuất PDF hình ảnh vi phạm {selectedPhase}
+                {isExporting ? (
+                  <>
+                    <span style={{ marginRight: "24px" }}>
+                      Đang xuất PDF...
+                    </span>
+                    <CircularProgress size={20} />
+                  </>
+                ) : (
+                  `Xuất PDF hình ảnh vi phạm ${selectedPhase}`
+                )}
               </Button>
             </Grid>
             {Object.keys(filteredWorkshops).map((workshopName) => (
@@ -1726,12 +1727,27 @@ const ViolationImages = ({
                   fullWidth
                   variant="outlined"
                   onClick={() => handleExportWorkshopPDF(workshopName)}
+                  disabled={isAnyExporting}
                   sx={{
                     textTransform: "none",
                     fontWeight: "bold",
+                    position: "relative",
+                    "& .MuiCircularProgress-root": {
+                      position: "absolute",
+                      right: 10,
+                    },
                   }}
                 >
-                  Xuất PDF hình ảnh vi phạm {workshopName} trong tất cả các đợt
+                  {loadingWorkshop === workshopName ? (
+                    <>
+                      <span style={{ marginRight: "24px" }}>
+                        Đang xuất PDF...
+                      </span>
+                      <CircularProgress size={20} />
+                    </>
+                  ) : (
+                    `Xuất PDF hình ảnh vi phạm ${workshopName} trong tất cả các đợt`
+                  )}
                 </Button>
               </Grid>
             ))}
