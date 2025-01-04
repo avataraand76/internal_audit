@@ -1468,6 +1468,37 @@ const ViolationImages = ({
   // Thêm biến để kiểm tra trạng thái xuất PDF
   const isAnyExporting = isExporting || loadingWorkshop !== "";
 
+  // Add scroll function with dynamic delay
+  const scrollToElement = (id) => {
+    const element = document.getElementById(id);
+    if (element) {
+      // Get the content element (AccordionDetails)
+      const contentElement = element.querySelector(".MuiAccordionDetails-root");
+      if (!contentElement) return;
+
+      // Calculate delay based on content height
+      // Use a base delay of 200ms plus additional time based on content height
+      // Assuming roughly 100px can be animated in 100ms
+      const contentHeight = contentElement.scrollHeight;
+      const baseDelay = 300;
+      const heightBasedDelay = Math.min(
+        Math.floor(contentHeight / 100) * 100,
+        1200
+      );
+      const totalDelay = baseDelay + heightBasedDelay;
+
+      setTimeout(() => {
+        const yOffset = -20;
+        const y =
+          element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+        window.scrollTo({
+          top: y,
+          behavior: "smooth",
+        });
+      }, totalDelay);
+    }
+  };
+
   // Return main component UI
   return (
     <Box ref={imagesRef} sx={{ width: "100%", mt: 4, mb: 4 }}>
@@ -1552,12 +1583,16 @@ const ViolationImages = ({
             ([workshopName, departments], workshopIndex) => (
               <Accordion
                 key={workshopName}
+                id={`workshop-${workshopIndex}`}
                 expanded={expandedWorkshop === workshopIndex}
-                onChange={() =>
+                onChange={() => {
                   setExpandedWorkshop(
                     expandedWorkshop === workshopIndex ? false : workshopIndex
-                  )
-                }
+                  );
+                  if (expandedWorkshop !== workshopIndex) {
+                    scrollToElement(`workshop-${workshopIndex}`);
+                  }
+                }}
                 sx={{ mb: 2 }}
               >
                 <AccordionSummary
@@ -1579,17 +1614,26 @@ const ViolationImages = ({
                     ([deptName, phases], deptIndex) => (
                       <Accordion
                         key={deptName}
+                        id={`dept-${workshopIndex}-${deptIndex}`}
                         expanded={
                           expandedDepartment === `${workshopIndex}-${deptIndex}`
                         }
-                        onChange={() =>
+                        onChange={() => {
                           setExpandedDepartment(
                             expandedDepartment ===
                               `${workshopIndex}-${deptIndex}`
                               ? false
                               : `${workshopIndex}-${deptIndex}`
-                          )
-                        }
+                          );
+                          if (
+                            expandedDepartment !==
+                            `${workshopIndex}-${deptIndex}`
+                          ) {
+                            scrollToElement(
+                              `dept-${workshopIndex}-${deptIndex}`
+                            );
+                          }
+                        }}
                         sx={{ ml: 2, mb: 2 }}
                       >
                         <AccordionSummary
